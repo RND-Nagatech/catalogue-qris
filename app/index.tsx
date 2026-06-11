@@ -154,6 +154,28 @@ export default function Home() {
     }
   };
 
+  const confirmDeletePayment = (payment: PaymentItem) => {
+    Alert.alert(
+      "Hapus pembayaran?",
+      `${payment.note} senilai ${formatRupiah(payment.totalAmount)} akan dihapus dari daftar.`,
+      [
+        { text: "Batal", style: "cancel" },
+        { text: "Hapus", style: "destructive", onPress: () => deletePayment(payment.id) },
+      ],
+    );
+  };
+
+  const confirmSimulatePaid = (payment: PaymentItem) => {
+    Alert.alert(
+      "Simulasikan pembayaran?",
+      `${payment.note} senilai ${formatRupiah(payment.totalAmount)} akan ditandai sudah dibayar.`,
+      [
+        { text: "Batal", style: "cancel" },
+        { text: "Ya, Lunas", onPress: simulatePaid },
+      ],
+    );
+  };
+
   const simulatePaid = async () => {
     if (!selectedPayment) return;
 
@@ -225,12 +247,17 @@ export default function Home() {
             Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
             Alert.alert("Tersalin", "QRIS string tersalin ke clipboard.");
           }}
-          onDelete={() => deletePayment(selectedPayment.id)}
+          onDelete={() => confirmDeletePayment(selectedPayment)}
           onDownload={downloadQr}
-          onPaid={simulatePaid}
+          onPaid={() => confirmSimulatePaid(selectedPayment)}
         />
       ) : (
         <>
+          <View style={styles.screenHeader}>
+            <Text style={styles.screenTitle}>Selamat Datang👋</Text>
+            <Text style={styles.screenSubtitle}>Kelola daftar pembayaran QRIS</Text>
+          </View>
+
           <View style={styles.summaryCard}>
             <View style={styles.summaryBlock}>
               <Text style={styles.summaryLabel}>TOTAL DATA</Text>
@@ -492,6 +519,20 @@ function formatPaymentBreakdown(payment: PaymentItem): string {
 const styles = StyleSheet.create({
   container: { backgroundColor: "#F7FAF9", gap: 14, paddingHorizontal: 14, paddingTop: Platform.OS === "ios" ? 74 : 54, paddingBottom: 40 },
   detailContainer: { paddingTop: Platform.OS === "ios" ? 74 : 54 },
+  screenHeader: {
+    marginBottom: 2,
+  },
+  screenTitle: {
+    color: "#0F172A",
+    fontSize: 21,
+    fontWeight: "700",
+  },
+  screenSubtitle: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+  },
   demoBox: {
     alignItems: "flex-start",
     backgroundColor: "#FFFBEB",
@@ -508,7 +549,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    borderColor: "#E6EEF0",
+    borderColor: "#D7E3E1",
     borderRadius: 22,
     borderWidth: 1,
     flexDirection: "row",
@@ -522,9 +563,9 @@ const styles = StyleSheet.create({
   },
   summaryBlock: { flex: 1 },
   summaryDivider: { backgroundColor: "#E6EEF0", height: 54, marginHorizontal: 14, width: 1 },
-  summaryLabel: { color: "#64748B", fontSize: 11, fontWeight: "800" },
-  summaryValue: { color: "#0F766E", fontSize: 30, fontWeight: "800", marginTop: 8 },
-  summaryAmount: { color: "#059669", fontSize: 19, fontWeight: "800", marginTop: 8 },
+  summaryLabel: { color: "#64748B", fontSize: 11, fontWeight: "700" },
+  summaryValue: { color: "#0F766E", fontSize: 30, fontWeight: "700", marginTop: 8 },
+  summaryAmount: { color: "#059669", fontSize: 19, fontWeight: "700", marginTop: 8 },
   addButton: {
     alignItems: "center",
     backgroundColor: "#059669",
@@ -557,12 +598,12 @@ const styles = StyleSheet.create({
   paymentCode: { color: "#64748B", flex: 1, fontSize: 12, fontWeight: "700", letterSpacing: 0.2 },
   waitingBadge: { backgroundColor: "#FEF3C7", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
   waitingBadgeText: { color: "#92400E", fontSize: 10, fontWeight: "900" },
-  paymentTitle: { color: "#0F172A", fontSize: 17, fontWeight: "800", marginBottom: 16 },
+  paymentTitle: { color: "#0F172A", fontSize: 16, fontWeight: "700", marginBottom: 16 },
   paymentMetaRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
   paymentMetaLabel: { color: "#64748B", fontSize: 13, fontWeight: "700" },
-  paymentAmount: { color: "#D97706", fontSize: 18, fontWeight: "800" },
-  paymentFee: { color: "#0F172A", fontSize: 14, fontWeight: "800" },
-  paymentTotal: { color: "#059669", fontSize: 20, fontWeight: "800" },
+  paymentAmount: { color: "#D97706", fontSize: 17, fontWeight: "700" },
+  paymentFee: { color: "#0F172A", fontSize: 14, fontWeight: "700" },
+  paymentTotal: { color: "#059669", fontSize: 18, fontWeight: "700" },
   detailNoteCard: {
     backgroundColor: "#FFFFFF",
     borderColor: "#E6EEF0",
@@ -575,7 +616,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 2,
   },
-  detailNoteTitle: { color: "#0F172A", flex: 1, fontSize: 17, fontWeight: "800" },
+  detailNoteTitle: { color: "#0F172A", flex: 1, fontSize: 16, fontWeight: "700" },
   detailNoteSub: { color: "#64748B", fontSize: 12, fontWeight: "700", marginTop: 4 },
   emptyCard: {
     alignItems: "center",
@@ -680,7 +721,7 @@ const styles = StyleSheet.create({
   statusText: { color: "#B45309", fontSize: 13, fontWeight: "800" },
   qrBox: { backgroundColor: "#FFFFFF", borderColor: "#E6EEF0", borderRadius: 20, borderWidth: 1, marginTop: 22, padding: 14 },
   merchantName: { color: "#475569", fontSize: 14, fontWeight: "600", marginTop: 14 },
-  amountBig: { color: "#059669", fontSize: 28, fontWeight: "800", marginTop: 4 },
+  amountBig: { color: "#059669", fontSize: 26, fontWeight: "700", marginTop: 4 },
   amountBreakdown: { color: "#64748B", fontSize: 12, fontWeight: "700", marginTop: 4, textAlign: "center" },
   downloadButton: {
     alignItems: "center",

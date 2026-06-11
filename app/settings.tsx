@@ -81,6 +81,11 @@ export default function Settings() {
 
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      <View style={styles.screenHeader}>
+        <Text style={styles.screenTitle}>Pengaturan⚙️</Text>
+        <Text style={styles.screenSubtitle}>Atur QRIS merchant dan mode pembayaran</Text>
+      </View>
+
       {hasSavedQris && !isEditing ? (
         <View style={styles.savedBanner}>
           <Ionicons name="checkmark-circle-outline" size={20} color="#047857" />
@@ -176,9 +181,23 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "ios" ? 74 : 54,
     paddingBottom: 32,
   },
+  screenHeader: {
+    marginBottom: 2,
+  },
+  screenTitle: {
+    color: "#0F172A",
+    fontSize: 21,
+    fontWeight: "700",
+  },
+  screenSubtitle: {
+    color: "#64748B",
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 4,
+  },
   panel: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#E6EEF0",
+    borderColor: "#BFD0CC",
     borderRadius: 18,
     borderWidth: 1,
     overflow: "hidden",
@@ -204,7 +223,7 @@ const styles = StyleSheet.create({
   savedTitle: {
     color: "#047857",
     fontSize: 14,
-    fontWeight: "800",
+    fontWeight: "700",
   },
   savedSubtitle: {
     color: "#047857",

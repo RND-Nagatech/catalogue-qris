@@ -28,7 +28,7 @@ export default function History() {
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Riwayat</Text>
+        <Text style={styles.title}>Riwayat🔄</Text>
         <Text style={styles.subtitle}>{payments.length} transaksi hari ini</Text>
       </View>
 
@@ -84,11 +84,11 @@ const styles = StyleSheet.create({
   },
   header: {
     backgroundColor: "#FFFFFF",
-    borderColor: "#E6EEF0",
+    borderColor: "#BFD0CC",
     borderRadius: 18,
     borderWidth: 1,
     marginBottom: 16,
-    padding: 18,
+    padding: 16,
     shadowColor: "#0F172A",
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.04,
@@ -97,12 +97,12 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#0F172A",
-    fontSize: 26,
-    fontWeight: "800",
+    fontSize: 21,
+    fontWeight: "700",
   },
   subtitle: {
     color: "#64748B",
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: "600",
     marginTop: 4,
   },
@@ -112,7 +112,7 @@ const styles = StyleSheet.create({
   card: {
     alignItems: "center",
     backgroundColor: "#FFFFFF",
-    borderColor: "#E6EEF0",
+    borderColor: "#BFD0CC",
     borderRadius: 20,
     borderWidth: 1,
     flexDirection: "row",
@@ -138,8 +138,8 @@ const styles = StyleSheet.create({
   },
   note: {
     color: "#0F172A",
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "700",
     marginTop: 8,
   },
   date: {
@@ -150,8 +150,8 @@ const styles = StyleSheet.create({
   },
   amount: {
     color: "#059669",
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "700",
   },
   badge: {
     backgroundColor: "#FEF3C7",

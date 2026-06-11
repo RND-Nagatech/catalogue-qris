@@ -1,5 +1,5 @@
 import { useCallback, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
 import { loadTodayHistory, type PaymentItem } from "../lib/dataStore";
@@ -78,7 +78,8 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: "#F7FAF9",
     flexGrow: 1,
-    padding: 14,
+    paddingHorizontal: 14,
+    paddingTop: Platform.OS === "ios" ? 74 : 54,
     paddingBottom: 32,
   },
   header: {

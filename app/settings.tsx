@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { clearQrisString, loadQrisString, saveQrisString } from "../lib/dataStore";
@@ -171,8 +171,9 @@ function InfoRow({ label, value, last }: { label: string; value: string; last?: 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: "#F7FAF9",
-    padding: 14,
     gap: 14,
+    paddingHorizontal: 14,
+    paddingTop: Platform.OS === "ios" ? 74 : 54,
     paddingBottom: 32,
   },
   panel: {

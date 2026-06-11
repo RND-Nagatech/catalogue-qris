@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState, type MutableRefObject } from "react";
 import {
   Alert,
   KeyboardAvoidingView,
@@ -45,9 +45,8 @@ export default function Home() {
   const isDemoMode = !qris;
   const selectedPayment = payments.find((item) => item.id === selectedPaymentId) ?? null;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     navigation.setOptions({
-      headerShown: !selectedPayment,
       tabBarStyle: selectedPayment
         ? { display: "none" }
         : {
@@ -491,8 +490,8 @@ function formatPaymentBreakdown(payment: PaymentItem): string {
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: "#F7FAF9", padding: 14, gap: 14, paddingBottom: 40 },
-  detailContainer: { paddingTop: Platform.OS === "ios" ? 54 : 34 },
+  container: { backgroundColor: "#F7FAF9", gap: 14, paddingHorizontal: 14, paddingTop: Platform.OS === "ios" ? 74 : 54, paddingBottom: 40 },
+  detailContainer: { paddingTop: Platform.OS === "ios" ? 74 : 54 },
   demoBox: {
     alignItems: "flex-start",
     backgroundColor: "#FFFBEB",

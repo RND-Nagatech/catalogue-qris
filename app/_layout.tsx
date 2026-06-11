@@ -9,7 +9,7 @@ export default function RootLayout() {
       <StatusBar style="dark" />
       <Tabs
         screenOptions={{
-          headerShown: true,
+          headerShown: false,
           headerStyle: { backgroundColor: "#F7FAF9" },
           headerTitleStyle: { fontSize: 18, fontWeight: "700", color: "#1F2937" },
           headerShadowVisible: false,

@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "QRIS Payment",
+    "slug": "qris-payment",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "qrispayment",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "platforms": [
+      "ios",
+      "android",
+      "web"
+    ],
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#FFFFFF"
+      }
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

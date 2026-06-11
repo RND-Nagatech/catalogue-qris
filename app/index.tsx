@@ -1,0 +1,720 @@
+import { useCallback, useMemo, useRef, useState, type MutableRefObject } from "react";
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import QRCode from "react-native-qrcode-svg";
+import * as Clipboard from "expo-clipboard";
+import * as FileSystem from "expo-file-system/legacy";
+import * as Haptics from "expo-haptics";
+import * as Sharing from "expo-sharing";
+import { Link, useFocusEffect } from "expo-router";
+import {
+  createPayment,
+  deletePayment as deleteStoredPayment,
+  loadPayments,
+  loadQrisString,
+  markPaymentPaid,
+  type PaymentItem,
+} from "../lib/dataStore";
+import { formatRupiah, getMerchantInfo, normalizeQris } from "../lib/qris";
+import { DEMO_STATIC_QRIS, generateDynamicQris } from "../contohqris";
+
+export default function Home() {
+  const [qris, setQris] = useState("");
+  const [payments, setPayments] = useState<PaymentItem[]>([]);
+  const [selectedPaymentId, setSelectedPaymentId] = useState<string | null>(null);
+  const [isAddOpen, setIsAddOpen] = useState(false);
+  const [newNote, setNewNote] = useState("");
+  const [newAmount, setNewAmount] = useState("");
+  const [feeType, setFeeType] = useState<"none" | "fixed" | "percent">("none");
+  const [feeValue, setFeeValue] = useState("");
+  const [generatedQris, setGeneratedQris] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState<"idle" | "waiting" | "paid">("idle");
+  const qrCodeRef = useRef<{ toDataURL: (callback: (data: string) => void) => void } | null>(null);
+
+  const activeQris = qris || DEMO_STATIC_QRIS;
+  const isDemoMode = !qris;
+  const selectedPayment = payments.find((item) => item.id === selectedPaymentId) ?? null;
+
+  useFocusEffect(
+    useCallback(() => {
+      let isActive = true;
+
+      Promise.all([loadQrisString(), loadPayments()]).then(([savedQris, savedPayments]) => {
+        if (!isActive) return;
+        setQris(savedQris);
+        setPayments(savedPayments);
+      }).catch(() => {
+        if (!isActive) return;
+        setQris("");
+        setPayments([]);
+      });
+
+      return () => {
+        isActive = false;
+      };
+    }, [])
+  );
+
+  const info = useMemo(() => {
+    try {
+      return activeQris ? getMerchantInfo(activeQris) : null;
+    } catch {
+      return null;
+    }
+  }, [activeQris]);
+
+  const totalAmount = payments.reduce((sum, item) => sum + item.amount, 0);
+
+  const nextDynamicQris = useMemo(() => {
+    if (!selectedPayment) return "";
+
+    try {
+      const mappedFeeType = feeType === "percent" ? "Persentase" : "Rupiah";
+      const mappedFeeValue =
+        feeType === "none"
+          ? ""
+          : feeType === "fixed"
+            ? feeValue.replace(/\D/g, "")
+            : feeValue.replace(",", ".");
+
+      return generateDynamicQris(
+        normalizeQris(activeQris),
+        String(selectedPayment.amount),
+        mappedFeeType,
+        mappedFeeValue,
+      );
+    } catch {
+      return "";
+    }
+  }, [activeQris, feeType, feeValue, selectedPayment]);
+
+  const clearGeneratedResult = () => {
+    setGeneratedQris("");
+    setPaymentStatus("idle");
+  };
+
+  const closeDetail = () => {
+    setSelectedPaymentId(null);
+    setFeeType("none");
+    setFeeValue("");
+    clearGeneratedResult();
+  };
+
+  const addPayment = async () => {
+    const amount = Number(newAmount.replace(/\D/g, ""));
+    if (amount <= 0) {
+      Alert.alert("Nominal belum valid", "Masukkan nominal pembayaran terlebih dahulu.");
+      return;
+    }
+
+    const nextItem = await createPayment({
+      note: newNote.trim() || "Pembayaran",
+      amount,
+    });
+
+    setPayments([nextItem, ...payments]);
+    setNewNote("");
+    setNewAmount("");
+    setIsAddOpen(false);
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const deletePayment = async (id: string) => {
+    await deleteStoredPayment(id);
+    const nextPayments = payments.filter((item) => item.id !== id);
+    setPayments(nextPayments);
+    if (selectedPaymentId === id) closeDetail();
+  };
+
+  const handleGenerateQr = async () => {
+    if (!selectedPayment) return;
+
+    if (!nextDynamicQris) {
+      Alert.alert("QRIS gagal dibuat", "Cek biaya layanan atau QRIS string yang digunakan.");
+      return;
+    }
+
+    setGeneratedQris(nextDynamicQris);
+    setPaymentStatus("waiting");
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  };
+
+  const simulatePaid = async () => {
+    if (!selectedPayment) return;
+
+    await markPaymentPaid(selectedPayment.id);
+    setPayments(payments.filter((item) => item.id !== selectedPayment.id));
+    setPaymentStatus("paid");
+    await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+    Alert.alert("Pembayaran Berhasil", `${selectedPayment.note} senilai ${formatRupiah(selectedPayment.amount)} sudah dibayar.`, [
+      { text: "OK", onPress: closeDetail },
+    ]);
+  };
+
+  const downloadQr = async () => {
+    if (!generatedQris || !qrCodeRef.current) {
+      Alert.alert("QR belum tersedia", "Generate QR terlebih dahulu.");
+      return;
+    }
+
+    try {
+      const base64 = await new Promise<string>((resolve) => {
+        qrCodeRef.current?.toDataURL(resolve);
+      });
+      const fileUri = `${FileSystem.cacheDirectory}qris-${Date.now()}.png`;
+      await FileSystem.writeAsStringAsync(fileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, {
+          dialogTitle: "Download QRIS",
+          mimeType: "image/png",
+          UTI: "public.png",
+        });
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("QR Code Tersimpan", "QR code berhasil dibuat.");
+      } else {
+        await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+        Alert.alert("QR tersimpan", fileUri);
+      }
+    } catch {
+      Alert.alert("Download gagal", "QR belum bisa disimpan sebagai gambar.");
+    }
+  };
+
+  return (
+    <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+      {isDemoMode ? (
+        <View style={styles.demoBox}>
+          <Ionicons name="flask-outline" size={18} color="#B45309" />
+          <View style={styles.demoTextWrap}>
+            <Text style={styles.demoTitle}>Mode Demo</Text>
+            <Text style={styles.demoText}>Belum ada QRIS asli. App memakai contohqris.ts untuk simulasi.</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {selectedPayment ? (
+        <PaymentDetail
+          feeType={feeType}
+          feeValue={feeValue}
+          generatedQris={generatedQris}
+          infoName={info?.merchant ?? "Merchant"}
+          payment={selectedPayment}
+          paymentStatus={paymentStatus}
+          qrCodeRef={qrCodeRef}
+          onBack={closeDetail}
+          onCopy={async () => {
+            await Clipboard.setStringAsync(generatedQris);
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            Alert.alert("Tersalin", "QRIS string tersalin ke clipboard.");
+          }}
+          onDelete={() => deletePayment(selectedPayment.id)}
+          onDownload={downloadQr}
+          onFeeChange={(value) => {
+            setFeeValue(value);
+            clearGeneratedResult();
+          }}
+          onFeeTypeChange={(type) => {
+            setFeeType(type);
+            setFeeValue("");
+            clearGeneratedResult();
+            Haptics.selectionAsync();
+          }}
+          onGenerate={handleGenerateQr}
+          onPaid={simulatePaid}
+        />
+      ) : (
+        <>
+          <View style={styles.summaryCard}>
+            <View style={styles.summaryBlock}>
+              <Text style={styles.summaryLabel}>TOTAL DATA</Text>
+              <Text style={styles.summaryValue}>{payments.length}</Text>
+            </View>
+            <View style={styles.summaryDivider} />
+            <View style={styles.summaryBlock}>
+              <Text style={styles.summaryLabel}>MENUNGGU</Text>
+              <Text style={styles.summaryAmount}>{payments.length ? formatRupiah(totalAmount) : "Tidak Ada"}</Text>
+            </View>
+          </View>
+
+          <Pressable style={styles.addButton} onPress={() => setIsAddOpen(true)}>
+            <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
+            <Text style={styles.addButtonText}>Tambah Data Pembayaran</Text>
+          </Pressable>
+
+          {payments.length ? (
+            <View style={styles.paymentList}>
+              {payments.map((payment) => (
+                <Pressable
+                  key={payment.id}
+                  style={styles.paymentCard}
+                  onPress={() => {
+                    setSelectedPaymentId(payment.id);
+                    clearGeneratedResult();
+                  }}
+                >
+                  <View style={styles.paymentTopRow}>
+                    <Text style={styles.paymentCode}>{payment.id}</Text>
+                    <View style={styles.waitingBadge}>
+                      <Text style={styles.waitingBadgeText}>BELUM BAYAR</Text>
+                    </View>
+                  </View>
+                  <Text style={styles.paymentTitle}>{payment.note}</Text>
+                  <View style={styles.paymentMetaRow}>
+                    <Text style={styles.paymentMetaLabel}>Nominal</Text>
+                    <Text style={styles.paymentAmount}>{formatRupiah(payment.amount)}</Text>
+                  </View>
+                </Pressable>
+              ))}
+            </View>
+          ) : (
+            <View style={styles.emptyCard}>
+              <Ionicons name="receipt-outline" size={32} color="#94A3B8" />
+              <Text style={styles.emptyTitle}>Belum ada data pembayaran</Text>
+              <Text style={styles.emptyText}>Tambahkan nominal pembayaran, lalu pilih card untuk generate QR.</Text>
+            </View>
+          )}
+
+          <Link href="/settings" asChild>
+            <Pressable style={styles.ghostBtn}>
+              <Ionicons name="settings-outline" size={16} color="#2563EB" />
+              <Text style={styles.ghostBtnText}>{isDemoMode ? "Simpan QRIS Asli" : "Pengaturan QRIS"}</Text>
+            </Pressable>
+          </Link>
+        </>
+      )}
+
+      <Modal animationType="fade" transparent visible={isAddOpen} onRequestClose={() => setIsAddOpen(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.modalBackdrop}
+        >
+          <View style={styles.modalDialog}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Tambah Data Pembayaran</Text>
+              <Pressable style={styles.iconButton} onPress={() => setIsAddOpen(false)}>
+                <Ionicons name="close" size={20} color="#0F172A" />
+              </Pressable>
+            </View>
+
+            <Text style={styles.fieldLabel}>Nominal (Rupiah)</Text>
+            <View style={styles.amountWrap}>
+              <Text style={styles.rp}>Rp</Text>
+              <TextInput
+                value={newAmount ? Number(newAmount.replace(/\D/g, "")).toLocaleString("id-ID") : ""}
+                onChangeText={(text) => setNewAmount(text.replace(/\D/g, ""))}
+                keyboardType="number-pad"
+                placeholder="0"
+                placeholderTextColor="#94A3B8"
+                style={styles.amountInput}
+              />
+            </View>
+
+            <Text style={styles.fieldLabel}>Keterangan</Text>
+            <TextInput
+              value={newNote}
+              onChangeText={setNewNote}
+              placeholder="Contoh: Tagihan air Juni, DP pesanan, atau bebas"
+              placeholderTextColor="#94A3B8"
+              style={styles.input}
+            />
+
+            <Pressable style={styles.addButton} onPress={addPayment}>
+              <Ionicons name="save-outline" size={18} color="#FFFFFF" />
+              <Text style={styles.addButtonText}>Simpan Data</Text>
+            </Pressable>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+    </ScrollView>
+  );
+}
+
+function PaymentDetail({
+  feeType,
+  feeValue,
+  generatedQris,
+  infoName,
+  payment,
+  paymentStatus,
+  qrCodeRef,
+  onBack,
+  onCopy,
+  onDelete,
+  onDownload,
+  onFeeChange,
+  onFeeTypeChange,
+  onGenerate,
+  onPaid,
+}: {
+  feeType: "none" | "fixed" | "percent";
+  feeValue: string;
+  generatedQris: string;
+  infoName: string;
+  payment: PaymentItem;
+  paymentStatus: "idle" | "waiting" | "paid";
+  qrCodeRef: MutableRefObject<{ toDataURL: (callback: (data: string) => void) => void } | null>;
+  onBack: () => void;
+  onCopy: () => void;
+  onDelete: () => void;
+  onDownload: () => void;
+  onFeeChange: (value: string) => void;
+  onFeeTypeChange: (type: "none" | "fixed" | "percent") => void;
+  onGenerate: () => void;
+  onPaid: () => void;
+}) {
+  return (
+    <>
+      <View style={styles.detailHeader}>
+        <Pressable style={styles.backButton} onPress={onBack}>
+          <Ionicons name="chevron-back" size={18} color="#2563EB" />
+          <Text style={styles.backButtonText}>Daftar</Text>
+        </Pressable>
+        <Pressable style={styles.deleteButton} onPress={onDelete}>
+          <Ionicons name="trash-outline" size={16} color="#B91C1C" />
+          <Text style={styles.deleteButtonText}>Hapus</Text>
+        </Pressable>
+      </View>
+
+      <View style={styles.paymentCard}>
+        <View style={styles.paymentTopRow}>
+          <Text style={styles.paymentCode}>{payment.id}</Text>
+          <View style={styles.waitingBadge}>
+            <Text style={styles.waitingBadgeText}>BELUM BAYAR</Text>
+          </View>
+        </View>
+        <Text style={styles.paymentTitle}>{payment.note}</Text>
+        <View style={styles.paymentMetaRow}>
+          <Text style={styles.paymentMetaLabel}>Nominal</Text>
+          <Text style={styles.paymentAmount}>{formatRupiah(payment.amount)}</Text>
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <SectionTitle icon="swap-horizontal-outline" title="Generate QR Pembayaran" />
+        <Text style={styles.fieldLabel}>Service Fee</Text>
+        <View style={styles.segment}>
+          {(["none", "fixed", "percent"] as const).map((type) => (
+            <Pressable
+              key={type}
+              onPress={() => onFeeTypeChange(type)}
+              style={[styles.segItem, feeType === type && styles.segItemActive]}
+            >
+              <Text style={[styles.segText, feeType === type && styles.segTextActive]}>
+                {type === "none" ? "Tidak ada" : type === "fixed" ? "Tetap (Rp)" : "Persen (%)"}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {feeType !== "none" ? (
+          <TextInput
+            value={feeValue}
+            onChangeText={(text) => onFeeChange(feeType === "fixed" ? text.replace(/\D/g, "") : text.replace(/[^0-9,.]/g, ""))}
+            keyboardType={feeType === "fixed" ? "number-pad" : "decimal-pad"}
+            placeholder={feeType === "fixed" ? "Nominal biaya" : "% biaya"}
+            placeholderTextColor="#94A3B8"
+            style={styles.input}
+          />
+        ) : null}
+        <Pressable style={styles.generateButton} onPress={onGenerate}>
+          <Ionicons name="qr-code-outline" size={16} color="#FFFFFF" />
+          <Text style={styles.generateButtonText}>Generate QR</Text>
+        </Pressable>
+      </View>
+
+      {generatedQris ? (
+        <View style={[styles.card, styles.qrCard]}>
+          <SectionTitle icon="checkmark-circle-outline" title="Dynamic QRIS Result" />
+          <View style={styles.statusBar}>
+            <Ionicons name="time-outline" size={18} color="#B45309" />
+            <Text style={styles.statusText}>{paymentStatus === "paid" ? "Pembayaran sukses" : "Menunggu pembayaran"}</Text>
+          </View>
+          <View style={styles.qrBox}>
+            <QRCode
+              value={generatedQris}
+              size={240}
+              getRef={(ref) => {
+                qrCodeRef.current = ref;
+              }}
+            />
+          </View>
+          <Text style={styles.merchantName}>{infoName}</Text>
+          <Text style={styles.amountBig}>{formatRupiah(payment.amount)}</Text>
+
+          <View style={styles.actionRow}>
+            <Pressable style={[styles.secondaryBtn, { flex: 1 }]} onPress={onCopy}>
+              <Ionicons name="copy-outline" size={15} color="#0F172A" />
+              <Text style={styles.secondaryBtnText}>Salin String</Text>
+            </Pressable>
+            <Pressable style={[styles.primaryBtn, { flex: 1 }]} onPress={onDownload}>
+              <Ionicons name="download-outline" size={15} color="#FFFFFF" />
+              <Text style={styles.primaryBtnText}>Download QR</Text>
+            </Pressable>
+          </View>
+
+          <Pressable style={[styles.successButton, styles.fullWidthButton]} onPress={onPaid}>
+            <Ionicons name="cash-outline" size={16} color="#FFFFFF" />
+            <Text style={styles.successButtonText}>Simulasikan Sudah Dibayar</Text>
+          </Pressable>
+        </View>
+      ) : (
+        <View style={styles.emptyCard}>
+          <Text style={styles.emptyText}>Tekan Generate QR untuk menampilkan QR pembayaran ini.</Text>
+        </View>
+      )}
+    </>
+  );
+}
+
+function SectionTitle({ icon, title }: { icon: keyof typeof Ionicons.glyphMap; title: string }) {
+  return (
+    <View style={styles.sectionTitle}>
+      <Ionicons name={icon} size={16} color="#2563EB" />
+      <Text style={styles.cardTitle}>{title}</Text>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: { padding: 12, gap: 14, paddingBottom: 40 },
+  demoBox: {
+    alignItems: "flex-start",
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FDE68A",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    padding: 12,
+  },
+  demoTextWrap: { flex: 1 },
+  demoTitle: { color: "#92400E", fontSize: 13, fontWeight: "800" },
+  demoText: { color: "#B45309", fontSize: 12, lineHeight: 17, marginTop: 2 },
+  summaryCard: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    minHeight: 94,
+    padding: 16,
+  },
+  summaryBlock: { flex: 1 },
+  summaryDivider: { backgroundColor: "#E2E8F0", height: 54, marginHorizontal: 14, width: 1 },
+  summaryLabel: { color: "#64748B", fontSize: 11, fontWeight: "800" },
+  summaryValue: { color: "#2563EB", fontSize: 30, fontWeight: "800", marginTop: 8 },
+  summaryAmount: { color: "#059669", fontSize: 19, fontWeight: "800", marginTop: 8 },
+  addButton: {
+    alignItems: "center",
+    backgroundColor: "#2563EB",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  addButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  paymentList: { gap: 12 },
+  paymentCard: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    padding: 16,
+  },
+  paymentTopRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 8 },
+  paymentCode: { color: "#0F172A", flex: 1, fontSize: 18, fontWeight: "800" },
+  waitingBadge: { backgroundColor: "#FEF3C7", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4 },
+  waitingBadgeText: { color: "#92400E", fontSize: 10, fontWeight: "900" },
+  paymentTitle: { color: "#475569", fontSize: 15, fontWeight: "700", marginBottom: 16 },
+  paymentMetaRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
+  paymentMetaLabel: { color: "#64748B", fontSize: 13, fontWeight: "700" },
+  paymentAmount: { color: "#2563EB", fontSize: 22, fontWeight: "900" },
+  emptyCard: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    gap: 8,
+    padding: 18,
+  },
+  emptyTitle: { color: "#0F172A", fontSize: 15, fontWeight: "800" },
+  emptyText: { color: "#64748B", fontSize: 13, lineHeight: 18, textAlign: "center" },
+  detailHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
+  backButton: { alignItems: "center", flexDirection: "row", gap: 4, paddingVertical: 8 },
+  backButtonText: { color: "#2563EB", fontSize: 14, fontWeight: "800" },
+  deleteButton: {
+    alignItems: "center",
+    backgroundColor: "#FEF2F2",
+    borderColor: "#FECACA",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+  },
+  deleteButtonText: { color: "#B91C1C", fontSize: 12, fontWeight: "800" },
+  card: {
+    backgroundColor: "#FFFFFF",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  sectionTitle: {
+    alignItems: "center",
+    borderBottomColor: "#E2E8F0",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    padding: 12,
+    width: "100%",
+  },
+  cardTitle: { color: "#0F172A", fontSize: 13, fontWeight: "700" },
+  fieldLabel: { color: "#334155", fontSize: 12, fontWeight: "700", marginBottom: 6, marginHorizontal: 12, marginTop: 14 },
+  amountWrap: {
+    alignItems: "center",
+    borderColor: "#CBD5E1",
+    borderRadius: 6,
+    borderWidth: 1,
+    flexDirection: "row",
+    height: 46,
+    marginHorizontal: 12,
+    paddingHorizontal: 12,
+  },
+  rp: { color: "#94A3B8", fontSize: 12, fontWeight: "600", marginRight: 10 },
+  amountInput: { color: "#0F172A", flex: 1, fontSize: 14, fontWeight: "700" },
+  input: {
+    borderColor: "#CBD5E1",
+    borderRadius: 6,
+    borderWidth: 1,
+    color: "#0F172A",
+    fontSize: 14,
+    height: 46,
+    marginHorizontal: 12,
+    marginTop: 10,
+    paddingHorizontal: 12,
+  },
+  segment: { flexDirection: "row", gap: 8, marginBottom: 12, marginHorizontal: 12 },
+  segItem: {
+    alignItems: "center",
+    borderColor: "#CBD5E1",
+    borderRadius: 6,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 42,
+  },
+  segItemActive: { backgroundColor: "#EFF6FF", borderColor: "#2563EB" },
+  segText: { color: "#64748B", fontSize: 13, fontWeight: "600" },
+  segTextActive: { color: "#2563EB" },
+  generateButton: {
+    alignItems: "center",
+    backgroundColor: "#2563EB",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    margin: 12,
+    minHeight: 46,
+  },
+  generateButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "800" },
+  qrCard: { alignItems: "center", paddingBottom: 12 },
+  statusBar: {
+    alignItems: "center",
+    alignSelf: "stretch",
+    backgroundColor: "#FFFBEB",
+    borderColor: "#FDE68A",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    marginHorizontal: 12,
+    marginTop: 12,
+    minHeight: 42,
+    paddingHorizontal: 12,
+  },
+  statusText: { color: "#B45309", fontSize: 13, fontWeight: "800" },
+  qrBox: { backgroundColor: "#FFFFFF", borderColor: "#EEF2F7", borderRadius: 8, borderWidth: 1, marginTop: 22, padding: 12 },
+  merchantName: { color: "#475569", fontSize: 14, fontWeight: "600", marginTop: 14 },
+  amountBig: { color: "#2563EB", fontSize: 26, fontWeight: "800", marginTop: 4 },
+  actionRow: { flexDirection: "row", gap: 10, marginTop: 16, paddingHorizontal: 12 },
+  primaryBtn: {
+    alignItems: "center",
+    backgroundColor: "#2563EB",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 46,
+    paddingHorizontal: 14,
+  },
+  primaryBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  secondaryBtn: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: "#CBD5E1",
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 46,
+  },
+  secondaryBtnText: { color: "#0F172A", fontSize: 15, fontWeight: "700" },
+  successButton: {
+    alignItems: "center",
+    backgroundColor: "#059669",
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 46,
+  },
+  successButtonText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  fullWidthButton: { alignSelf: "stretch", marginHorizontal: 12, marginTop: 10 },
+  ghostBtn: { alignItems: "center", flexDirection: "row", gap: 8, justifyContent: "center", paddingVertical: 14 },
+  ghostBtnText: { color: "#2563EB", fontWeight: "600" },
+  modalBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.48)",
+    flex: 1,
+    justifyContent: "center",
+    padding: 18,
+  },
+  modalDialog: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    gap: 8,
+    maxWidth: 520,
+    padding: 16,
+    width: "100%",
+  },
+  modalHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
+  modalTitle: { color: "#0F172A", fontSize: 17, fontWeight: "800" },
+  iconButton: {
+    alignItems: "center",
+    borderColor: "#E2E8F0",
+    borderRadius: 8,
+    borderWidth: 1,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
+});

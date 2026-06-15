@@ -16,7 +16,7 @@ export default function RootLayout() {
           sceneStyle: { backgroundColor: "#F7FAF9" },
           tabBarActiveTintColor: "#059669",
           tabBarInactiveTintColor: "#9CA3AF",
-          tabBarLabelStyle: { fontSize: 12, fontWeight: "800" },
+          tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
           tabBarStyle: {
             backgroundColor: "#FFFFFF",
             borderTopColor: "#E5E7EB",
@@ -31,6 +31,20 @@ export default function RootLayout() {
           options={{
             title: "Beranda",
             tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="sales"
+          options={{
+            title: "Penjualan",
+            tabBarIcon: ({ color, size }) => <Ionicons name="cash-outline" color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="purchases"
+          options={{
+            title: "Pembelian",
+            tabBarIcon: ({ color, size }) => <Ionicons name="bag-check-outline" color={color} size={size} />,
           }}
         />
         <Tabs.Screen

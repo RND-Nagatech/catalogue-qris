@@ -1,17 +1,29 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { clearQrisString, loadQrisString, saveQrisString } from "../lib/dataStore";
+import {
+  clearQrisString,
+  loadNagagoldSettings,
+  loadQrisString,
+  type NagagoldConnectionStatus,
+  saveNagagoldDomain,
+  saveQrisString,
+  testNagagoldConnection,
+} from "../lib/dataStore";
 import { getMerchantInfo, normalizeQris, validateQris } from "../lib/qris";
 
 export default function Settings() {
   const [value, setValue] = useState("");
   const [savedValue, setSavedValue] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [nagagoldDomain, setNagagoldDomain] = useState("");
+  const [savedNagagoldDomain, setSavedNagagoldDomain] = useState("");
+  const [nagagoldConnection, setNagagoldConnection] = useState<NagagoldConnectionStatus | null>(null);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
 
   useEffect(() => {
-    loadQrisString()
-      .then((saved) => {
+    Promise.all([loadQrisString(), loadNagagoldSettings()])
+      .then(([saved, nagagoldSettings]) => {
         if (saved) {
           setValue(saved);
           setSavedValue(saved);
@@ -19,6 +31,9 @@ export default function Settings() {
         } else {
           setIsEditing(true);
         }
+        setNagagoldDomain(nagagoldSettings.domain);
+        setSavedNagagoldDomain(nagagoldSettings.domain);
+        setNagagoldConnection(nagagoldSettings.connection);
       })
       .catch(() => {
         setIsEditing(true);
@@ -74,11 +89,111 @@ export default function Settings() {
     }
   };
 
+  const saveDomain = async () => {
+    const domain = nagagoldDomain.trim().replace(/\/+$/, "");
+    if (!/^https?:\/\//.test(domain)) {
+      Alert.alert("Domain belum valid", "Domain harus diawali http:// atau https://.");
+      return;
+    }
+
+    try {
+      await saveNagagoldDomain(domain);
+      setNagagoldDomain(domain);
+      setSavedNagagoldDomain(domain);
+      setNagagoldConnection(null);
+      Alert.alert("Tersimpan", "Domain NAGAGOLD berhasil disimpan. Tekan Test Koneksi untuk memastikan domain aktif.");
+    } catch (error) {
+      Alert.alert("Domain belum tersimpan", error instanceof Error ? error.message : "Backend API tidak bisa dijangkau.");
+    }
+  };
+
+  const testConnection = async () => {
+    const domain = nagagoldDomain.trim().replace(/\/+$/, "");
+    if (!/^https?:\/\//.test(domain)) {
+      Alert.alert("Domain belum valid", "Domain harus diawali http:// atau https://.");
+      return;
+    }
+
+    if (!savedNagagoldDomain) {
+      Alert.alert("Domain belum disimpan", "Simpan domain NAGAGOLD terlebih dahulu sebelum test koneksi.");
+      return;
+    }
+
+    if (domain !== savedNagagoldDomain) {
+      Alert.alert("Domain berubah", "Simpan perubahan domain terlebih dahulu sebelum test koneksi.");
+      return;
+    }
+
+    setIsTestingConnection(true);
+    try {
+      const result = await testNagagoldConnection();
+      setNagagoldConnection({
+        ok: true,
+        endpoint: result.endpoint,
+        status: result.status,
+        checkedAt: result.checkedAt ?? new Date().toISOString(),
+      });
+      Alert.alert(
+        "Koneksi Berhasil",
+        `Berhasil akses ${result.endpoint} dari domain tersimpan. Status: ${result.status}.`,
+      );
+    } catch (error) {
+      Alert.alert("Koneksi Gagal", error instanceof Error ? error.message : "Domain atau TOKEN_PUSAT belum bisa mengakses NAGAGOLD.");
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
   return (
     <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
       <View style={styles.screenHeader}>
         <Text style={styles.screenTitle}>Pengaturan⚙️</Text>
-        <Text style={styles.screenSubtitle}>Atur QRIS merchant dan mode pembayaran</Text>
+        <Text style={styles.screenSubtitle}>Atur QRIS merchant dan koneksi NAGAGOLD</Text>
+      </View>
+
+      <View style={styles.panel}>
+        <View style={styles.titleRow}>
+          <Ionicons name="globe-outline" size={18} color="#059669" />
+          <Text style={styles.title}>Koneksi NAGAGOLD</Text>
+        </View>
+        <View style={styles.settingBody}>
+          <Text style={styles.fieldLabelInline}>Domain Program</Text>
+          <TextInput
+            value={nagagoldDomain}
+            onChangeText={setNagagoldDomain}
+            placeholder="https://toko.com"
+            placeholderTextColor="#94A3B8"
+            style={styles.inputInline}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {nagagoldConnection?.ok && savedNagagoldDomain && nagagoldDomain === savedNagagoldDomain ? (
+            <View style={styles.connectionBadge}>
+              <Ionicons name="checkmark-circle-outline" size={16} color="#047857" />
+              <Text style={styles.connectionText}>
+                Terhubung ke {savedNagagoldDomain} lewat {nagagoldConnection.endpoint}
+              </Text>
+            </View>
+          ) : savedNagagoldDomain && nagagoldDomain === savedNagagoldDomain ? (
+            <Text style={styles.helperText}>Domain tersimpan. Tekan Test Koneksi untuk validasi ke NAGAGOLD.</Text>
+          ) : savedNagagoldDomain ? (
+            <Text style={styles.helperText}>Domain berubah. Simpan domain dulu sebelum test koneksi.</Text>
+          ) : (
+            <Text style={styles.helperText}>Simpan domain program NAGAGOLD terlebih dahulu sebelum test koneksi.</Text>
+          )}
+          <Pressable style={styles.primaryButton} onPress={saveDomain}>
+            <Ionicons name="save-outline" size={16} color="#FFFFFF" />
+            <Text style={styles.primaryButtonText}>Simpan Domain</Text>
+          </Pressable>
+          <Pressable
+            disabled={isTestingConnection}
+            style={[styles.secondaryButton, isTestingConnection && styles.disabledButton]}
+            onPress={testConnection}
+          >
+            <Ionicons name="pulse-outline" size={16} color="#0F172A" />
+            <Text style={styles.secondaryButtonText}>{isTestingConnection ? "Menguji Koneksi..." : "Test Koneksi"}</Text>
+          </Pressable>
+        </View>
       </View>
 
       {hasSavedQris && !isEditing ? (
@@ -239,6 +354,46 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "700",
   },
+  settingBody: {
+    gap: 10,
+    padding: 12,
+  },
+  fieldLabelInline: {
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  inputInline: {
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    borderWidth: 1,
+    color: "#0F172A",
+    fontSize: 13,
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  helperText: {
+    color: "#64748B",
+    fontSize: 12,
+    lineHeight: 17,
+  },
+  connectionBadge: {
+    alignItems: "flex-start",
+    backgroundColor: "#ECFDF5",
+    borderColor: "#A7F3D0",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    padding: 10,
+  },
+  connectionText: {
+    color: "#047857",
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "700",
+    lineHeight: 17,
+  },
   textarea: {
     color: "#0F172A",
     fontFamily: "Courier",
@@ -305,6 +460,9 @@ const styles = StyleSheet.create({
     color: "#0F172A",
     fontSize: 14,
     fontWeight: "700",
+  },
+  disabledButton: {
+    opacity: 0.6,
   },
   dangerButton: {
     alignItems: "center",

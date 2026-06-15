@@ -1,4 +1,5 @@
 import cors from "cors";
+import crypto from "node:crypto";
 import "dotenv/config";
 import express from "express";
 import { MongoClient } from "mongodb";
@@ -151,6 +152,7 @@ type DashboardRecentTransaction = {
 const uri = process.env.MONGODB_URI;
 const port = Number(process.env.PORT ?? 4000);
 const tokenPusat = process.env.TOKEN_PUSAT;
+const nagagoldApiKey = process.env.NAGAGOLD_API_KEY || process.env.OPEN_API_KEY;
 
 if (!uri) {
   throw new Error("MONGODB_URI is required.");
@@ -408,6 +410,14 @@ function formatNagagoldError(data: unknown, status: number, domain: string): str
     return `Domain NAGAGOLD sedang tidak bisa diakses oleh Cloudflare Tunnel (${domain}). Coba Test Koneksi di Pengaturan atau ulangi beberapa saat lagi.`;
   }
 
+  if (/api key required/i.test(text)) {
+    return "NAGAGOLD domain ini membutuhkan API key. Isi NAGAGOLD_API_KEY atau OPEN_API_KEY di .env, lalu restart backend.";
+  }
+
+  if (/invalid signature/i.test(text)) {
+    return "Signature NAGAGOLD tidak valid. Periksa NAGAGOLD_API_KEY / OPEN_API_KEY untuk domain ini, lalu restart backend.";
+  }
+
   if (/^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) {
     const title = text.match(/<title>(.*?)<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim();
     return title ? `NAGAGOLD mengembalikan halaman error: ${title}` : `NAGAGOLD mengembalikan halaman HTML error (${status}).`;
@@ -427,7 +437,7 @@ function nagagoldHeaders(): Record<string, string> {
     throw new Error("TOKEN_PUSAT is required.");
   }
 
-  return {
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
     "x-auth-token": tokenPusat,
     "ngrok-skip-browser-warning": "1",
@@ -435,6 +445,15 @@ function nagagoldHeaders(): Record<string, string> {
     token: tokenPusat,
     "x-token-pusat": tokenPusat,
   };
+
+  if (nagagoldApiKey) {
+    const timestamp = new Date().toISOString();
+    headers["api-key"] = nagagoldApiKey;
+    headers.timestamp = timestamp;
+    headers.signature = crypto.createHash("sha256").update(`${nagagoldApiKey}${timestamp}`).digest("hex");
+  }
+
+  return headers;
 }
 
 async function nagagoldFetch(path: string, init?: RequestInit): Promise<{ data: unknown; status: number; url: string }> {
@@ -933,6 +952,37 @@ app.get("/api/nagagold/pembelian/kondisi", async (_req, res, next) => {
   try {
     const response = await nagagoldFetch("/api/v1/parabeli/get/all", { method: "GET" });
     res.json({ kondisi: Array.isArray(response.data) ? response.data : [] });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/nagagold/pembelian/rounding", async (_req, res, next) => {
+  try {
+    const [pembulatanResponse, moduleResponse] = await Promise.all([
+      nagagoldFetch("/api/v1/para-system/key/PEMBULATAN", { method: "GET" }).catch(() => ({ data: { value: 500 } })),
+      nagagoldFetch("/api/v1/para-system/type/module", { method: "GET" }).catch(() => ({ data: [] })),
+    ]);
+
+    const pembulatanData = firstArrayItem(unwrapNagagoldData(pembulatanResponse.data));
+    const moduleData = unwrapNagagoldData(moduleResponse.data);
+    const modules = Array.isArray(moduleData) ? moduleData : [];
+    const findModule = (key: string) => modules.find((item) => (
+      typeof item === "object"
+        && item
+        && String((item as Record<string, unknown>).key ?? "") === key
+    )) as Record<string, unknown> | undefined;
+    const isEnabledModule = (key: string) => {
+      const module = findModule(key);
+      return Boolean(module) && String(module?.value ?? "true") !== "false";
+    };
+
+    res.json({
+      value: asNumber(pembulatanData?.value) || 500,
+      roundDown: isEnabledModule("PEMBULATAN_PEMBELIAN_KEBAWAH_MODULE"),
+      disableAuthorizationAboveNota: isEnabledModule("NON_AKTIF_OTORISASI_HARGA_BELI_DIATAS_HARGA_NOTA"),
+      disableAuthorizationBelowNota: isEnabledModule("NON_AKTIF_OTORISASI_HARGA_BELI_DIBAWAH_HARGA_NOTA"),
+    });
   } catch (error) {
     next(error);
   }

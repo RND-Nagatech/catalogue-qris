@@ -1211,7 +1211,12 @@ function OptionSheet(props: {
               <Ionicons name="close" size={25} color={theme.colors.text} />
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={styles.optionContent}>
+          <ScrollView
+            automaticallyAdjustKeyboardInsets
+            contentContainerStyle={styles.optionContent}
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            keyboardShouldPersistTaps="handled"
+          >
             {props.options.length ? props.options.map((option) => {
               const selected = props.selectedKey === option.key;
               return (
@@ -1256,7 +1261,12 @@ function Sheet({ visible, title, onClose, children }: {
               <Ionicons name="close" size={25} color={theme.colors.text} />
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={styles.sheetContent} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            automaticallyAdjustKeyboardInsets
+            contentContainerStyle={styles.sheetContent}
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            keyboardShouldPersistTaps="handled"
+          >
             {children}
           </ScrollView>
         </View>
@@ -1663,7 +1673,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14,
   },
   sheetTitle: { color: colors.text, fontSize: 22, fontWeight: "700" },
-  sheetContent: { gap: 14, padding: 20, paddingBottom: 30 },
+  sheetContent: { gap: 14, padding: 20, paddingBottom: 150 },
   field: { flex: 1, gap: 6 },
   label: { color: colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
   input: {
@@ -1755,7 +1765,7 @@ const styles = StyleSheet.create({
     maxHeight: "72%",
     paddingTop: 10,
   },
-  optionContent: { gap: 8, padding: 16, paddingBottom: 26 },
+  optionContent: { gap: 8, padding: 16, paddingBottom: 120 },
   optionRow: {
     alignItems: "center",
     borderColor: colors.outline,

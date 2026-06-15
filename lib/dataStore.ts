@@ -248,6 +248,13 @@ export type NagagoldKondisiBeli = {
   status_aktif?: boolean;
 };
 
+export type NagagoldPurchaseRounding = {
+  value: number;
+  roundDown: boolean;
+  disableAuthorizationAboveNota: boolean;
+  disableAuthorizationBelowNota: boolean;
+};
+
 export type NagagoldGroup = {
   kode_group: string;
   nama_group?: string;
@@ -556,6 +563,10 @@ export async function loadNagagoldJenis(): Promise<NagagoldJenis[]> {
 export async function loadNagagoldKondisiBeli(): Promise<NagagoldKondisiBeli[]> {
   const data = await apiRequest<{ kondisi: NagagoldKondisiBeli[] }>("/api/nagagold/pembelian/kondisi");
   return data.kondisi.filter((item) => item.status_aktif !== false);
+}
+
+export async function loadNagagoldPurchaseRounding(): Promise<NagagoldPurchaseRounding> {
+  return apiRequest<NagagoldPurchaseRounding>("/api/nagagold/pembelian/rounding");
 }
 
 export async function loadNagagoldGroups(): Promise<NagagoldGroup[]> {

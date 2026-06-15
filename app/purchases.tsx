@@ -1,5 +1,5 @@
-import { type ReactNode, useCallback, useMemo, useState } from "react";
-import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
@@ -9,6 +9,7 @@ import {
   loadNagagoldGroups,
   loadNagagoldJenis,
   loadNagagoldKondisiBeli,
+  loadNagagoldPurchaseRounding,
   loadNagagoldRekenings,
   loadNagagoldSalesPeople,
   loadNagagoldTokos,
@@ -20,6 +21,7 @@ import {
   type NagagoldJenis,
   type NagagoldKondisiBeli,
   type NagagoldMember,
+  type NagagoldPurchaseRounding,
   type NagagoldPurchaseLookupItem,
   type NagagoldRekening,
   type NagagoldSalesPerson,
@@ -91,6 +93,12 @@ export default function Purchases() {
   const [jenisList, setJenisList] = useState<NagagoldJenis[]>([]);
   const [kondisiList, setKondisiList] = useState<NagagoldKondisiBeli[]>([]);
   const [groups, setGroups] = useState<NagagoldGroup[]>([]);
+  const [roundingConfig, setRoundingConfig] = useState<NagagoldPurchaseRounding>({
+    value: 500,
+    roundDown: false,
+    disableAuthorizationAboveNota: false,
+    disableAuthorizationBelowNota: false,
+  });
   const [salesPeople, setSalesPeople] = useState<NagagoldSalesPerson[]>([]);
   const [rekenings, setRekenings] = useState<NagagoldRekening[]>([]);
   const [memberResults, setMemberResults] = useState<NagagoldMember[]>([]);
@@ -136,16 +144,23 @@ export default function Purchases() {
         loadNagagoldTokos().catch(() => []),
         loadNagagoldJenis().catch(() => []),
         loadNagagoldKondisiBeli().catch(() => []),
+        loadNagagoldPurchaseRounding().catch(() => ({
+          value: 500,
+          roundDown: false,
+          disableAuthorizationAboveNota: false,
+          disableAuthorizationBelowNota: false,
+        })),
         loadNagagoldGroups().catch(() => []),
         loadNagagoldSalesPeople().catch(() => []),
         loadNagagoldRekenings().catch(() => []),
       ])
-        .then(([savedDomain, nextTokos, nextJenis, nextKondisi, nextGroups, nextSales, nextRekenings]) => {
+        .then(([savedDomain, nextTokos, nextJenis, nextKondisi, nextRounding, nextGroups, nextSales, nextRekenings]) => {
           if (!active) return;
           setDomain(savedDomain);
           setTokos(nextTokos);
           setJenisList(nextJenis);
           setKondisiList(nextKondisi);
+          setRoundingConfig(nextRounding);
           setGroups(nextGroups);
           setSalesPeople(nextSales);
           setRekenings(nextRekenings);
@@ -197,7 +212,7 @@ export default function Purchases() {
       ? potongan * nextBerat
       : (persentase / 100) * nextHargaNota;
 
-    return Math.max(0, Math.round(nextHargaNota - discount));
+    return roundNagagoldPurchasePrice(Math.max(0, nextHargaNota - discount), roundingConfig);
   };
 
   const recalculateHargaBeli = (overrides?: {
@@ -209,6 +224,12 @@ export default function Purchases() {
     const nextHargaBeli = calculateHargaBeli(overrides);
     setHargaBeli(nextHargaBeli ? String(nextHargaBeli) : "");
   };
+
+  useEffect(() => {
+    if (hargaNota && kondisi) {
+      recalculateHargaBeli();
+    }
+  }, [roundingConfig.value, roundingConfig.roundDown]);
 
   const lookupItem = async () => {
     const barcode = kodeBarcode.trim().toUpperCase().slice(0, 8);
@@ -329,7 +350,7 @@ export default function Purchases() {
       Alert.alert("Data barang belum lengkap", "Barcode, kode jenis, kondisi, nama barang, berat, dan harga beli wajib diisi.");
       return;
     }
-    const authReasons = getPurchaseAuthorizationReasons(nextBeratNota, nextBerat, nextHargaNota, nextHargaBeli);
+    const authReasons = getPurchaseAuthorizationReasons(nextBeratNota, nextBerat, nextHargaNota, nextHargaBeli, roundingConfig);
     if (authReasons.length && !authorizationId) {
       setPendingAuthorization({
         reasons: authReasons,
@@ -497,7 +518,13 @@ export default function Purchases() {
 
   return (
     <>
-    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]} keyboardShouldPersistTaps="handled">
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.keyboardScreen, { backgroundColor: theme.colors.background }]}>
+    <ScrollView
+      automaticallyAdjustKeyboardInsets
+      contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}
+      keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+      keyboardShouldPersistTaps="handled"
+    >
       <AppHeader title="Transaksi Pembelian" />
       <View style={[styles.domainNotice, theme.isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
         <Text style={[styles.domainNoticeText, theme.isDark && { color: theme.colors.muted }]}>
@@ -719,6 +746,7 @@ export default function Purchases() {
         </View>
       ) : null}
     </ScrollView>
+    </KeyboardAvoidingView>
     <AuthorizationModal
       visible={Boolean(pendingAuthorization)}
       title="Otorisasi Pembelian"
@@ -826,7 +854,7 @@ function OptionSheet({ visible, title, options, selectedValue, onSelect, onClose
 
   return (
     <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
-      <View style={styles.optionBackdrop}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.optionBackdrop}>
         <View style={[styles.optionSheet, theme.isDark && { backgroundColor: theme.colors.surface }]}>
           <View style={styles.sheetHandle} />
           <View style={[styles.sheetHeader, theme.isDark && { borderBottomColor: theme.colors.outline }]}>
@@ -851,7 +879,7 @@ function OptionSheet({ visible, title, options, selectedValue, onSelect, onClose
             )}
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -879,7 +907,7 @@ function AuthorizationModal(props: {
 
   return (
     <Modal animationType="slide" transparent visible={props.visible} onRequestClose={props.onClose}>
-      <View style={styles.optionBackdrop}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.optionBackdrop}>
         <View style={[styles.optionSheet, theme.isDark && { backgroundColor: theme.colors.surface }]}>
           <View style={styles.sheetHandle} />
           <View style={[styles.sheetHeader, theme.isDark && { borderBottomColor: theme.colors.outline }]}>
@@ -888,7 +916,12 @@ function AuthorizationModal(props: {
               <Ionicons name="close" size={24} color={theme.colors.text} />
             </Pressable>
           </View>
-          <ScrollView contentContainerStyle={styles.optionContent} keyboardShouldPersistTaps="handled">
+          <ScrollView
+            automaticallyAdjustKeyboardInsets
+            contentContainerStyle={styles.optionContentKeyboard}
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            keyboardShouldPersistTaps="handled"
+          >
             <View style={[styles.authNotice, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.secondary }]}>
               <Ionicons name="shield-checkmark-outline" size={20} color={theme.colors.secondary} />
               <View style={{ flex: 1 }}>
@@ -911,7 +944,7 @@ function AuthorizationModal(props: {
             </View>
           </ScrollView>
         </View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -1000,6 +1033,16 @@ function formatNumber(value: number): string {
   return Math.round(value).toLocaleString("id-ID");
 }
 
+function roundNagagoldPurchasePrice(price: number, config: NagagoldPurchaseRounding): number {
+  const roundedPrice = Math.round(price);
+  const roundingValue = Number(config.value) || 500;
+  const rest = roundedPrice % roundingValue;
+  if (rest === 0) return roundedPrice;
+  return config.roundDown
+    ? roundedPrice - rest
+    : roundedPrice - rest + roundingValue;
+}
+
 function formatPurchaseConditionDiscount(
   condition: NagagoldKondisiBeli | undefined,
   typeKondisi: string,
@@ -1025,11 +1068,19 @@ function getRawText(raw: Record<string, unknown> | null | undefined, key: string
   return value || fallback;
 }
 
-function getPurchaseAuthorizationReasons(beratNota: number, berat: number, hargaNota: number, hargaBeli: number): string[] {
+function getPurchaseAuthorizationReasons(
+  beratNota: number,
+  berat: number,
+  hargaNota: number,
+  hargaBeli: number,
+  config: NagagoldPurchaseRounding,
+): string[] {
   const reasons: string[] = [];
-  if (Math.abs(hargaBeli - hargaNota) > 0) {
-    const direction = hargaBeli > hargaNota ? "melebihi" : "kurang dari";
-    reasons.push(`Harga beli ${direction} harga nota (${formatRupiah(hargaBeli)} vs ${formatRupiah(hargaNota)})`);
+  if (hargaBeli < hargaNota && !config.disableAuthorizationBelowNota) {
+    reasons.push(`Harga beli kurang dari harga nota (${formatRupiah(hargaBeli)} vs ${formatRupiah(hargaNota)})`);
+  }
+  if (hargaBeli > hargaNota && !config.disableAuthorizationAboveNota) {
+    reasons.push(`Harga beli melebihi harga nota (${formatRupiah(hargaBeli)} vs ${formatRupiah(hargaNota)})`);
   }
   if (berat > beratNota) {
     reasons.push(`Berat beli melebihi berat nota (${berat} gr vs ${beratNota} gr)`);
@@ -1038,7 +1089,8 @@ function getPurchaseAuthorizationReasons(beratNota: number, berat: number, harga
 }
 
 const styles = StyleSheet.create({
-  container: { backgroundColor: colors.background, gap: 14, paddingHorizontal: 12, paddingTop: Platform.OS === "ios" ? 66 : 46, paddingBottom: 32 },
+  keyboardScreen: { flex: 1 },
+  container: { backgroundColor: colors.background, gap: 14, paddingHorizontal: 12, paddingTop: Platform.OS === "ios" ? 66 : 46, paddingBottom: 190 },
   topHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
   headerLeft: { alignItems: "center", flexDirection: "row", gap: 10, flex: 1 },
   headerIconButton: { alignItems: "center", height: 34, justifyContent: "center", width: 34 },
@@ -1090,6 +1142,7 @@ const styles = StyleSheet.create({
   sheetHeader: { alignItems: "center", borderBottomColor: colors.outline, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 14 },
   sheetTitle: { color: colors.text, fontSize: 16, fontWeight: "800" },
   optionContent: { padding: 14 },
+  optionContentKeyboard: { padding: 14, paddingBottom: 140 },
   optionRow: { alignItems: "center", borderColor: colors.outline, borderRadius: 14, borderWidth: 1, flexDirection: "row", gap: 10, justifyContent: "space-between", marginBottom: 10, minHeight: 52, paddingHorizontal: 14 },
   optionRowActive: { backgroundColor: "#E7F8F0", borderColor: colors.primaryContainer },
   optionRowTitle: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "700" },

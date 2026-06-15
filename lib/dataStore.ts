@@ -53,14 +53,16 @@ export type NagagoldSalePayload = {
     ongkos: number;
     total: number;
     keterangan: string;
+    authorizationIds?: string[];
     raw?: Record<string, unknown>;
   }[];
+  authorizationIds?: string[];
   jumlahBayar: number;
   keterangan: string;
   typePembayaran?: string;
   rekening?: string;
   payments?: {
-    method: "CASH" | "TRANSFER" | "DEBET" | "CREDIT" | "QRIS";
+    method: "CASH" | "TRANSFER" | "DEBET" | "CREDIT";
     amount: number;
     bank?: string;
     rekening?: string;
@@ -69,7 +71,6 @@ export type NagagoldSalePayload = {
     feeAmount?: number;
     feeDropdown?: string;
     nominalWithFee?: number;
-    qrisString?: string;
   }[];
 };
 
@@ -108,8 +109,10 @@ export type NagagoldPurchasePayload = {
     hargaAtribut?: number;
     kodeHargaBeli?: string;
     hargaRata?: number;
+    authorizationIds?: string[];
     raw?: Record<string, unknown>;
   }[];
+  authorizationIds?: string[];
   jumlahBayar: number;
   keterangan: string;
   typePembayaran?: string;
@@ -119,6 +122,24 @@ export type NagagoldPurchasePayload = {
 export type NagagoldSubmitResult = {
   ok: boolean;
   endpoint: string;
+  response: unknown;
+};
+
+export type NagagoldAuthorizationPayload = {
+  username: string;
+  password: string;
+  kategori: string;
+  description: string;
+  keterangan: string;
+  kodeBarcode?: string;
+  berat?: number | string;
+  beratAwal?: number | string;
+  kodeIntern?: string;
+};
+
+export type NagagoldAuthorizationResult = {
+  ok: boolean;
+  authorizationId: string;
   response: unknown;
 };
 
@@ -135,6 +156,32 @@ export type NagagoldConnectionStatus = {
   endpoint: string;
   status: number;
   checkedAt: string;
+};
+
+export type NagagoldDashboardChart = {
+  count: number;
+  gram: number;
+  rupiah: number;
+  raw?: unknown;
+};
+
+export type NagagoldRecentTransaction = {
+  id: string;
+  type: "sale" | "purchase";
+  title: string;
+  subtitle: string;
+  amount: number;
+  gram: number;
+  time: string;
+  status: string;
+  createdAt?: string;
+  raw?: unknown;
+};
+
+export type NagagoldDashboard = {
+  sales: NagagoldDashboardChart;
+  purchases: NagagoldDashboardChart;
+  recent: NagagoldRecentTransaction[];
 };
 
 export type NagagoldSettings = {
@@ -443,8 +490,24 @@ export async function submitNagagoldPurchase(payload: NagagoldPurchasePayload): 
   });
 }
 
+export async function authorizeNagagoldTransaction(payload: NagagoldAuthorizationPayload): Promise<NagagoldAuthorizationResult> {
+  return apiRequest<NagagoldAuthorizationResult>("/api/nagagold/authorization", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
 export async function testNagagoldConnection(): Promise<NagagoldConnectionResult> {
   return apiRequest<NagagoldConnectionResult>("/api/nagagold/test-connection");
+}
+
+export async function loadNagagoldDashboard(): Promise<NagagoldDashboard> {
+  return apiRequest<NagagoldDashboard>("/api/nagagold/dashboard");
+}
+
+export async function loadNagagoldTodayHistory(type: "sale" | "purchase"): Promise<NagagoldRecentTransaction[]> {
+  const data = await apiRequest<{ history: NagagoldRecentTransaction[] }>(`/api/nagagold/history/today?type=${type}`);
+  return data.history;
 }
 
 export async function loadNagagoldSalesPeople(): Promise<NagagoldSalesPerson[]> {

@@ -49,8 +49,10 @@ type NagagoldSaleRequest = {
     ongkos?: number;
     total?: number;
     keterangan?: string;
+    authorizationIds?: string[];
     raw?: Record<string, unknown>;
   }[];
+  authorizationIds?: string[];
   jumlahBayar?: number;
   keterangan?: string;
   typePembayaran?: string;
@@ -104,12 +106,46 @@ type NagagoldPurchaseRequest = {
     hargaAtribut?: number;
     kodeHargaBeli?: string;
     hargaRata?: number;
+    authorizationIds?: string[];
     raw?: Record<string, unknown>;
   }[];
+  authorizationIds?: string[];
   jumlahBayar?: number;
   keterangan?: string;
   typePembayaran?: string;
   rekening?: string;
+};
+
+type NagagoldAuthorizationRequest = {
+  username?: string;
+  password?: string;
+  kategori?: string;
+  description?: string;
+  keterangan?: string;
+  kodeBarcode?: string;
+  berat?: number | string;
+  beratAwal?: number | string;
+  kodeIntern?: string;
+};
+
+type DashboardChart = {
+  count: number;
+  gram: number;
+  rupiah: number;
+  raw?: unknown;
+};
+
+type DashboardRecentTransaction = {
+  id: string;
+  type: "sale" | "purchase";
+  title: string;
+  subtitle: string;
+  amount: number;
+  gram: number;
+  time: string;
+  status: string;
+  createdAt?: string;
+  raw?: unknown;
 };
 
 const uri = process.env.MONGODB_URI;
@@ -195,6 +231,191 @@ function getRawText(raw: Record<string, unknown> | undefined, key: string, fallb
   return asText(raw[key], fallback);
 }
 
+function normalizeKodeDept(value: unknown, raw?: Record<string, unknown>): string {
+  const rawKodeDept = asText(raw?.kode_dept, "");
+  if (rawKodeDept) return rawKodeDept;
+
+  const text = asText(value, "");
+  return text.split("-")[0]?.trim() || text;
+}
+
+function collectAuthorizationIds(...groups: (string[] | undefined)[]): { _id: string }[] {
+  const ids = groups
+    .flatMap((group) => group ?? [])
+    .map((id) => String(id ?? "").trim())
+    .filter(Boolean);
+  return Array.from(new Set(ids)).map((_id) => ({ _id }));
+}
+
+function findAuthorizationId(response: unknown): string {
+  if (!response || typeof response !== "object") return "";
+  const record = response as Record<string, unknown>;
+  if (record._id) return String(record._id);
+  if (record.data && typeof record.data === "object" && "_id" in record.data) {
+    return String((record.data as Record<string, unknown>)._id ?? "");
+  }
+  return "";
+}
+
+function unwrapNagagoldData(data: unknown): unknown {
+  let current = data;
+  for (let index = 0; index < 4; index += 1) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) return current;
+    const record = current as Record<string, unknown>;
+    if ("data" in record) {
+      current = record.data;
+      continue;
+    }
+    if ("value" in record && typeof record.value === "object") {
+      current = record.value;
+      continue;
+    }
+    return current;
+  }
+  return current;
+}
+
+function normalizeDashboardChart(data: unknown): DashboardChart {
+  const unwrapped = unwrapNagagoldData(data);
+  const record = typeof unwrapped === "object" && unwrapped ? unwrapped as Record<string, unknown> : {};
+  return {
+    count: asNumber(record.value ?? record.count ?? record.qty ?? record.total),
+    gram: asNumber(record.gram ?? record.berat ?? record.total_gram),
+    rupiah: asNumber(record.rupiah ?? record.nominal ?? record.total_rupiah ?? record.total),
+    raw: data,
+  };
+}
+
+function localDateKey(): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jakarta",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date());
+}
+
+function flattenReportRows(data: unknown): Record<string, unknown>[] {
+  const unwrapped = unwrapNagagoldData(data);
+  const rows = Array.isArray(unwrapped) ? unwrapped : [];
+  return rows.flatMap((row) => {
+    if (!row || typeof row !== "object") return [];
+    const record = row as Record<string, unknown>;
+    if (Array.isArray(record.detail)) {
+      return record.detail
+        .filter((detail): detail is Record<string, unknown> => Boolean(detail && typeof detail === "object"))
+        .map((detail) => ({ ...detail, _group: record }));
+    }
+    return [record];
+  });
+}
+
+function pickTime(record: Record<string, unknown>): string {
+  return asText(record.jam ?? record.time_stamp ?? record.createdAt ?? record.tgl_stamp, "").slice(0, 5) || "-";
+}
+
+function mapSaleRecent(record: Record<string, unknown>): DashboardRecentTransaction {
+  const amount = asNumber(record.harga_total ?? record.total ?? record.harga_jual);
+  return {
+    id: asText(record.no_faktur_jual ?? record.no_faktur_group_user ?? record.kode_barcode, `SALE-${Date.now()}`),
+    type: "sale",
+    title: asText(record.nama_barang, "Penjualan"),
+    subtitle: `Penjualan • ${pickTime(record)}`,
+    amount,
+    gram: asNumber(record.berat),
+    time: pickTime(record),
+    status: asText(record.status_valid ?? "SELESAI", "SELESAI"),
+    createdAt: asText(record.tgl_system ?? record.tanggal ?? "", ""),
+    raw: record,
+  };
+}
+
+function mapPurchaseRecent(record: Record<string, unknown>): DashboardRecentTransaction {
+  const amount = asNumber(record.harga ?? record.harga_beli ?? record.total ?? record.harga_nota);
+  return {
+    id: asText(record.no_faktur_beli ?? record.no_faktur_group_user ?? record.kode_barcode, `PURCHASE-${Date.now()}`),
+    type: "purchase",
+    title: asText(record.nama_barang, "Pembelian"),
+    subtitle: `Pembelian • ${pickTime(record)}`,
+    amount,
+    gram: asNumber(record.berat),
+    time: pickTime(record),
+    status: asText(record.status_valid ?? "SELESAI", "SELESAI"),
+    createdAt: asText(record.tgl_system ?? record.tanggal ?? "", ""),
+    raw: record,
+  };
+}
+
+async function safeNagagoldFetch(path: string, init?: RequestInit): Promise<unknown> {
+  try {
+    const response = await nagagoldFetch(path, init);
+    return response.data;
+  } catch (error) {
+    console.warn("NAGAGOLD dashboard optional fetch failed:", path, error instanceof Error ? error.message : error);
+    return null;
+  }
+}
+
+async function loadSaleHistoryToday(limit = 50): Promise<DashboardRecentTransaction[]> {
+  const today = localDateKey();
+  const data = await safeNagagoldFetch("/api/v1/penjualan/get/lihatjual", {
+    method: "POST",
+    body: JSON.stringify({
+      tgl_awal: today,
+      tgl_akhir: today,
+      skip: 0,
+      limit,
+    }),
+  });
+  return flattenReportRows(data).map(mapSaleRecent);
+}
+
+async function loadPurchaseHistoryToday(): Promise<DashboardRecentTransaction[]> {
+  const today = localDateKey();
+  const data = await safeNagagoldFetch("/api/v1/pembelian/get/by-tanggal", {
+    method: "POST",
+    body: JSON.stringify({
+      tgl_awal: today,
+      tgl_akhir: today,
+      skip: 0,
+      is_pagination: false,
+    }),
+  });
+  return flattenReportRows(data).map(mapPurchaseRecent);
+}
+
+function sortRecentTransactions(items: DashboardRecentTransaction[]): DashboardRecentTransaction[] {
+  return [...items].sort((a, b) => {
+    const dateA = `${a.createdAt ?? ""} ${a.time}`;
+    const dateB = `${b.createdAt ?? ""} ${b.time}`;
+    return dateB.localeCompare(dateA);
+  });
+}
+
+function formatNagagoldError(data: unknown, status: number, domain: string): string {
+  if (typeof data === "object" && data && "message" in data) {
+    return String(data.message);
+  }
+
+  if (typeof data !== "string") {
+    return `NAGAGOLD request failed (${status}).`;
+  }
+
+  const text = data.trim();
+  if (!text) return `NAGAGOLD request failed (${status}).`;
+
+  if (/cloudflare tunnel error/i.test(text) || /error\s*1033/i.test(text)) {
+    return `Domain NAGAGOLD sedang tidak bisa diakses oleh Cloudflare Tunnel (${domain}). Coba Test Koneksi di Pengaturan atau ulangi beberapa saat lagi.`;
+  }
+
+  if (/^\s*<!doctype html/i.test(text) || /^\s*<html/i.test(text)) {
+    const title = text.match(/<title>(.*?)<\/title>/i)?.[1]?.replace(/\s+/g, " ").trim();
+    return title ? `NAGAGOLD mengembalikan halaman error: ${title}` : `NAGAGOLD mengembalikan halaman HTML error (${status}).`;
+  }
+
+  return text;
+}
+
 async function loadNagagoldDomain(): Promise<string> {
   const db = await getDb();
   const setting = await db.collection<SettingDocument>("settings").findOne({ _id: "nagagold" });
@@ -244,12 +465,7 @@ async function nagagoldFetch(path: string, init?: RequestInit): Promise<{ data: 
       ? await response.json()
       : await response.text();
   if (!response.ok && response.status !== 304) {
-    const detail = typeof data === "object" && data && "message" in data
-      ? String(data.message)
-      : typeof data === "string" && data.trim()
-        ? data.trim()
-        : `NAGAGOLD request failed (${response.status}).`;
-    throw new Error(detail);
+    throw new Error(formatNagagoldError(data, response.status, domain));
   }
 
   return { data, status: response.status, url };
@@ -328,6 +544,7 @@ function buildSalePayload(input: NagagoldSaleRequest) {
     };
   });
   const total = detailBarang.reduce((sum, item) => sum + item.total, 0);
+  const detailAuthorization = collectAuthorizationIds(input.authorizationIds, items.flatMap((item) => item.authorizationIds ?? []));
   const jumlahBayar = asNumber(input.jumlahBayar) || total;
   const inputPayments = Array.isArray(input.payments) ? input.payments : [];
   const pembayaran = inputPayments.length
@@ -381,7 +598,7 @@ function buildSalePayload(input: NagagoldSaleRequest) {
     pembayaran,
     ppn: 0,
     ppn_rp: 0,
-    detail_authorization: [],
+    detail_authorization: detailAuthorization,
     biaya_admin: 0,
     biaya_packing: 0,
     biaya_kirim: 0,
@@ -416,7 +633,7 @@ function buildPurchasePayload(input: NagagoldPurchaseRequest) {
       kode_sales_jual: getRawText(raw, "kode_sales", asText(input.kodeSales, "-")),
       kode_barcode: asText(item.kodeBarcode),
       no_faktur_jual: asText(item.noFakturJual),
-      kode_dept: asText(item.kodeJenis ?? raw?.kode_dept),
+      kode_dept: normalizeKodeDept(item.kodeJenis, raw),
       status_barang: asText(item.statusBarang ?? raw?.status_barang, "BARU"),
       nama_barang: asText(item.namaBarang),
       berat_nota: beratNota,
@@ -439,6 +656,7 @@ function buildPurchasePayload(input: NagagoldPurchaseRequest) {
     };
   });
   const totalHarga = detailBarang.reduce((sum, item) => sum + item.harga, 0);
+  const detailAuthorization = collectAuthorizationIds(input.authorizationIds, items.flatMap((item) => item.authorizationIds ?? []));
   const jumlahBayar = asNumber(input.jumlahBayar) || totalHarga;
   const typePembayaran = asText(input.typePembayaran ?? input.keterangan, "CASH");
   const rekeningParts = asText(input.rekening, "-").split("-");
@@ -462,7 +680,7 @@ function buildPurchasePayload(input: NagagoldPurchaseRequest) {
         bank: typePembayaran === "CASH" ? "-" : asText(rekeningParts[1], "-").trim(),
       },
     ],
-    detail_authorization: [],
+    detail_authorization: detailAuthorization,
     id_trx: `QRIS-${Date.now()}`,
   };
 }
@@ -569,6 +787,40 @@ app.get("/api/nagagold/test-connection", async (_req, res, next) => {
       checkedAt: connection.checkedAt,
       response: response.data,
     });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/nagagold/dashboard", async (_req, res, next) => {
+  try {
+    const [salesChartData, purchaseChartData, saleRows, purchaseRows] = await Promise.all([
+      nagagoldFetch("/api/v1/penjualan/chart?type=today", { method: "GET" }).then((response) => response.data),
+      nagagoldFetch("/api/v1/pembelian/chart?type=today", { method: "GET" }).then((response) => response.data),
+      loadSaleHistoryToday(10),
+      loadPurchaseHistoryToday(),
+    ]);
+
+    const recent = sortRecentTransactions([...saleRows, ...purchaseRows]).slice(0, 10);
+
+    res.json({
+      sales: normalizeDashboardChart(salesChartData),
+      purchases: normalizeDashboardChart(purchaseChartData),
+      recent,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/nagagold/history/today", async (req, res, next) => {
+  try {
+    const type = req.query.type === "purchase" ? "purchase" : "sale";
+    const history = type === "purchase"
+      ? await loadPurchaseHistoryToday()
+      : await loadSaleHistoryToday(100);
+
+    res.json({ history: sortRecentTransactions(history) });
   } catch (error) {
     next(error);
   }
@@ -849,6 +1101,33 @@ app.post("/api/nagagold/pembelian", async (req, res, next) => {
     const payload = buildPurchasePayload(body);
     const response = await nagagoldRequest("/api/v1/pembelian/simpan", payload);
     res.json({ ok: true, endpoint: "/api/v1/pembelian/simpan", response });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.post("/api/nagagold/authorization", async (req, res, next) => {
+  try {
+    const body = req.body as NagagoldAuthorizationRequest;
+    if (!body.username || !body.password) {
+      res.status(400).json({ message: "Username dan password otorisasi wajib diisi." });
+      return;
+    }
+
+    const payload = {
+      user_id: asText(body.username),
+      password: asText(body.password, ""),
+      kategori: asText(body.kategori, "OTORISASI"),
+      description: asText(body.description ?? body.kategori, "OTORISASI"),
+      keterangan: asText(body.keterangan, "-").toUpperCase(),
+      kode_barcode: asText(body.kodeBarcode, "-"),
+      berat: asText(body.berat, "0"),
+      berat_awal: asText(body.beratAwal, "0"),
+      kode_intern: asText(body.kodeIntern, "-"),
+    };
+    const response = await nagagoldRequest("/api/v1/authorization", payload);
+    const responseId = findAuthorizationId(response);
+    res.json({ ok: true, authorizationId: responseId, response });
   } catch (error) {
     next(error);
   }

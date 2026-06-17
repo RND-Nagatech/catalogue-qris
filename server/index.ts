@@ -64,6 +64,7 @@ type NagagoldSaleRequest = {
     bank?: string;
     rekening?: string;
     noCard?: string;
+    marketplace?: string;
     feePercent?: number;
     feeAmount?: number;
     feeDropdown?: string;
@@ -136,6 +137,23 @@ type NagagoldModule = {
   label?: string;
   type?: string;
   raw?: Record<string, unknown>;
+};
+
+type NagagoldSystemParameter = {
+  key: string;
+  value?: string | number | boolean | Record<string, unknown> | unknown[];
+  type?: string;
+  parent?: string;
+  raw?: Record<string, unknown>;
+};
+
+type NagagoldDynamicFeature = {
+  key: string;
+  sourceKey: string;
+  label: string;
+  group: string;
+  enabled: boolean;
+  value?: NagagoldModule["value"];
 };
 
 type NagagoldSalesCapabilities = {
@@ -398,6 +416,88 @@ function normalizeNagagoldModules(data: unknown): NagagoldModule[] {
   });
 }
 
+function normalizeNagagoldSystemParameters(data: unknown): NagagoldSystemParameter[] {
+  const unwrapped = unwrapNagagoldData(data);
+  if (!Array.isArray(unwrapped)) return [];
+
+  return unwrapped.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const raw = item as Record<string, unknown>;
+    const key = asText(raw.key, "");
+    if (!key) return [];
+
+    return [{
+      key,
+      value: raw.value as NagagoldSystemParameter["value"],
+      type: asText(raw.type, ""),
+      parent: asText(raw.parent, ""),
+      raw,
+    }];
+  });
+}
+
+function createConfigVersion(input: unknown): string {
+  return crypto
+    .createHash("sha256")
+    .update(JSON.stringify(input))
+    .digest("hex");
+}
+
+function classifyFeatureGroup(key: string): string {
+  const upper = key.toUpperCase();
+  if (upper.includes("TUKAR")) return "exchange";
+  if (upper.includes("MARKETPLACE")) return "marketplace";
+  if (upper.includes("GUDANG") || upper.includes("TOKO") || upper.includes("CABANG")) return "warehouse";
+  if (upper.includes("CUSTOMER") || upper.includes("MEMBER")) return "customer";
+  if (upper.includes("PPN") || upper.includes("PAJAK")) return "tax";
+  if (upper.includes("SALES")) return "sales";
+  if (upper.includes("VOUCHER")) return "voucher";
+  if (upper.includes("FOTO") || upper.includes("PHOTO")) return "photo";
+  if (upper.includes("OTORISASI") || upper.includes("AUTHORIZATION")) return "authorization";
+  if (upper.includes("PEMBULATAN")) return "rounding";
+  if (upper.includes("PEMBAYARAN") || upper.includes("PAYMENT") || upper.includes("REKENING")) return "payment";
+  if (upper.includes("PEMBELIAN") || upper.includes("BUYING")) return "purchase";
+  if (upper.includes("PENJUALAN") || upper.includes("TRANSACTION")) return "salesTransaction";
+  return "general";
+}
+
+function labelFromKey(key: string): string {
+  return key
+    .toLowerCase()
+    .split("_")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ");
+}
+
+function buildDynamicFeatures(modules: NagagoldModule[], parameters: NagagoldSystemParameter[]): NagagoldDynamicFeature[] {
+  const moduleFeatures = modules.map((module) => ({
+    key: module.key,
+    sourceKey: module.key,
+    label: module.label || labelFromKey(module.key),
+    group: classifyFeatureGroup(module.key),
+    enabled: true,
+    value: module.value,
+  }));
+
+  const parameterFeatures = parameters
+    .filter((parameter) => classifyFeatureGroup(parameter.key) !== "general")
+    .map((parameter) => ({
+      key: parameter.key,
+      sourceKey: parameter.key,
+      label: labelFromKey(parameter.key),
+      group: classifyFeatureGroup(parameter.key),
+      enabled: String(parameter.value ?? "").toLowerCase() !== "false",
+      value: parameter.value as NagagoldModule["value"],
+    }));
+
+  const byKey = new Map<string, NagagoldDynamicFeature>();
+  [...moduleFeatures, ...parameterFeatures].forEach((feature) => {
+    byKey.set(feature.key, feature);
+  });
+  return Array.from(byKey.values()).sort((a, b) => a.group.localeCompare(b.group) || a.label.localeCompare(b.label));
+}
+
 function createModuleReader(modules: NagagoldModule[]) {
   const byKey = new Map(modules.map((module) => [module.key, module]));
   return {
@@ -434,13 +534,7 @@ function buildSalesCapabilities(modules: NagagoldModule[]): NagagoldSalesCapabil
 
 function buildPurchaseCapabilities(modules: NagagoldModule[]): NagagoldPurchaseCapabilities {
   const module = createModuleReader(modules);
-  const unsupportedModules = [
-    "PARAMETER_HARGA_BELI",
-    "PARAMETER_HARGA_EMAS_PEMBELIAN",
-    "MODULE_BIAYA_ADMIN_PEMBELIAN",
-    "PEMBELIAN_DENGAN_FOTO",
-    "HARGA_BELI_TANPA_ATRIBUT_ONGKOS",
-  ].filter((key) => module.has(key));
+  const unsupportedModules: string[] = [];
 
   return {
     ...defaultPurchaseCapabilities,
@@ -465,6 +559,94 @@ function buildPurchaseCapabilities(modules: NagagoldModule[]): NagagoldPurchaseC
     disableAuthorizationAboveNota: module.has("NON_AKTIF_OTORISASI_HARGA_BELI_DIATAS_HARGA_NOTA"),
     disableAuthorizationBelowNota: module.has("NON_AKTIF_OTORISASI_HARGA_BELI_DIBAWAH_HARGA_NOTA"),
     unsupportedModules,
+  };
+}
+
+async function loadNagagoldRuntimeConfig() {
+  const domain = await loadNagagoldDomain();
+  if (!domain) {
+    throw new Error("Domain NAGAGOLD belum diatur.");
+  }
+
+  const [
+    moduleResponse,
+    parameterResponse,
+    transactionConfigResponse,
+    marketplaceSettingsResponse,
+    rekeningResponse,
+    tokoResponse,
+    salesResponse,
+    marketplaceResponse,
+    jenisResponse,
+    kondisiResponse,
+    groupResponse,
+    pembulatanResponse,
+  ] = await Promise.all([
+    nagagoldFetch("/api/v1/para-system/type/module", { method: "GET" }),
+    nagagoldFetch("/api/v1/para-system", { method: "GET" }).catch(() => ({ data: [] })),
+    nagagoldFetch("/api/v1/paratransaksi/get/all", { method: "GET" }).catch(() => ({ data: [] })),
+    nagagoldFetch("/api/v1/marketplace-settings", { method: "GET" }).catch(() => ({ data: [] })),
+    nagagoldFetch("/api/v1/rekenings", { method: "GET" }).catch(() => ({ data: [] })),
+    nagagoldFetch("/api/v1/tokos", { method: "GET" }).catch(() => ({ data: [] })),
+    nagagoldFetch("/api/v1/sales/get/all", { method: "GET" }).catch(() => ({ data: [] })),
+    nagagoldFetch("/api/v1/marketplace", { method: "GET" }).catch(() => ({ data: [] })),
+    nagagoldFetch("/api/v1/jenis/get/all", { method: "GET" }).catch(() => ({ data: [] })),
+    nagagoldFetch("/api/v1/parabeli/get/all", { method: "GET" }).catch(() => ({ data: [] })),
+    nagagoldFetch("/api/v1/group/get/all", { method: "GET" }).catch(() => ({ data: [] })),
+    nagagoldFetch("/api/v1/para-system/key/PEMBULATAN", { method: "GET" }).catch(() => ({ data: { value: 500 } })),
+  ]);
+
+  const modules = normalizeNagagoldModules(moduleResponse.data);
+  const parameters = normalizeNagagoldSystemParameters(parameterResponse.data);
+  const purchaseCapabilities = buildPurchaseCapabilities(modules);
+  const pembulatanData = firstArrayItem(unwrapNagagoldData(pembulatanResponse.data));
+  const transactionConfig = unwrapNagagoldData(transactionConfigResponse.data);
+  const marketplaceSettings = unwrapNagagoldData(marketplaceSettingsResponse.data);
+  const dynamicFeatures = buildDynamicFeatures(modules, parameters);
+  const payloadForVersion = {
+    modules,
+    parameters,
+    transactionConfig,
+    marketplaceSettings,
+    masters: {
+      rekenings: rekeningResponse.data,
+      tokos: tokoResponse.data,
+      sales: salesResponse.data,
+      marketplaces: marketplaceResponse.data,
+      jenis: jenisResponse.data,
+      kondisi: kondisiResponse.data,
+      groups: groupResponse.data,
+    },
+  };
+
+  return {
+    domain,
+    version: createConfigVersion(payloadForVersion),
+    loadedAt: new Date().toISOString(),
+    modules,
+    parameters,
+    transactionConfig,
+    marketplaceSettings,
+    dynamicFeatures,
+    capabilities: {
+      sales: buildSalesCapabilities(modules),
+      purchases: purchaseCapabilities,
+    },
+    masters: {
+      sales: Array.isArray(salesResponse.data) ? salesResponse.data : [],
+      marketplaces: Array.isArray(marketplaceResponse.data) ? marketplaceResponse.data : [],
+      rekenings: Array.isArray(rekeningResponse.data) ? rekeningResponse.data : [],
+      tokos: Array.isArray(tokoResponse.data) ? tokoResponse.data : [],
+      jenis: Array.isArray(jenisResponse.data) ? jenisResponse.data : [],
+      kondisi: Array.isArray(kondisiResponse.data) ? kondisiResponse.data : [],
+      groups: Array.isArray(groupResponse.data) ? groupResponse.data : [],
+      purchaseRounding: {
+        value: asNumber(pembulatanData?.value) || 500,
+        roundDown: modules.some((item) => item.key === "PEMBULATAN_PEMBELIAN_KEBAWAH_MODULE"),
+        disableAuthorizationAboveNota: purchaseCapabilities.disableAuthorizationAboveNota,
+        disableAuthorizationBelowNota: purchaseCapabilities.disableAuthorizationBelowNota,
+      },
+    },
   };
 }
 
@@ -760,12 +942,15 @@ function buildSalePayload(input: NagagoldSaleRequest) {
   const pembayaran = inputPayments.length
     ? inputPayments.map((payment) => {
         const method = asText(payment.method, "CASH").toUpperCase();
-        const validMethod = ["CASH", "TRANSFER", "DEBET", "CREDIT"].includes(method) ? method : "TRANSFER";
+        const validMethod = ["CASH", "TRANSFER", "DEBET", "CREDIT", "TUKAR"].includes(method) ? method : "TRANSFER";
         const isCard = validMethod === "DEBET" || validMethod === "CREDIT";
         const nonCashInfo = asText(payment.rekening || payment.bank, "-").toUpperCase();
         const noCard = asText(payment.noCard, "-").toUpperCase();
+        const marketplace = asText(payment.marketplace, "-");
         const keterangan = validMethod === "CASH"
           ? "CASH"
+          : validMethod === "TUKAR"
+            ? "TUKAR"
           : isCard && noCard !== "-"
             ? `${nonCashInfo} ~ ${noCard}`
             : nonCashInfo;
@@ -778,6 +963,7 @@ function buildSalePayload(input: NagagoldSaleRequest) {
           jenis: validMethod,
           bayar_lebih: "TIDAK",
           keterangan,
+          marketplace,
           param_fee: isCard ? asText(payment.feeDropdown ?? payment.feePercent, "-") : "-",
           fee: isCard ? asNumber(payment.feePercent) : 0,
           jumlah_rp: asNumber(payment.amount ?? payment.nominalWithFee),
@@ -1008,47 +1194,30 @@ app.get("/api/nagagold/test-connection", async (_req, res, next) => {
 
 app.get("/api/nagagold/bootstrap", async (_req, res, next) => {
   try {
-    const domain = await loadNagagoldDomain();
-    if (!domain) {
-      res.status(400).json({ message: "Domain NAGAGOLD belum diatur." });
-      return;
-    }
+    res.json(await loadNagagoldRuntimeConfig());
+  } catch (error) {
+    next(error);
+  }
+});
 
-    const [moduleResponse, salesResponse, rekeningResponse, tokoResponse, jenisResponse, kondisiResponse, groupResponse, pembulatanResponse] = await Promise.all([
-      nagagoldFetch("/api/v1/para-system/type/module", { method: "GET" }),
-      nagagoldFetch("/api/v1/sales/get/all", { method: "GET" }).catch(() => ({ data: [] })),
-      nagagoldFetch("/api/v1/rekenings", { method: "GET" }).catch(() => ({ data: [] })),
-      nagagoldFetch("/api/v1/tokos", { method: "GET" }).catch(() => ({ data: [] })),
-      nagagoldFetch("/api/v1/jenis/get/all", { method: "GET" }).catch(() => ({ data: [] })),
-      nagagoldFetch("/api/v1/parabeli/get/all", { method: "GET" }).catch(() => ({ data: [] })),
-      nagagoldFetch("/api/v1/group/get/all", { method: "GET" }).catch(() => ({ data: [] })),
-      nagagoldFetch("/api/v1/para-system/key/PEMBULATAN", { method: "GET" }).catch(() => ({ data: { value: 500 } })),
-    ]);
-    const modules = normalizeNagagoldModules(moduleResponse.data);
-    const purchaseCapabilities = buildPurchaseCapabilities(modules);
-    const pembulatanData = firstArrayItem(unwrapNagagoldData(pembulatanResponse.data));
+app.get("/api/nagagold/config", async (_req, res, next) => {
+  try {
+    res.json(await loadNagagoldRuntimeConfig());
+  } catch (error) {
+    next(error);
+  }
+});
 
+app.get("/api/nagagold/config/version", async (_req, res, next) => {
+  try {
+    const config = await loadNagagoldRuntimeConfig();
     res.json({
-      domain,
-      modules,
-      capabilities: {
-        sales: buildSalesCapabilities(modules),
-        purchases: purchaseCapabilities,
-      },
-      masters: {
-        sales: Array.isArray(salesResponse.data) ? salesResponse.data : [],
-        rekenings: Array.isArray(rekeningResponse.data) ? rekeningResponse.data : [],
-        tokos: Array.isArray(tokoResponse.data) ? tokoResponse.data : [],
-        jenis: Array.isArray(jenisResponse.data) ? jenisResponse.data : [],
-        kondisi: Array.isArray(kondisiResponse.data) ? kondisiResponse.data : [],
-        groups: Array.isArray(groupResponse.data) ? groupResponse.data : [],
-        purchaseRounding: {
-          value: asNumber(pembulatanData?.value) || 500,
-          roundDown: modules.some((item) => item.key === "PEMBULATAN_PEMBELIAN_KEBAWAH_MODULE"),
-          disableAuthorizationAboveNota: purchaseCapabilities.disableAuthorizationAboveNota,
-          disableAuthorizationBelowNota: purchaseCapabilities.disableAuthorizationBelowNota,
-        },
-      },
+      domain: config.domain,
+      version: config.version,
+      loadedAt: config.loadedAt,
+      moduleCount: config.modules.length,
+      parameterCount: config.parameters.length,
+      dynamicFeatureCount: config.dynamicFeatures.length,
     });
   } catch (error) {
     next(error);

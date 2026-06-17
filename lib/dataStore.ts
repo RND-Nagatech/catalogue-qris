@@ -62,11 +62,12 @@ export type NagagoldSalePayload = {
   typePembayaran?: string;
   rekening?: string;
   payments?: {
-    method: "CASH" | "TRANSFER" | "DEBET" | "CREDIT";
+    method: "CASH" | "TRANSFER" | "DEBET" | "CREDIT" | "TUKAR";
     amount: number;
     bank?: string;
     rekening?: string;
     noCard?: string;
+    marketplace?: string;
     feePercent?: number;
     feeAmount?: number;
     feeDropdown?: string;
@@ -205,6 +206,23 @@ export type NagagoldModule = {
   raw?: Record<string, unknown>;
 };
 
+export type NagagoldSystemParameter = {
+  key: string;
+  value?: string | number | boolean | Record<string, unknown> | unknown[];
+  type?: string;
+  parent?: string;
+  raw?: Record<string, unknown>;
+};
+
+export type NagagoldDynamicFeature = {
+  key: string;
+  sourceKey: string;
+  label: string;
+  group: string;
+  enabled: boolean;
+  value?: string | number | boolean;
+};
+
 export type NagagoldSalesCapabilities = {
   requireSales: boolean;
   allowNonMember: boolean;
@@ -252,13 +270,20 @@ export type NagagoldPurchaseCapabilities = {
 
 export type NagagoldBootstrap = {
   domain: string;
+  version?: string;
+  loadedAt?: string;
   modules: NagagoldModule[];
+  parameters?: NagagoldSystemParameter[];
+  transactionConfig?: unknown;
+  marketplaceSettings?: unknown;
+  dynamicFeatures?: NagagoldDynamicFeature[];
   capabilities: {
     sales: NagagoldSalesCapabilities;
     purchases: NagagoldPurchaseCapabilities;
   };
   masters: {
     sales: NagagoldSalesPerson[];
+    marketplaces: NagagoldMarketplace[];
     rekenings: NagagoldRekening[];
     tokos: NagagoldToko[];
     jenis: NagagoldJenis[];
@@ -266,6 +291,24 @@ export type NagagoldBootstrap = {
     groups: NagagoldGroup[];
     purchaseRounding: NagagoldPurchaseRounding;
   };
+};
+
+export type NagagoldRuntimeConfig = Required<Pick<NagagoldBootstrap, "domain" | "modules" | "capabilities" | "masters">> & {
+  version: string;
+  loadedAt: string;
+  parameters: NagagoldSystemParameter[];
+  transactionConfig: unknown;
+  marketplaceSettings: unknown;
+  dynamicFeatures: NagagoldDynamicFeature[];
+};
+
+export type NagagoldConfigVersion = {
+  domain: string;
+  version: string;
+  loadedAt: string;
+  moduleCount: number;
+  parameterCount: number;
+  dynamicFeatureCount: number;
 };
 
 export type NagagoldMember = {
@@ -292,6 +335,15 @@ export type NagagoldSaleLookupItem = Record<string, unknown> & {
 export type NagagoldBank = {
   kode_bank: string;
   nama_bank: string;
+};
+
+export type NagagoldMarketplace = {
+  kode_marketplace?: string;
+  nama_marketplace?: string;
+  kode?: string;
+  nama?: string;
+  marketplace?: string;
+  status_aktif?: boolean;
 };
 
 export type NagagoldRekening = {
@@ -591,6 +643,14 @@ export async function loadNagagoldTodayHistory(type: "sale" | "purchase"): Promi
 
 export async function loadNagagoldBootstrap(): Promise<NagagoldBootstrap> {
   return apiRequest<NagagoldBootstrap>("/api/nagagold/bootstrap");
+}
+
+export async function loadNagagoldRuntimeConfig(): Promise<NagagoldRuntimeConfig> {
+  return apiRequest<NagagoldRuntimeConfig>("/api/nagagold/config");
+}
+
+export async function loadNagagoldConfigVersion(): Promise<NagagoldConfigVersion> {
+  return apiRequest<NagagoldConfigVersion>("/api/nagagold/config/version");
 }
 
 export async function loadNagagoldSalesPeople(): Promise<NagagoldSalesPerson[]> {

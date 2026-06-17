@@ -104,15 +104,15 @@ export default function Home() {
         <AppHeader title="Beranda" />
 
         <View style={styles.titleBlock}>
-          <Text style={[theme.typography.body, { color: theme.colors.muted }]}>Selamat datang kembali👋</Text>
+          {/* <Text style={[theme.typography.body, { color: theme.colors.muted }]}>Selamat datang kembali👋</Text> */}
           <View style={styles.connectionRow}>
-            <Text style={[theme.typography.title, { color: theme.colors.text }]}>
+            {/* <Text style={[theme.typography.title, { color: theme.colors.text }]}>
               {connectionText.includes("Terhubung") ? "Terhubung ke " : connectionText}
-            </Text>
+            </Text> */}
             {connectionText.includes("Terhubung") ? (
               <>
-                <Text style={[theme.typography.title, { color: theme.colors.primary }]}>Server</Text>
-                <View style={[styles.pulseDot, { backgroundColor: theme.colors.primary }]} />
+                {/* <Text style={[theme.typography.title, { color: theme.colors.primary }]}>Server</Text> */}
+                {/* <View style={[styles.pulseDot, { backgroundColor: theme.colors.primary }]} /> */}
               </>
             ) : null}
           </View>

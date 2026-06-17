@@ -5,8 +5,6 @@ import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import {
   authorizeNagagoldTransaction,
-  loadNagagoldBootstrap,
-  loadNagagoldDomain,
   lookupNagagoldMemberByCode,
   lookupNagagoldPurchaseItem,
   searchNagagoldMembers,
@@ -25,6 +23,7 @@ import {
 } from "../lib/dataStore";
 import { AppHeader as SharedAppHeader, EmptyState } from "../components/ui";
 import { formatRupiah } from "../lib/qris";
+import { useNagagoldConfig } from "../lib/nagagoldConfig";
 import { useAppTheme } from "../lib/theme";
 
 type PurchaseItem = {
@@ -112,6 +111,7 @@ function normalizeBarcode(value: string): string {
 
 export default function Purchases() {
   const theme = useAppTheme();
+  const nagagoldConfig = useNagagoldConfig();
   const [domain, setDomain] = useState("");
   const [modules, setModules] = useState<NagagoldModule[]>([]);
   const [purchaseCapabilities, setPurchaseCapabilities] = useState<NagagoldPurchaseCapabilities>(defaultPurchaseCapabilities);
@@ -161,48 +161,35 @@ export default function Purchases() {
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [pendingAuthorization, setPendingAuthorization] = useState<PendingPurchaseAuthorization | null>(null);
 
+  const applyRuntimeConfig = useCallback((config: typeof nagagoldConfig.config) => {
+    if (!config) return;
+    setDomain(config.domain);
+    setModules(config.modules);
+    setPurchaseCapabilities(config.capabilities.purchases ?? defaultPurchaseCapabilities);
+    setTokos(config.masters.tokos ?? []);
+    setJenisList((config.masters.jenis ?? []).filter((item) => item.status_aktif !== false));
+    setKondisiList((config.masters.kondisi ?? []).filter((item) => item.status_aktif !== false));
+    setRoundingConfig(config.masters.purchaseRounding);
+    setGroups((config.masters.groups ?? []).filter((item) => item.status_aktif !== false));
+    setSalesPeople((config.masters.sales ?? []).filter((item) => item.status_aktif !== false));
+    setRekenings(config.masters.rekenings ?? []);
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
       setIsLoadingMaster(true);
       Promise.all([
-        loadNagagoldBootstrap().catch(async () => ({
-          domain: await loadNagagoldDomain().catch(() => ""),
-          modules: [],
-          capabilities: { purchases: defaultPurchaseCapabilities },
-          masters: {
-            tokos: [],
-            jenis: [],
-            kondisi: [],
-            groups: [],
-            sales: [],
-            rekenings: [],
-            purchaseRounding: {
-              value: 500,
-              roundDown: false,
-              disableAuthorizationAboveNota: false,
-              disableAuthorizationBelowNota: false,
-            },
-          },
-        })),
+        nagagoldConfig.config ? Promise.resolve(nagagoldConfig.config) : nagagoldConfig.reloadConfig(),
       ])
-        .then(([bootstrap]) => {
+        .then(([config]) => {
           if (!active) return;
-          setDomain(bootstrap.domain);
-          setModules(bootstrap.modules);
-          setPurchaseCapabilities(bootstrap.capabilities.purchases ?? defaultPurchaseCapabilities);
-          setTokos(bootstrap.masters.tokos ?? []);
-          setJenisList((bootstrap.masters.jenis ?? []).filter((item) => item.status_aktif !== false));
-          setKondisiList((bootstrap.masters.kondisi ?? []).filter((item) => item.status_aktif !== false));
-          setRoundingConfig(bootstrap.masters.purchaseRounding);
-          setGroups((bootstrap.masters.groups ?? []).filter((item) => item.status_aktif !== false));
-          setSalesPeople((bootstrap.masters.sales ?? []).filter((item) => item.status_aktif !== false));
-          setRekenings(bootstrap.masters.rekenings ?? []);
-          if (!kodeSales && bootstrap.masters.sales?.[0]?.kode_sales && (bootstrap.capabilities.purchases ?? defaultPurchaseCapabilities).requireSales) {
-            setKodeSales(bootstrap.masters.sales[0].kode_sales);
-            setNamaSales(bootstrap.masters.sales[0].nama_sales);
+          applyRuntimeConfig(config);
+          if (!kodeSales && config?.masters.sales?.[0]?.kode_sales && (config.capabilities.purchases ?? defaultPurchaseCapabilities).requireSales) {
+            setKodeSales(config.masters.sales[0].kode_sales);
+            setNamaSales(config.masters.sales[0].nama_sales);
           }
-          if (!rekening && bootstrap.masters.rekenings?.[0]) setRekening(`${bootstrap.masters.rekenings[0].no_rekening} ~ ${bootstrap.masters.rekenings[0].kode_bank}`);
+          if (!rekening && config?.masters.rekenings?.[0]) setRekening(`${config.masters.rekenings[0].no_rekening} ~ ${config.masters.rekenings[0].kode_bank}`);
         })
         .catch(() => {
           if (active) setDomain("");
@@ -210,11 +197,16 @@ export default function Purchases() {
         .finally(() => {
           if (active) setIsLoadingMaster(false);
         });
+      nagagoldConfig.checkForChanges();
       return () => {
         active = false;
       };
-    }, [kodeSales, rekening])
+    }, [applyRuntimeConfig, kodeSales, nagagoldConfig, rekening])
   );
+
+  useEffect(() => {
+    applyRuntimeConfig(nagagoldConfig.config);
+  }, [applyRuntimeConfig, nagagoldConfig.config?.version]);
 
   const totals = useMemo(() => items.reduce((acc, item) => ({
     hargaNota: acc.hargaNota + item.hargaNota,
@@ -227,7 +219,6 @@ export default function Purchases() {
   const selectedKondisi = kondisiList.find((item) => item.kondisi_barang === kondisi);
   const unsupportedPurchaseModules = purchaseCapabilities.unsupportedModules ?? [];
   const purchasePaymentTypes = purchaseCapabilities.allowTransferPayment ? paymentTypes : ["CASH"];
-
   const calculateHargaBeli = (overrides?: {
     berat?: string;
     hargaNota?: string;
@@ -605,14 +596,6 @@ export default function Purchases() {
       <Stepper step={step} />
       {step === 1 ? (
         <View style={styles.formStack}>
-          {unsupportedPurchaseModules.length ? (
-            <View style={[styles.moduleNotice, { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}>
-              <Ionicons name="alert-circle-outline" size={18} color={theme.colors.secondary} />
-              <Text style={[styles.moduleNoticeText, { color: theme.colors.muted }]}>
-                Module belum didukung APK: {unsupportedPurchaseModules.join(", ")}. Form bisa dilihat, tapi simpan pembelian diblokir agar tidak berbeda dari NAGAGOLD web.
-              </Text>
-            </View>
-          ) : null}
           {purchaseCapabilities.showStoreSelector ? (
             <OptionGroup
               label="Pilih Kode Toko"

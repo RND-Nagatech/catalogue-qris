@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   Image,
@@ -19,8 +19,6 @@ import { useFocusEffect } from "expo-router";
 import { AppHeader, EmptyState } from "../components/ui";
 import {
   authorizeNagagoldTransaction,
-  loadNagagoldBootstrap,
-  loadNagagoldDomain,
   loadQrisString,
   lookupNagagoldMemberByCode,
   lookupNagagoldSaleItem,
@@ -28,6 +26,7 @@ import {
   submitNagagoldSale,
   type NagagoldModule,
   type NagagoldMember,
+  type NagagoldMarketplace,
   type NagagoldRekening,
   type NagagoldSaleLookupItem,
   type NagagoldSalesCapabilities,
@@ -35,6 +34,7 @@ import {
 } from "../lib/dataStore";
 import { generateDynamicQris } from "../contohqris";
 import { formatRupiah, normalizeQris } from "../lib/qris";
+import { useNagagoldConfig } from "../lib/nagagoldConfig";
 import { useAppTheme } from "../lib/theme";
 
 type SaleItem = {
@@ -65,18 +65,19 @@ type PendingSaleAuthorization = {
 
 type PaymentLine = {
   id: string;
-  method: "CASH" | "TRANSFER" | "DEBET" | "CREDIT";
+  method: "CASH" | "TRANSFER" | "DEBET" | "CREDIT" | "TUKAR";
   amount: number;
   nominalWithFee: number;
   bank?: string;
   rekening?: string;
   noCard?: string;
+  marketplace?: string;
   feePercent?: number;
   feeAmount?: number;
   rekeningLabel?: string;
 };
 
-const paymentMethods: PaymentLine["method"][] = ["CASH", "TRANSFER", "DEBET", "CREDIT"];
+const paymentMethods: PaymentLine["method"][] = ["CASH", "TRANSFER", "DEBET", "CREDIT", "TUKAR"];
 const defaultSalesCapabilities: NagagoldSalesCapabilities = {
   requireSales: true,
   allowNonMember: true,
@@ -117,11 +118,13 @@ const colors = {
 
 export default function Sales() {
   const theme = useAppTheme();
+  const nagagoldConfig = useNagagoldConfig();
   const [domain, setDomain] = useState("");
   const [savedQris, setSavedQris] = useState("");
   const [modules, setModules] = useState<NagagoldModule[]>([]);
   const [salesCapabilities, setSalesCapabilities] = useState<NagagoldSalesCapabilities>(defaultSalesCapabilities);
   const [salesPeople, setSalesPeople] = useState<NagagoldSalesPerson[]>([]);
+  const [marketplaces, setMarketplaces] = useState<NagagoldMarketplace[]>([]);
   const [rekenings, setRekenings] = useState<NagagoldRekening[]>([]);
   const [isLoadingMaster, setIsLoadingMaster] = useState(false);
   const [customerOpen, setCustomerOpen] = useState(false);
@@ -148,6 +151,7 @@ export default function Sales() {
   const [paymentRekening, setPaymentRekening] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentNoCard, setPaymentNoCard] = useState("");
+  const [paymentMarketplace, setPaymentMarketplace] = useState("");
   const [paymentFeePercent, setPaymentFeePercent] = useState("");
   const [isLookingUpMember, setIsLookingUpMember] = useState(false);
   const [isLookingUpItem, setIsLookingUpItem] = useState(false);
@@ -156,30 +160,31 @@ export default function Sales() {
   const [pendingAuthorization, setPendingAuthorization] = useState<PendingSaleAuthorization | null>(null);
   const [items, setItems] = useState<SaleItem[]>([]);
 
+  const applyRuntimeConfig = useCallback((config: typeof nagagoldConfig.config) => {
+    if (!config) return;
+    setDomain(config.domain);
+    setModules(config.modules);
+    setSalesCapabilities(config.capabilities.sales);
+    setSalesPeople(config.masters.sales.filter((item) => item.status_aktif !== false));
+    setMarketplaces((config.masters.marketplaces ?? []).filter((item) => item.status_aktif !== false));
+    setRekenings(config.masters.rekenings);
+    if (!config.capabilities.sales.allowNonMember) {
+      setJenisCustomer("MEMBER");
+    }
+  }, []);
+
   useFocusEffect(
     useCallback(() => {
       let active = true;
       setIsLoadingMaster(true);
       Promise.all([
         loadQrisString().catch(() => ""),
-        loadNagagoldBootstrap().catch(async () => ({
-          domain: await loadNagagoldDomain().catch(() => ""),
-          modules: [],
-          capabilities: { sales: defaultSalesCapabilities },
-          masters: { sales: [], rekenings: [] },
-        })),
+        nagagoldConfig.config ? Promise.resolve(nagagoldConfig.config) : nagagoldConfig.reloadConfig(),
       ])
-        .then(([nextQris, bootstrap]) => {
+        .then(([nextQris, config]) => {
           if (!active) return;
-          setDomain(bootstrap.domain);
           setSavedQris(nextQris);
-          setModules(bootstrap.modules);
-          setSalesCapabilities(bootstrap.capabilities.sales);
-          setSalesPeople(bootstrap.masters.sales.filter((item) => item.status_aktif !== false));
-          setRekenings(bootstrap.masters.rekenings);
-          if (!bootstrap.capabilities.sales.allowNonMember) {
-            setJenisCustomer("MEMBER");
-          }
+          applyRuntimeConfig(config);
         })
         .catch(() => {
           if (active) setDomain("");
@@ -187,11 +192,16 @@ export default function Sales() {
         .finally(() => {
           if (active) setIsLoadingMaster(false);
         });
+      nagagoldConfig.checkForChanges();
       return () => {
         active = false;
       };
-    }, [])
+    }, [applyRuntimeConfig, nagagoldConfig])
   );
+
+  useEffect(() => {
+    applyRuntimeConfig(nagagoldConfig.config);
+  }, [applyRuntimeConfig, nagagoldConfig.config?.version]);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.total, 0), [items]);
   const paidTotal = payments.reduce((sum, item) => sum + item.amount, 0);
@@ -199,7 +209,6 @@ export default function Sales() {
   const firstItem = items[0];
   const hasRequiredSales = !salesCapabilities.requireSales || Boolean(kodeSales.trim());
   const canOpenPayment = Boolean(hasRequiredSales && items.length);
-
   const saveCustomer = async () => {
     if (salesCapabilities.requireSales && !kodeSales.trim()) {
       Alert.alert("Data belum lengkap", "Kode sales wajib dipilih.");
@@ -395,6 +404,7 @@ export default function Sales() {
     const feeAmount = ["DEBET", "CREDIT"].includes(paymentMethod) ? Math.floor((amount * feePercent) / 100) : 0;
     const nominalWithFee = ["DEBET", "CREDIT"].includes(paymentMethod) ? amount + feeAmount : amount;
     const selectedRekening = rekenings.find((rekening) => rekeningKey(rekening) === paymentRekening);
+    const needsRekening = ["TRANSFER", "DEBET", "CREDIT"].includes(paymentMethod);
     if (amount <= 0) {
       Alert.alert("Nominal belum valid", "Masukkan nominal pembayaran terlebih dahulu.");
       return;
@@ -403,7 +413,7 @@ export default function Sales() {
       Alert.alert("Fee belum valid", "Nominal setelah fee harus lebih dari nol.");
       return;
     }
-    if (["TRANSFER", "DEBET", "CREDIT"].includes(paymentMethod) && !selectedRekening) {
+    if (needsRekening && !selectedRekening) {
       Alert.alert("Rekening belum dipilih", "Pilih rekening dari master rekening NAGAGOLD.");
       return;
     }
@@ -414,16 +424,18 @@ export default function Sales() {
         method: paymentMethod,
         amount,
         nominalWithFee,
-        bank: paymentMethod === "CASH" ? "CASH" : selectedRekening?.kode_bank,
-        rekening: paymentMethod === "CASH" ? "CASH" : rekeningPayload(selectedRekening),
-        rekeningLabel: paymentMethod === "CASH" ? "CASH" : rekeningLabel(selectedRekening),
+        bank: paymentMethod === "CASH" || paymentMethod === "TUKAR" ? paymentMethod : selectedRekening?.kode_bank,
+        rekening: paymentMethod === "CASH" || paymentMethod === "TUKAR" ? paymentMethod : rekeningPayload(selectedRekening),
+        rekeningLabel: paymentMethod === "CASH" || paymentMethod === "TUKAR" ? paymentMethod : rekeningLabel(selectedRekening),
         noCard: paymentNoCard.trim(),
+        marketplace: paymentMarketplace.trim(),
         feePercent,
         feeAmount,
       },
     ]);
     setPaymentAmount("");
     setPaymentNoCard("");
+    setPaymentMarketplace("");
     setPaymentFeePercent("");
     await Haptics.selectionAsync();
   };
@@ -499,6 +511,7 @@ export default function Sales() {
           bank: payment.bank,
           rekening: payment.rekening,
           noCard: payment.noCard,
+          marketplace: payment.marketplace,
           feePercent: payment.feePercent,
           feeAmount: payment.feeAmount,
           feeDropdown: payment.feePercent ? String(payment.feePercent) : "-",
@@ -538,6 +551,7 @@ export default function Sales() {
     setPaymentRekening("");
     setPaymentAmount("");
     setPaymentNoCard("");
+    setPaymentMarketplace("");
     setPaymentFeePercent("");
     setPaymentOpen(false);
   };
@@ -703,10 +717,14 @@ export default function Sales() {
         rekening={paymentRekening}
         setRekening={setPaymentRekening}
         rekenings={rekenings}
+        marketplaces={marketplaces}
+        showMarketplacePayment={salesCapabilities.showMarketplacePayment}
         amount={paymentAmount}
         setAmount={setPaymentAmount}
         noCard={paymentNoCard}
         setNoCard={setPaymentNoCard}
+        marketplace={paymentMarketplace}
+        setMarketplace={setPaymentMarketplace}
         feePercent={paymentFeePercent}
         setFeePercent={setPaymentFeePercent}
         qrisString={savedQris}
@@ -1001,10 +1019,14 @@ function PaymentModal(props: {
   rekening: string;
   setRekening: (value: string) => void;
   rekenings: NagagoldRekening[];
+  marketplaces: NagagoldMarketplace[];
+  showMarketplacePayment: boolean;
   amount: string;
   setAmount: (value: string) => void;
   noCard: string;
   setNoCard: (value: string) => void;
+  marketplace: string;
+  setMarketplace: (value: string) => void;
   feePercent: string;
   setFeePercent: (value: string) => void;
   qrisString: string;
@@ -1019,6 +1041,7 @@ function PaymentModal(props: {
   const theme = useAppTheme();
   const [methodPickerOpen, setMethodPickerOpen] = useState(false);
   const [rekeningPickerOpen, setRekeningPickerOpen] = useState(false);
+  const [marketplacePickerOpen, setMarketplacePickerOpen] = useState(false);
   const [showTransferQris, setShowTransferQris] = useState(false);
   const amount = parseCurrency(props.amount);
   const qrisAmount = amount > 0 ? amount : props.remaining;
@@ -1027,6 +1050,7 @@ function PaymentModal(props: {
   const nominalWithFee = ["DEBET", "CREDIT"].includes(props.method) ? amount + feeAmount : amount;
   const generatedQris = props.method === "TRANSFER" && showTransferQris ? buildPaymentQris(props.qrisString, qrisAmount) : "";
   const selectedRekening = props.rekenings.find((rekening) => rekeningKey(rekening) === props.rekening);
+  const selectedMarketplace = props.marketplaces.find((marketplace) => marketplaceKey(marketplace) === props.marketplace);
   const generateTransferQris = () => {
     if (props.method !== "TRANSFER") return;
     if (qrisAmount <= 0) {
@@ -1061,6 +1085,29 @@ function PaymentModal(props: {
             placeholder="Pilih rekening dari master"
             onPress={() => setRekeningPickerOpen(true)}
           />
+        </>
+      ) : null}
+      {props.method === "TUKAR" ? (
+        <Pressable
+          style={[styles.tukarButton, { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}
+          onPress={() => props.setAmount(String(props.remaining))}
+        >
+          <Ionicons name="swap-horizontal-outline" size={18} color={theme.colors.secondary} />
+          <Text style={[styles.tukarButtonText, { color: theme.colors.secondary }]}>Bayar Dengan Tukar</Text>
+        </Pressable>
+      ) : null}
+      {props.showMarketplacePayment ? (
+        <>
+          <Text style={[styles.label, { color: theme.colors.subtleText }]}>Marketplace</Text>
+          {props.marketplaces.length ? (
+            <SelectField
+              value={selectedMarketplace ? marketplaceLabel(selectedMarketplace) : ""}
+              placeholder="Pilih marketplace"
+              onPress={() => setMarketplacePickerOpen(true)}
+            />
+          ) : (
+            <Input label="" value={props.marketplace} onChangeText={props.setMarketplace} placeholder="Marketplace" uppercase />
+          )}
         </>
       ) : null}
       <View style={styles.paymentInputRow}>
@@ -1127,6 +1174,9 @@ function PaymentModal(props: {
               {payment.rekeningLabel && payment.rekeningLabel !== payment.method ? (
                 <Text style={[styles.paymentSub, { color: theme.colors.muted }]}>{payment.rekeningLabel}</Text>
               ) : null}
+              {payment.marketplace ? (
+                <Text style={[styles.paymentSub, { color: theme.colors.muted }]}>Marketplace: {payment.marketplace}</Text>
+              ) : null}
             </View>
             <Text style={[styles.paymentValue, { color: theme.colors.text }]}>{formatRupiah(payment.amount)}</Text>
             <Pressable onPress={() => props.setPayments(props.payments.filter((item) => item.id !== payment.id))}>
@@ -1157,6 +1207,7 @@ function PaymentModal(props: {
           props.setMethod(key as PaymentLine["method"]);
           props.setRekening("");
           props.setNoCard("");
+          props.setMarketplace("");
           props.setFeePercent("");
           setShowTransferQris(false);
           setMethodPickerOpen(false);
@@ -1172,6 +1223,18 @@ function PaymentModal(props: {
         onSelect={(key) => {
           props.setRekening(key);
           setRekeningPickerOpen(false);
+        }}
+      />
+      <OptionSheet
+        visible={marketplacePickerOpen}
+        title="Pilih Marketplace"
+        onClose={() => setMarketplacePickerOpen(false)}
+        options={props.marketplaces.map((marketplace) => ({ key: marketplaceKey(marketplace), label: marketplaceLabel(marketplace) }))}
+        emptyText="Master marketplace kosong."
+        selectedKey={props.marketplace}
+        onSelect={(key) => {
+          props.setMarketplace(key);
+          setMarketplacePickerOpen(false);
         }}
       />
     </Sheet>
@@ -1428,7 +1491,18 @@ function StatCard({ label, value, icon, active }: { label: string; value: string
 function methodIcon(method: PaymentLine["method"]): keyof typeof Ionicons.glyphMap {
   if (method === "TRANSFER") return "business-outline";
   if (method === "DEBET" || method === "CREDIT") return "card-outline";
+  if (method === "TUKAR") return "swap-horizontal-outline";
   return "cash-outline";
+}
+
+function marketplaceKey(marketplace: NagagoldMarketplace): string {
+  return String(marketplace.kode_marketplace ?? marketplace.kode ?? marketplace.marketplace ?? marketplace.nama_marketplace ?? marketplace.nama ?? "").trim();
+}
+
+function marketplaceLabel(marketplace: NagagoldMarketplace): string {
+  const key = marketplaceKey(marketplace);
+  const name = String(marketplace.nama_marketplace ?? marketplace.nama ?? marketplace.marketplace ?? "").trim();
+  return [key, name].filter(Boolean).join(" - ") || "-";
 }
 
 function buildPaymentQris(qrisString: string, amount: number): string {
@@ -1984,6 +2058,16 @@ const styles = StyleSheet.create({
   },
   qrisGenerateText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
   qrisCaption: { color: colors.muted, fontSize: 12, fontWeight: "700", textAlign: "center" },
+  tukarButton: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 48,
+  },
+  tukarButtonText: { fontSize: 13, fontWeight: "800" },
   authNotice: {
     alignItems: "flex-start",
     backgroundColor: "#FFF4E8",

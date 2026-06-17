@@ -428,6 +428,37 @@ export function StatusBadge({
   );
 }
 
+export function DynamicFeatureChips({
+  title = "Fitur aktif",
+  features,
+  maxVisible = 6,
+  style,
+}: {
+  title?: string;
+  features: { key: string; label: string; group: string; enabled: boolean }[];
+  maxVisible?: number;
+  style?: StyleProp<ViewStyle>;
+}) {
+  const theme = useAppTheme();
+  const visibleFeatures = features.filter((feature) => feature.enabled).slice(0, maxVisible);
+  if (!visibleFeatures.length) return null;
+
+  return (
+    <View style={[styles.featurePanel, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, style]}>
+      <Text style={[theme.typography.labelCaps, { color: theme.colors.subtleText }]}>{title}</Text>
+      <View style={styles.featureChipWrap}>
+        {visibleFeatures.map((feature) => (
+          <View key={`${feature.group}-${feature.key}`} style={[styles.featureChip, { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary }]}>
+            <Text style={[theme.typography.labelSmall, { color: theme.colors.primary }]} numberOfLines={1}>
+              {feature.label}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </View>
+  );
+}
+
 function getBadgeColors(theme: AppTheme, variant: BadgeVariant) {
   switch (variant) {
     case "success":
@@ -713,6 +744,24 @@ const styles = StyleSheet.create({
     gap: 5,
     minHeight: 28,
     paddingHorizontal: 10,
+  },
+  featurePanel: {
+    borderRadius: 14,
+    borderWidth: 1,
+    gap: 10,
+    padding: 12,
+  },
+  featureChipWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  featureChip: {
+    borderRadius: 999,
+    borderWidth: 1,
+    maxWidth: "100%",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
   },
   bottomNav: {
     alignItems: "center",

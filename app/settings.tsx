@@ -12,6 +12,7 @@ import {
   testNagagoldConnection,
 } from "../lib/dataStore";
 import { getMerchantInfo, normalizeQris, validateQris } from "../lib/qris";
+import { useNagagoldConfig } from "../lib/nagagoldConfig";
 import { useAppTheme } from "../lib/theme";
 
 const colors = {
@@ -26,6 +27,7 @@ const colors = {
 
 export default function Settings() {
   const theme = useAppTheme();
+  const nagagoldConfig = useNagagoldConfig();
   const [value, setValue] = useState("");
   const [savedValue, setSavedValue] = useState("");
   const [isEditing, setIsEditing] = useState(false);
@@ -114,6 +116,7 @@ export default function Settings() {
       setNagagoldDomain(domain);
       setSavedNagagoldDomain(domain);
       setNagagoldConnection(null);
+      await nagagoldConfig.reloadConfig();
       Alert.alert("Tersimpan", "Domain NAGAGOLD berhasil disimpan. Tekan Test Koneksi untuk memastikan domain aktif.");
     } catch (error) {
       Alert.alert("Domain belum tersimpan", error instanceof Error ? error.message : "Backend API tidak bisa dijangkau.");
@@ -150,6 +153,7 @@ export default function Settings() {
         "Koneksi Berhasil",
         `Berhasil akses ${result.endpoint} dari domain tersimpan. Status: ${result.status}.`,
       );
+      await nagagoldConfig.reloadConfig();
     } catch (error) {
       Alert.alert("Koneksi Gagal", error instanceof Error ? error.message : "Domain atau TOKEN_PUSAT belum bisa mengakses NAGAGOLD.");
     } finally {
@@ -195,6 +199,14 @@ export default function Settings() {
           ) : (
             <Text style={[styles.helperText, { color: theme.colors.muted }]}>Simpan domain program terlebih dahulu sebelum test koneksi.</Text>
           )}
+          {nagagoldConfig.config ? (
+            <View style={[styles.configBadge, { backgroundColor: theme.colors.surfaceContainerLow, borderColor: theme.colors.outlineVariant }]}>
+              <Ionicons name="layers-outline" size={15} color={theme.colors.primary} />
+              <Text style={[styles.helperText, { color: theme.colors.muted }]}>
+                {nagagoldConfig.modules.length} module • {nagagoldConfig.parameters.length} parameter • {nagagoldConfig.dynamicFeatures.length} fitur dinamis
+              </Text>
+            </View>
+          ) : null}
           <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={saveDomain}>
             <Ionicons name="save-outline" size={16} color="#FFFFFF" />
             <Text style={styles.primaryButtonText}>Simpan Domain</Text>
@@ -406,6 +418,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
     lineHeight: 17,
+  },
+  configBadge: {
+    alignItems: "center",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    padding: 10,
   },
   textarea: {
     color: "#0F172A",

@@ -3,13 +3,16 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemeProvider, useAppTheme } from "../lib/theme";
+import { NagagoldConfigProvider } from "../lib/nagagoldConfig";
 import { createBottomTabScreenOptions } from "../components/ui";
 
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <RootTabs />
+        <NagagoldConfigProvider>
+          <RootTabs />
+        </NagagoldConfigProvider>
       </ThemeProvider>
     </SafeAreaProvider>
   );

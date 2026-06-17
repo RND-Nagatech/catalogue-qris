@@ -5,22 +5,18 @@ import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import {
   authorizeNagagoldTransaction,
+  loadNagagoldBootstrap,
   loadNagagoldDomain,
-  loadNagagoldGroups,
-  loadNagagoldJenis,
-  loadNagagoldKondisiBeli,
-  loadNagagoldPurchaseRounding,
-  loadNagagoldRekenings,
-  loadNagagoldSalesPeople,
-  loadNagagoldTokos,
   lookupNagagoldMemberByCode,
   lookupNagagoldPurchaseItem,
   searchNagagoldMembers,
   submitNagagoldPurchase,
+  type NagagoldModule,
   type NagagoldGroup,
   type NagagoldJenis,
   type NagagoldKondisiBeli,
   type NagagoldMember,
+  type NagagoldPurchaseCapabilities,
   type NagagoldPurchaseRounding,
   type NagagoldPurchaseLookupItem,
   type NagagoldRekening,
@@ -65,7 +61,30 @@ type PendingPurchaseAuthorization = {
   };
 };
 
-const paymentTypes = ["CASH", "TRANSFER", "QRIS", "DEBIT"];
+const paymentTypes = ["CASH", "TRANSFER"];
+const defaultPurchaseCapabilities: NagagoldPurchaseCapabilities = {
+  requireSales: true,
+  allowTransferPayment: true,
+  requireTransferAuthorization: false,
+  allowPurchaseWithoutBarcode: false,
+  showStoreSelector: true,
+  showManualDiscount: false,
+  showBiayaAdmin: false,
+  showPhoto: false,
+  lockHargaBeli: false,
+  readOnlyHargaBeli: false,
+  disableBeratBeli: false,
+  useHargaNotaWithOngkos: false,
+  useHargaBeliWithoutAtributOngkos: false,
+  useParameterHargaBeli: false,
+  useParameterHargaEmas: false,
+  enableHargaRataEdit: false,
+  requireWeightToleranceAuthorization: false,
+  requireAbsoluteAuthorization: false,
+  disableAuthorizationAboveNota: false,
+  disableAuthorizationBelowNota: false,
+  unsupportedModules: [],
+};
 const colors = {
   background: "#F8F9FA",
   surface: "#FFFFFF",
@@ -87,9 +106,15 @@ function extractKodeDept(value: string): string {
   return value.split("-")[0]?.trim() || value.trim();
 }
 
+function normalizeBarcode(value: string): string {
+  return value.trim().toUpperCase().slice(0, 8);
+}
+
 export default function Purchases() {
   const theme = useAppTheme();
   const [domain, setDomain] = useState("");
+  const [modules, setModules] = useState<NagagoldModule[]>([]);
+  const [purchaseCapabilities, setPurchaseCapabilities] = useState<NagagoldPurchaseCapabilities>(defaultPurchaseCapabilities);
   const [tokos, setTokos] = useState<NagagoldToko[]>([]);
   const [jenisList, setJenisList] = useState<NagagoldJenis[]>([]);
   const [kondisiList, setKondisiList] = useState<NagagoldKondisiBeli[]>([]);
@@ -141,35 +166,43 @@ export default function Purchases() {
       let active = true;
       setIsLoadingMaster(true);
       Promise.all([
-        loadNagagoldDomain(),
-        loadNagagoldTokos().catch(() => []),
-        loadNagagoldJenis().catch(() => []),
-        loadNagagoldKondisiBeli().catch(() => []),
-        loadNagagoldPurchaseRounding().catch(() => ({
-          value: 500,
-          roundDown: false,
-          disableAuthorizationAboveNota: false,
-          disableAuthorizationBelowNota: false,
+        loadNagagoldBootstrap().catch(async () => ({
+          domain: await loadNagagoldDomain().catch(() => ""),
+          modules: [],
+          capabilities: { purchases: defaultPurchaseCapabilities },
+          masters: {
+            tokos: [],
+            jenis: [],
+            kondisi: [],
+            groups: [],
+            sales: [],
+            rekenings: [],
+            purchaseRounding: {
+              value: 500,
+              roundDown: false,
+              disableAuthorizationAboveNota: false,
+              disableAuthorizationBelowNota: false,
+            },
+          },
         })),
-        loadNagagoldGroups().catch(() => []),
-        loadNagagoldSalesPeople().catch(() => []),
-        loadNagagoldRekenings().catch(() => []),
       ])
-        .then(([savedDomain, nextTokos, nextJenis, nextKondisi, nextRounding, nextGroups, nextSales, nextRekenings]) => {
+        .then(([bootstrap]) => {
           if (!active) return;
-          setDomain(savedDomain);
-          setTokos(nextTokos);
-          setJenisList(nextJenis);
-          setKondisiList(nextKondisi);
-          setRoundingConfig(nextRounding);
-          setGroups(nextGroups);
-          setSalesPeople(nextSales);
-          setRekenings(nextRekenings);
-          if (!kodeSales && nextSales[0]?.kode_sales) {
-            setKodeSales(nextSales[0].kode_sales);
-            setNamaSales(nextSales[0].nama_sales);
+          setDomain(bootstrap.domain);
+          setModules(bootstrap.modules);
+          setPurchaseCapabilities(bootstrap.capabilities.purchases ?? defaultPurchaseCapabilities);
+          setTokos(bootstrap.masters.tokos ?? []);
+          setJenisList((bootstrap.masters.jenis ?? []).filter((item) => item.status_aktif !== false));
+          setKondisiList((bootstrap.masters.kondisi ?? []).filter((item) => item.status_aktif !== false));
+          setRoundingConfig(bootstrap.masters.purchaseRounding);
+          setGroups((bootstrap.masters.groups ?? []).filter((item) => item.status_aktif !== false));
+          setSalesPeople((bootstrap.masters.sales ?? []).filter((item) => item.status_aktif !== false));
+          setRekenings(bootstrap.masters.rekenings ?? []);
+          if (!kodeSales && bootstrap.masters.sales?.[0]?.kode_sales && (bootstrap.capabilities.purchases ?? defaultPurchaseCapabilities).requireSales) {
+            setKodeSales(bootstrap.masters.sales[0].kode_sales);
+            setNamaSales(bootstrap.masters.sales[0].nama_sales);
           }
-          if (!rekening && nextRekenings[0]) setRekening(`${nextRekenings[0].no_rekening} - ${nextRekenings[0].kode_bank}`);
+          if (!rekening && bootstrap.masters.rekenings?.[0]) setRekening(`${bootstrap.masters.rekenings[0].no_rekening} ~ ${bootstrap.masters.rekenings[0].kode_bank}`);
         })
         .catch(() => {
           if (active) setDomain("");
@@ -180,7 +213,7 @@ export default function Purchases() {
       return () => {
         active = false;
       };
-    }, [kodeJenis, kodeSales, kodeToko, kondisi, rekening])
+    }, [kodeSales, rekening])
   );
 
   const totals = useMemo(() => items.reduce((acc, item) => ({
@@ -192,6 +225,8 @@ export default function Purchases() {
 
   const hargaRata = parseDecimal(berat) > 0 ? Math.floor(parseCurrency(hargaBeli) / parseDecimal(berat)) : 0;
   const selectedKondisi = kondisiList.find((item) => item.kondisi_barang === kondisi);
+  const unsupportedPurchaseModules = purchaseCapabilities.unsupportedModules ?? [];
+  const purchasePaymentTypes = purchaseCapabilities.allowTransferPayment ? paymentTypes : ["CASH"];
 
   const calculateHargaBeli = (overrides?: {
     berat?: string;
@@ -233,9 +268,13 @@ export default function Purchases() {
   }, [roundingConfig.value, roundingConfig.roundDown]);
 
   const lookupItem = async () => {
-    const barcode = kodeBarcode.trim().toUpperCase().slice(0, 8);
+    const barcode = normalizeBarcode(kodeBarcode);
     if (!barcode) {
       Alert.alert("Barcode kosong", "Masukkan atau scan kode barcode terlebih dahulu.");
+      return;
+    }
+    if (items.some((item) => normalizeBarcode(item.kodeBarcode) === barcode)) {
+      Alert.alert("Kode Barcode Sudah Ada Dalam Table", "Barang ini sudah masuk di daftar pembelian.");
       return;
     }
 
@@ -257,7 +296,10 @@ export default function Purchases() {
     const jenis = jenisList.find((next) => next.kode_dept === nextKodeJenis);
     const group = groups.find((next) => next.kode_group === item.kode_group);
     const nextBerat = Number(item.berat ?? item.berat_nota ?? 0);
-    const nextHargaNota = Number(item.harga_jual ?? 0) + Number(item.harga_atribut ?? 0) + Number(item.ongkos ?? 0) - Number(item.diskon_penjualan ?? 0);
+    const nextHargaNota = Number(item.harga_jual ?? 0)
+      + (purchaseCapabilities.useHargaBeliWithoutAtributOngkos ? 0 : Number(item.harga_atribut ?? 0))
+      + (purchaseCapabilities.useHargaNotaWithOngkos ? Number(item.ongkos ?? 0) : 0)
+      - Number(item.diskon_penjualan ?? 0);
 
     setPurchaseRaw(item);
     setKodeBarcode(String(item.kode_barcode ?? kodeBarcode));
@@ -339,19 +381,31 @@ export default function Purchases() {
   };
 
   const addItem = async (authorizationId?: string) => {
+    if (unsupportedPurchaseModules.length) {
+      Alert.alert(
+        "Module belum didukung",
+        `Domain ini mengaktifkan module pembelian yang belum aman diproses APK: ${unsupportedPurchaseModules.join(", ")}. Gunakan web NAGAGOLD untuk transaksi ini sampai adapter module dibuat.`,
+      );
+      return;
+    }
     const nextBerat = parseDecimal(berat);
     const nextBeratNota = parseDecimal(beratNota) || nextBerat;
     const nextHargaBeli = parseCurrency(hargaBeli);
     const nextHargaNota = parseCurrency(hargaNota) || nextHargaBeli;
-    if (!purchaseRaw) {
+    if (!purchaseRaw && !purchaseCapabilities.allowPurchaseWithoutBarcode) {
       Alert.alert("Data scan belum ada", "Ambil Data Barang dari barcode terlebih dahulu supaya kode jenis dan data jual sesuai NAGAGOLD.");
       return;
     }
-    if (!kodeBarcode.trim() || !kodeJenis.trim() || !namaBarang.trim() || !kondisi.trim() || nextBerat <= 0 || nextHargaBeli <= 0) {
+    const nextKodeBarcode = normalizeBarcode(kodeBarcode);
+    if (!nextKodeBarcode || !kodeJenis.trim() || !namaBarang.trim() || !kondisi.trim() || nextBerat <= 0 || nextHargaBeli <= 0) {
       Alert.alert("Data barang belum lengkap", "Barcode, kode jenis, kondisi, nama barang, berat, dan harga beli wajib diisi.");
       return;
     }
-    const authReasons = getPurchaseAuthorizationReasons(nextBeratNota, nextBerat, nextHargaNota, nextHargaBeli, roundingConfig);
+    if (items.some((item) => normalizeBarcode(item.kodeBarcode) === nextKodeBarcode)) {
+      Alert.alert("Kode Barcode Sudah Ada Dalam Table", "Barang ini sudah masuk di daftar pembelian.");
+      return;
+    }
+    const authReasons = getPurchaseAuthorizationReasons(nextBeratNota, nextBerat, nextHargaNota, nextHargaBeli, roundingConfig, purchaseCapabilities);
     if (authReasons.length && !authorizationId) {
       setPendingAuthorization({
         reasons: authReasons,
@@ -366,7 +420,7 @@ export default function Purchases() {
     }
     setItems([...items, {
       id: `BUY-${Date.now()}`,
-      kodeBarcode: kodeBarcode.trim(),
+      kodeBarcode: nextKodeBarcode,
       noFakturJual: String(purchaseRaw?.no_faktur_jual ?? `FAK-${Date.now()}`),
       kodeJenis: String(purchaseRaw?.kode_dept ?? (extractKodeDept(kodeJenis) || "ABB")),
       namaBarang: namaBarang.trim(),
@@ -427,8 +481,20 @@ export default function Purchases() {
       Alert.alert("Barang belum ada", "Tambahkan minimal satu barang terlebih dahulu.");
       return;
     }
-    if (!kodeSales.trim() || !namaCustomer.trim()) {
+    if (unsupportedPurchaseModules.length) {
+      Alert.alert("Module belum didukung", `Tidak bisa simpan dari APK karena module aktif belum didukung: ${unsupportedPurchaseModules.join(", ")}.`);
+      return;
+    }
+    if (purchaseCapabilities.requireSales && !kodeSales.trim()) {
+      Alert.alert("Sales belum dipilih", "Pilih kode sales terlebih dahulu.");
+      return;
+    }
+    if (!namaCustomer.trim()) {
       Alert.alert("Customer belum lengkap", "Kode sales dan nama customer wajib diisi.");
+      return;
+    }
+    if (paymentType === "TRANSFER" && purchaseCapabilities.requireTransferAuthorization) {
+      Alert.alert("Perlu otorisasi transfer", "Domain ini mengaktifkan OTORISASI_PEMBAYARAN_TRANSFER. Flow otorisasi pembayaran transfer pembelian belum didukung di APK.");
       return;
     }
     Alert.alert("Selesaikan pembelian?", `Transaksi ${namaCustomer} senilai ${formatRupiah(totals.hargaBeli)} akan disimpan.`, [
@@ -445,6 +511,7 @@ export default function Purchases() {
       await submitNagagoldPurchase({
         kodeSales: kodeSales.trim(),
         namaSales: namaSales.trim(),
+        kodeToko: kodeToko.trim(),
         kodeMember: kodeMember.trim(),
         namaCustomer: namaCustomer.trim(),
         alamatCustomer: alamatCustomer.trim(),
@@ -532,19 +599,30 @@ export default function Purchases() {
           {domain ? (isLoadingMaster ? "Memuat master " : "Terhubung ke ") : "Atur domain "}
           <Text style={[styles.domainNoticeStrong, { color: theme.colors.primary }]}>Server</Text>
           {domain ? "" : " di Pengaturan"}
+          {domain && modules.length ? ` • ${modules.length} module` : ""}
         </Text>
       </View>
       <Stepper step={step} />
       {step === 1 ? (
         <View style={styles.formStack}>
-          <OptionGroup
-            label="Pilih Kode Toko"
-            value={kodeToko}
-            options={tokos.map((item) => ({ value: item.kode_toko, label: `${item.kode_toko}${item.nama_toko ? ` - ${item.nama_toko}` : ""}` }))}
-            onChange={setKodeToko}
-            fallback={<Input label="" value={kodeToko} onChangeText={setKodeToko} placeholder="Pilih kode toko" />}
-          />
-          <Input label="Kode Barcode" value={kodeBarcode} onChangeText={setKodeBarcode} placeholder="Scan atau input barcode" icon="barcode-outline" />
+          {unsupportedPurchaseModules.length ? (
+            <View style={[styles.moduleNotice, { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}>
+              <Ionicons name="alert-circle-outline" size={18} color={theme.colors.secondary} />
+              <Text style={[styles.moduleNoticeText, { color: theme.colors.muted }]}>
+                Module belum didukung APK: {unsupportedPurchaseModules.join(", ")}. Form bisa dilihat, tapi simpan pembelian diblokir agar tidak berbeda dari NAGAGOLD web.
+              </Text>
+            </View>
+          ) : null}
+          {purchaseCapabilities.showStoreSelector ? (
+            <OptionGroup
+              label="Pilih Kode Toko"
+              value={kodeToko}
+              options={tokos.map((item) => ({ value: item.kode_toko, label: `${item.kode_toko}${item.nama_toko ? ` - ${item.nama_toko}` : ""}` }))}
+              onChange={setKodeToko}
+              fallback={<Input label="" value={kodeToko} onChangeText={setKodeToko} placeholder="Pilih kode toko" uppercase />}
+            />
+          ) : null}
+          <Input label="Kode Barcode" value={kodeBarcode} onChangeText={setKodeBarcode} placeholder="Scan atau input barcode" icon="barcode-outline" uppercase />
           <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={lookupItem}>
             <Ionicons name="barcode-outline" size={17} color={theme.colors.primary} />
             <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>{isLookingUpItem ? "Mengambil Barang..." : "Ambil Data Barang"}</Text>
@@ -570,11 +648,11 @@ export default function Purchases() {
               fallback={<Input label="" value={kondisi} onChangeText={(value) => {
                 setKondisi(value);
                 recalculateHargaBeli({ kondisi: value });
-              }} placeholder="MULUS" />}
+              }} placeholder="MULUS" uppercase />}
             />
           </View>
           <ReadOnly label="Kode Jenis" value={kodeJenis || "-"} />
-          <Input label="Nama Barang" value={namaBarang} onChangeText={setNamaBarang} placeholder="Nama barang" />
+          <Input label="Nama Barang" value={namaBarang} onChangeText={setNamaBarang} placeholder="Nama barang" uppercase />
           <View style={styles.twoColumn}>
             <Input label="Kadar" value={kadar} onChangeText={setKadar} placeholder="100" keyboardType="decimal-pad" />
             <Input label="Kadar Modal" value={kadarModal} onChangeText={setKadarModal} placeholder="0" keyboardType="decimal-pad" />
@@ -582,7 +660,7 @@ export default function Purchases() {
           <View style={styles.threeColumn}>
             <Input label="Kadar Cetak" value={kadarCetak} onChangeText={setKadarCetak} placeholder="100" keyboardType="decimal-pad" />
             <Input label="Berat Nota" value={beratNota} onChangeText={setBeratNota} placeholder="0" keyboardType="decimal-pad" />
-            <Input label="Berat" value={berat} onChangeText={(value) => {
+            <Input label="Berat" value={berat} editable={!purchaseCapabilities.disableBeratBeli} onChangeText={(value) => {
               setBerat(value);
               recalculateHargaBeli({ berat: value });
             }} placeholder="0" keyboardType="decimal-pad" />
@@ -591,7 +669,7 @@ export default function Purchases() {
             setHargaNota(value);
             recalculateHargaBeli({ hargaNota: value });
           }} locked />
-          <CurrencyInput label="Harga Beli" value={hargaBeli} onChangeText={setHargaBeli} />
+          <CurrencyInput label="Harga Beli" value={hargaBeli} onChangeText={setHargaBeli} locked={purchaseCapabilities.lockHargaBeli || purchaseCapabilities.readOnlyHargaBeli} />
           <View style={styles.twoColumn}>
             <ReadOnly label="Harga Rata" value={formatRupiah(hargaRata)} />
             <ReadOnly label="Potongan Kondisi" value={formatPurchaseConditionDiscount(selectedKondisi, typeKondisi, parseDecimal(berat), parseCurrency(hargaNota))} />
@@ -671,17 +749,21 @@ export default function Purchases() {
       ) : null}
       {step === 3 ? (
         <View style={styles.formStack}>
-          <OptionGroup
-            label="Pilih Kode Sales"
-            value={kodeSales}
-            options={salesPeople.map((item) => ({ value: item.kode_sales, label: `${item.kode_sales} - ${item.nama_sales}` }))}
-            onChange={(value) => {
-              setKodeSales(value);
-              setNamaSales(salesPeople.find((item) => item.kode_sales === value)?.nama_sales ?? value);
-            }}
-            fallback={<Input label="" value={kodeSales} onChangeText={setKodeSales} placeholder="Kode sales" />}
-          />
-          <Input label="Nama Sales" value={namaSales} onChangeText={setNamaSales} placeholder="Opsional" />
+          {purchaseCapabilities.requireSales ? (
+            <>
+              <OptionGroup
+                label="Pilih Kode Sales"
+                value={kodeSales}
+                options={salesPeople.map((item) => ({ value: item.kode_sales, label: `${item.kode_sales} - ${item.nama_sales}` }))}
+                onChange={(value) => {
+                  setKodeSales(value);
+                  setNamaSales(salesPeople.find((item) => item.kode_sales === value)?.nama_sales ?? value);
+                }}
+                fallback={<Input label="" value={kodeSales} onChangeText={setKodeSales} placeholder="Kode sales" uppercase />}
+              />
+              <Input label="Nama Sales" value={namaSales} onChangeText={setNamaSales} placeholder="Opsional" uppercase />
+            </>
+          ) : null}
           <OptionGroup
             label="Pilih Pelanggan"
             value={jenisPelanggan}
@@ -691,19 +773,19 @@ export default function Purchases() {
               if (value === "NON MEMBER") setKodeMember("NONMEMBER");
             }}
           />
-          <Input label="Kode Customer" value={kodeMember} onChangeText={setKodeMember} placeholder="NONMEMBER / kode member" />
+          <Input label="Kode Customer" value={kodeMember} onChangeText={setKodeMember} placeholder="NONMEMBER / kode member" uppercase />
           <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={lookupMember}>
             <Ionicons name="search-outline" size={17} color={theme.colors.primary} />
             <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>{isLookingUpMember ? "Mencari Member..." : "Ambil Data Member"}</Text>
           </Pressable>
-          <Input label="Nama Customer" value={namaCustomer} onChangeText={setNamaCustomer} placeholder="Nama customer" />
+          <Input label="Nama Customer" value={namaCustomer} onChangeText={setNamaCustomer} placeholder="Nama customer" uppercase />
           <Input label="No HP" value={noHp} onChangeText={setNoHp} placeholder="Nomor HP" keyboardType="phone-pad" />
-          <Input label="Alamat Customer" value={alamatCustomer} onChangeText={setAlamatCustomer} placeholder="Alamat customer" multiline />
-          <Input label="NIK / SIM / Passport" value={nikSimPassport} onChangeText={setNikSimPassport} placeholder="Identitas customer" />
+          <Input label="Alamat Customer" value={alamatCustomer} onChangeText={setAlamatCustomer} placeholder="Alamat customer" multiline uppercase />
+          <Input label="NIK / SIM / Passport" value={nikSimPassport} onChangeText={setNikSimPassport} placeholder="Identitas customer" uppercase />
           <OptionGroup
             label="Type Pembayaran"
             value={paymentType}
-            options={paymentTypes.map((type) => ({ value: type, label: type }))}
+            options={purchasePaymentTypes.map((type) => ({ value: type, label: type }))}
             onChange={(value) => {
               setPaymentType(value);
               if (value === "CASH") setRekening("");
@@ -713,7 +795,7 @@ export default function Purchases() {
             <OptionGroup
               label="No Rekening"
               value={rekening}
-              options={rekenings.map((item) => ({ value: `${item.no_rekening} - ${item.kode_bank}`, label: `${item.no_rekening} - ${item.kode_bank}` }))}
+              options={rekenings.map((item) => ({ value: `${item.no_rekening} ~ ${item.kode_bank}`, label: `${item.no_rekening} - ${item.kode_bank}` }))}
               onChange={setRekening}
               fallback={<Input label="" value={rekening} onChangeText={setRekening} placeholder="No rekening" />}
             />
@@ -935,7 +1017,7 @@ function AuthorizationModal(props: {
             </View>
             <Input label="Username Otorisasi" value={username} onChangeText={setUsername} placeholder="User SPV / Owner" />
             <Input label="Password" value={password} onChangeText={setPassword} placeholder="Password" />
-            <Input label="Keterangan" value={keterangan} onChangeText={setKeterangan} placeholder="Alasan otorisasi" multiline />
+            <Input label="Keterangan" value={keterangan} onChangeText={setKeterangan} placeholder="Alasan otorisasi" multiline uppercase />
             <View style={styles.footerRow}>
               <Pressable style={[styles.secondaryButton, { backgroundColor: theme.colors.surfaceContainer }]} onPress={props.onClose}>
                 <Text style={[styles.secondaryButtonText, { color: theme.colors.text }]}>Batal</Text>
@@ -951,7 +1033,7 @@ function AuthorizationModal(props: {
   );
 }
 
-function Input({ label, value, onChangeText, placeholder, keyboardType = "default", icon, multiline = false }: {
+function Input({ label, value, onChangeText, placeholder, keyboardType = "default", icon, multiline = false, editable = true, uppercase = false }: {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
@@ -959,14 +1041,17 @@ function Input({ label, value, onChangeText, placeholder, keyboardType = "defaul
   keyboardType?: "default" | "number-pad" | "decimal-pad" | "phone-pad";
   icon?: keyof typeof Ionicons.glyphMap;
   multiline?: boolean;
+  editable?: boolean;
+  uppercase?: boolean;
 }) {
   const theme = useAppTheme();
+  const handleChangeText = (text: string) => onChangeText(uppercase ? text.toUpperCase() : text);
 
   return (
     <View style={styles.field}>
       <Text style={[styles.label, { color: theme.colors.subtleText }]}>{label}</Text>
-      <View style={[styles.inputWrap, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
-        <TextInput value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={theme.colors.subtleText} keyboardType={keyboardType} multiline={multiline} style={[styles.input, { color: theme.colors.text }, multiline && styles.textarea]} />
+      <View style={[styles.inputWrap, { backgroundColor: editable ? theme.colors.inputBackground : theme.colors.surfaceContainerLow, borderColor: theme.colors.inputBorder }]}>
+        <TextInput editable={editable} value={value} onChangeText={handleChangeText} placeholder={placeholder} placeholderTextColor={theme.colors.subtleText} keyboardType={keyboardType} autoCapitalize={uppercase ? "characters" : "sentences"} multiline={multiline} style={[styles.input, { color: theme.colors.text }, multiline && styles.textarea]} />
         {icon ? <Ionicons name={icon} size={20} color={theme.colors.primary} /> : null}
       </View>
     </View>
@@ -981,7 +1066,7 @@ function CurrencyInput({ label, value, onChangeText, locked }: { label: string; 
       <Text style={[styles.label, { color: theme.colors.subtleText }]}>{label}</Text>
       <View style={[styles.inputWrap, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }, locked && styles.lockedInput, locked && { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}>
         <Text style={[styles.rp, { color: theme.colors.outlineStrong }]}>Rp</Text>
-        <TextInput value={value ? Number(value.replace(/\D/g, "")).toLocaleString("id-ID") : ""} onChangeText={(text) => onChangeText(text.replace(/\D/g, ""))} placeholder="0" placeholderTextColor={theme.colors.subtleText} keyboardType="number-pad" style={[styles.currencyInput, { color: theme.colors.text }]} />
+        <TextInput editable={!locked} value={value ? Number(value.replace(/\D/g, "")).toLocaleString("id-ID") : ""} onChangeText={(text) => onChangeText(text.replace(/\D/g, ""))} placeholder="0" placeholderTextColor={theme.colors.subtleText} keyboardType="number-pad" style={[styles.currencyInput, { color: theme.colors.text }]} />
         {locked ? <Ionicons name="lock-closed" size={16} color={theme.colors.secondary} /> : null}
       </View>
     </View>
@@ -1076,15 +1161,20 @@ function getPurchaseAuthorizationReasons(
   hargaNota: number,
   hargaBeli: number,
   config: NagagoldPurchaseRounding,
+  capabilities: NagagoldPurchaseCapabilities,
 ): string[] {
   const reasons: string[] = [];
+  if (capabilities.requireAbsoluteAuthorization && hargaBeli !== hargaNota) {
+    reasons.push(`Module TRANSACTION_ABSOLUTE_AUTHORIZATION_MODULE aktif: harga beli harus diotorisasi jika berbeda dari harga nota.`);
+    return reasons;
+  }
   if (hargaBeli < hargaNota && !config.disableAuthorizationBelowNota) {
     reasons.push(`Harga beli kurang dari harga nota (${formatRupiah(hargaBeli)} vs ${formatRupiah(hargaNota)})`);
   }
   if (hargaBeli > hargaNota && !config.disableAuthorizationAboveNota) {
     reasons.push(`Harga beli melebihi harga nota (${formatRupiah(hargaBeli)} vs ${formatRupiah(hargaNota)})`);
   }
-  if (berat > beratNota) {
+  if (capabilities.requireWeightToleranceAuthorization && berat > beratNota) {
     reasons.push(`Berat beli melebihi berat nota (${berat} gr vs ${beratNota} gr)`);
   }
   return reasons;
@@ -1131,6 +1221,15 @@ const styles = StyleSheet.create({
   twoColumn: { flexDirection: "row", gap: 10 },
   threeColumn: { flexDirection: "row", gap: 8 },
   footerRow: { flexDirection: "row", gap: 10, marginTop: 4 },
+  moduleNotice: {
+    alignItems: "flex-start",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    padding: 10,
+  },
+  moduleNoticeText: { flex: 1, fontSize: 11, fontWeight: "600", lineHeight: 17 },
   resetButton: { alignItems: "center", borderColor: colors.secondary, borderRadius: 12, borderWidth: 1, flex: 1, flexDirection: "row", gap: 7, justifyContent: "center", minHeight: 50 },
   resetButtonText: { color: colors.secondary, fontSize: 13, fontWeight: "700" },
   outlineButton: { alignItems: "center", borderColor: colors.primary, borderRadius: 12, borderWidth: 1, flex: 1.25, flexDirection: "row", gap: 7, justifyContent: "center", minHeight: 50 },

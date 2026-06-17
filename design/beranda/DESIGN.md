@@ -1,86 +1,96 @@
 ---
-name: Vibrant Utility
+name: Luminous Fintech
 colors:
-  surface: '#f8f9fa'
-  surface-dim: '#d9dadb'
-  surface-bright: '#f8f9fa'
-  surface-container-lowest: '#ffffff'
-  surface-container-low: '#f3f4f5'
-  surface-container: '#edeeef'
-  surface-container-high: '#e7e8e9'
-  surface-container-highest: '#e1e3e4'
-  on-surface: '#191c1d'
-  on-surface-variant: '#3d4a3f'
-  inverse-surface: '#2e3132'
-  inverse-on-surface: '#f0f1f2'
-  outline: '#6d7a6e'
-  outline-variant: '#bccabc'
-  surface-tint: '#006d39'
-  primary: '#006a37'
-  on-primary: '#ffffff'
-  primary-container: '#008648'
-  on-primary-container: '#f6fff4'
-  inverse-primary: '#5bdf8c'
-  secondary: '#865300'
-  on-secondary: '#ffffff'
-  secondary-container: '#fea520'
-  on-secondary-container: '#694000'
-  tertiary: '#4c5e71'
-  on-tertiary: '#ffffff'
-  tertiary-container: '#64768a'
-  on-tertiary-container: '#fdfcff'
-  error: '#ba1a1a'
-  on-error: '#ffffff'
-  error-container: '#ffdad6'
-  on-error-container: '#93000a'
-  primary-fixed: '#79fca5'
-  primary-fixed-dim: '#5bdf8c'
-  on-primary-fixed: '#00210d'
-  on-primary-fixed-variant: '#00522a'
-  secondary-fixed: '#ffddb9'
-  secondary-fixed-dim: '#ffb961'
-  on-secondary-fixed: '#2b1700'
-  on-secondary-fixed-variant: '#663e00'
-  tertiary-fixed: '#d1e4fb'
-  tertiary-fixed-dim: '#b5c8df'
-  on-tertiary-fixed: '#091d2e'
-  on-tertiary-fixed-variant: '#36485b'
-  background: '#f8f9fa'
-  on-background: '#191c1d'
-  surface-variant: '#e1e3e4'
+  surface: '#031428'
+  surface-dim: '#031428'
+  surface-bright: '#2a3a4f'
+  surface-container-lowest: '#000f22'
+  surface-container-low: '#0b1c30'
+  surface-container: '#102034'
+  surface-container-high: '#1b2b3f'
+  surface-container-highest: '#26364b'
+  on-surface: '#d3e3ff'
+  on-surface-variant: '#bec9c6'
+  inverse-surface: '#d3e3ff'
+  inverse-on-surface: '#213146'
+  outline: '#889390'
+  outline-variant: '#3e4947'
+  surface-tint: '#85d5c9'
+  primary: '#85d5c9'
+  on-primary: '#003732'
+  primary-container: '#00685f'
+  on-primary-container: '#93e4d8'
+  inverse-primary: '#066a61'
+  secondary: '#c0c1ff'
+  on-secondary: '#1000a9'
+  secondary-container: '#3131c1'
+  on-secondary-container: '#b0b2ff'
+  tertiary: '#fcba66'
+  on-tertiary: '#472a00'
+  tertiary-container: '#825100'
+  on-tertiary-container: '#ffcb8f'
+  error: '#ffb4ab'
+  on-error: '#690005'
+  error-container: '#93000a'
+  on-error-container: '#ffdad6'
+  primary-fixed: '#a1f1e5'
+  primary-fixed-dim: '#85d5c9'
+  on-primary-fixed: '#00201d'
+  on-primary-fixed-variant: '#005049'
+  secondary-fixed: '#e1e0ff'
+  secondary-fixed-dim: '#c0c1ff'
+  on-secondary-fixed: '#06006c'
+  on-secondary-fixed-variant: '#2e2ebe'
+  tertiary-fixed: '#ffddb8'
+  tertiary-fixed-dim: '#fcba66'
+  on-tertiary-fixed: '#2a1700'
+  on-tertiary-fixed-variant: '#653e00'
+  background: '#031428'
+  on-background: '#d3e3ff'
+  surface-variant: '#26364b'
+  mesh-teal-start: '#008378'
+  mesh-teal-end: '#004d47'
+  mesh-amber-start: '#a36700'
+  mesh-amber-end: '#5d3a00'
+  glass-surface: rgba(33, 49, 69, 0.6)
+  accent-cream: '#FFFFF0'
 typography:
-  display-lg:
-    fontFamily: Hanken Grotesk
-    fontSize: 32px
-    fontWeight: '700'
-    lineHeight: 40px
-    letterSpacing: -0.02em
-  display-lg-mobile:
-    fontFamily: Hanken Grotesk
+  headline-lg:
+    fontFamily: Manrope
     fontSize: 24px
-    fontWeight: '700'
+    fontWeight: '800'
     lineHeight: 32px
   headline-md:
-    fontFamily: Hanken Grotesk
-    fontSize: 20px
-    fontWeight: '600'
+    fontFamily: Manrope
+    fontSize: 18px
+    fontWeight: '700'
+    lineHeight: 24px
+  currency-display:
+    fontFamily: Manrope
+    fontSize: 22px
+    fontWeight: '800'
     lineHeight: 28px
   body-lg:
-    fontFamily: Hanken Grotesk
+    fontFamily: Manrope
     fontSize: 16px
-    fontWeight: '400'
+    fontWeight: '500'
     lineHeight: 24px
-  body-sm:
-    fontFamily: Hanken Grotesk
+  body-md:
+    fontFamily: Manrope
     fontSize: 14px
-    fontWeight: '400'
+    fontWeight: '500'
     lineHeight: 20px
-  label-caps:
+  label-md:
     fontFamily: Hanken Grotesk
     fontSize: 12px
-    fontWeight: '800'
+    fontWeight: '600'
     lineHeight: 16px
-    letterSpacing: 0.08em
+  label-xs-caps:
+    fontFamily: Hanken Grotesk
+    fontSize: 10px
+    fontWeight: '800'
+    lineHeight: 12px
+    letterSpacing: 0.1em
 rounded:
   sm: 0.25rem
   DEFAULT: 0.5rem
@@ -89,61 +99,67 @@ rounded:
   xl: 1.5rem
   full: 9999px
 spacing:
-  base: 4px
-  xs: 4px
-  sm: 8px
-  md: 16px
-  lg: 24px
-  xl: 32px
-  container-max: 1200px
-  gutter: 16px
+  container-padding: 1.25rem
+  stack-gap-sm: 0.5rem
+  stack-gap-md: 1rem
+  stack-gap-lg: 1.5rem
+  section-margin: 2rem
 ---
 
 ## Brand & Style
-The design system focuses on high-utility dashboard experiences that balance professional reliability with energetic visuals. It targets users in finance, logistics, or retail management who require clarity at a glance but appreciate a friendly, modern interface. 
+Luminous Fintech is a sophisticated, high-energy financial management system designed for the modern trader. The brand personality is **trustworthy yet innovative**, utilizing a deep "Midnight Navy" foundation to convey stability, while puncturing the darkness with vibrant, glowing mesh gradients that signify movement and growth.
 
-The aesthetic is **Modern Minimalist with Tonal Vibrancy**. It utilizes heavy whitespace and clean lines to organize complex data, while injecting personality through saturated primary colors and soft, organic shapes. The goal is to evoke a sense of efficiency, optimism, and approachability.
+The design style is a hybrid of **Glassmorphism** and **Modern Corporate**. It leverages translucent surfaces (`glass-card`) and backdrop blurs to create a sense of depth and hierarchy, while using asymmetric shapes and organic gradients to break away from traditional, rigid banking aesthetics. The emotional response is one of empowered control and technical sophistication.
 
 ## Colors
-The palette is driven by a high-energy **Vibrant Green** (#00a65a) for primary actions and positive growth indicators, complemented by a **Warm Orange** (#f39c12) for secondary focus areas or cautionary highlights. 
+The palette is rooted in a deep dark theme. The primary background (`#0b1c30`) provides a high-contrast canvas for interactive elements. 
 
-- **Primary:** Used for main call-to-actions, success states, and primary dashboard cards.
-- **Secondary:** Used for differentiation in data visualization and secondary card backgrounds.
-- **Surface & Backgrounds:** The system uses a very light neutral gray (#f8f9fa) for page backgrounds to allow white cards to pop, ensuring a crisp, layered look.
-- **Typography:** Deep slate (#2c3e50) is used for headings to maintain readability without the harshness of pure black.
+- **Primary (Teal):** Used for positive growth, "Sales" actions, and primary status indicators.
+- **Secondary (Indigo):** Used for navigation highlights and brand reinforcement.
+- **Tertiary (Amber):** Reserved for "Purchases," secondary financial metrics, and "In-Progress" states.
+- **Glass Surfaces:** A semi-transparent navy (`rgba(33, 49, 69, 0.6)`) with high-intensity backdrop blur (16px) is used for list items and secondary containers to maintain context with the background.
+- **Gradients:** Use radial mesh gradients for summary cards to create a "glowing" focal point.
 
 ## Typography
-**Hanken Grotesk** is the sole typeface for this design system, chosen for its sharp, contemporary geometry and exceptional legibility in data-dense environments.
+The system uses a dual-font approach. **Manrope** handles all headlines, currency displays, and body text, providing a technical and clean readability. **Hanken Grotesk** is used for utility labels and micro-copy, particularly in all-caps formats with wide tracking to denote metadata and secondary information.
 
-- **Headlines:** Use tighter letter spacing and heavier weights (600-700) to create a strong visual anchor.
-- **Caps Labels:** Small, uppercase labels with increased tracking (letter spacing) are used for "overlines" and secondary metadata to create hierarchy without increasing font size.
-- **Scale:** On mobile, display sizes are reduced significantly to prioritize content density while maintaining the bold typographic character.
+Currency values are treated as "Display" type, requiring extra bold weights to ensure financial totals are the first thing a user sees.
 
 ## Layout & Spacing
-The design system utilizes a **4px base unit** to ensure consistent rhythmic scaling across all elements. 
+The layout follows a **Fluid Grid** model with a maximum content width of 1280px (7xl). 
 
-- **Grid Model:** A 12-column fluid grid is used for desktop, transitioning to a 1-column layout for mobile. 
-- **Margins:** Mobile views use a fixed 16px side margin, while desktop views center content within a 1200px max-width container.
-- **Visual Grouping:** Cards and modules are separated by 24px (lg) on desktop and 16px (md) on mobile to maintain a sense of airiness and clarity.
+- **Margins:** A consistent side margin of `1.25rem` (20px) is applied globally for mobile and tablet.
+- **Vertical Rhythm:** A three-tier spacing system handles component proximity. `0.5rem` for related elements (text/icon pairs), `1rem` for sibling elements in a list, and `1.5rem` for major section transitions.
+- **Summary Grid:** Uses a responsive column layout that transitions from 1 column (mobile) to 2 columns (tablet/desktop) to maintain the visual impact of the mesh gradient cards.
 
 ## Elevation & Depth
-Depth is achieved through **Soft Ambient Shadows** rather than harsh outlines. This creates a "lifted" effect for interactive elements against the light neutral background.
+Depth is achieved through **translucency and blurs** rather than traditional drop shadows.
 
-- **Level 1 (Default Cards):** A subtle shadow with a large blur radius (e.g., `0px 4px 20px rgba(0,0,0,0.05)`) identifies primary content containers.
-- **Level 2 (Interactive/Active):** Higher elevation (e.g., `0px 8px 30px rgba(0,0,0,0.08)`) is used for hovered states or modal windows.
-- **Tonal Tiers:** Flat background fills in primary and secondary colors are used to differentiate key summary blocks (Total Sales, Total Purchases), removing the need for shadows on high-chroma elements.
+1.  **Level 0 (Base):** Deep navy background (`#0b1c30`).
+2.  **Level 1 (Surface):** `glass-card` elements with 16px backdrop blur and a `1px` low-opacity white border (`rgba(255,255,255,0.1)`).
+3.  **Level 2 (Active/Floating):** Summary cards use high-saturation gradients and a subtle `shadow-xl` to appear as if they are radiating light onto the surface below.
+4.  **Interaction:** Elements should utilize a `98%` or `95%` scale-down transform on press to simulate physical tactility.
 
 ## Shapes
-The shape language is defined by **pronounced 16px corners** (rounded-lg), which soften the high-contrast color palette and make the interface feel modern and friendly.
+The shape language is a mix of standard "Soft Rounded" and "Asymmetric Geometric."
 
-- **Primary Containers:** 16px (1rem) for cards and major dashboard modules.
-- **Small Elements:** 8px (0.5rem) for input fields, buttons, and chips to maintain a cohesive but tighter appearance.
-- **Icons:** Set within circular or highly rounded containers (8px) to echo the overall softness of the system.
+- **Standard Cards:** Use a `1.5rem` (24px) uniform radius for most containers.
+- **Feature Cards:** Use an **asymmetric corner radius** (24px 8px 24px 8px) to create a distinct, modern brand signature.
+- **Buttons:** Use a consistent `0.75rem` (12px) radius, providing a sturdy, clickable appearance.
+- **Status Chips:** Full pill (`9999px`) for secondary status indicators.
 
 ## Components
-- **Buttons:** Large, 48px height primary buttons use solid #00a65a with white text. Secondary buttons use ghost styles with a 1px border. All buttons carry the 8px corner radius.
-- **Cards:** White backgrounds with 16px rounded corners and Level 1 shadows. Header summary cards use full-bleed primary or secondary color fills with white typography.
-- **Input Fields:** Clean, white fills with a light 1px border (#dee2e6). On focus, the border transitions to Primary Green with a soft glow.
-- **Status Chips:** Small, capsules with subtle background tints and bold text (e.g., light green background with dark green text for "Selesai").
-- **Bottom Navigation:** Fixed navigation for mobile with clear, line-art icons and active states highlighted in Primary Green.
-- **Lists:** Transaction items should use a clean, borderless row style with a subtle 1px divider between items, ensuring the focus remains on the typography and status labels.
+
+### Buttons
+- **Primary Action:** Solid background (Teal or Cream), bold typography, and an icon-in-circle prefix. 
+- **Navigation Buttons:** Icon-centric with centered labels below, using a high-contrast background color only for the "Active" state.
+
+### Cards
+- **Financial Cards:** Use mesh gradients and asymmetric rounding. They must include a decorative background element (like a blurred circle) to enhance the light-source effect.
+- **List Cards:** Utilize the `glass-card` style with a horizontal flex layout and right-aligned numeric data.
+
+### Status Indicators
+- Small, caps-lock labels inside a `20%` opacity background of the state color (e.g., Green for Succeeded, Amber for Processing).
+
+### Bottom Navigation
+- Fixed position with `80%` opacity and a `backdrop-blur-2xl`. It should use a subtle top-ring border to separate it from the main content.

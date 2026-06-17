@@ -77,6 +77,7 @@ export type NagagoldSalePayload = {
 export type NagagoldPurchasePayload = {
   kodeSales: string;
   namaSales: string;
+  kodeToko?: string;
   kodeMember: string;
   namaCustomer: string;
   alamatCustomer: string;
@@ -194,6 +195,77 @@ export type NagagoldSalesPerson = {
   nama_sales: string;
   fee?: number;
   status_aktif?: boolean;
+};
+
+export type NagagoldModule = {
+  key: string;
+  value?: string | number | boolean;
+  label?: string;
+  type?: string;
+  raw?: Record<string, unknown>;
+};
+
+export type NagagoldSalesCapabilities = {
+  requireSales: boolean;
+  allowNonMember: boolean;
+  showMemberPhone: boolean;
+  allowEditMemberCustomer: boolean;
+  allowDiscount: boolean;
+  allowEditItemName: boolean;
+  allowEditTotal: boolean;
+  allowEditPricePerGram: boolean;
+  showFinishing: boolean;
+  showSize: boolean;
+  showTax24k: boolean;
+  showMarketplacePayment: boolean;
+  showPpnTransaction: boolean;
+  showVoucher: boolean;
+  requireAuthorizationOnPriceChange: boolean;
+  requireAuthorizationOnDiamondPriceChange: boolean;
+  requireAuthorizationOnLowerOngkos: boolean;
+  allowQrisOnTransfer: boolean;
+};
+
+export type NagagoldPurchaseCapabilities = {
+  requireSales: boolean;
+  allowTransferPayment: boolean;
+  requireTransferAuthorization: boolean;
+  allowPurchaseWithoutBarcode: boolean;
+  showStoreSelector: boolean;
+  showManualDiscount: boolean;
+  showBiayaAdmin: boolean;
+  showPhoto: boolean;
+  lockHargaBeli: boolean;
+  readOnlyHargaBeli: boolean;
+  disableBeratBeli: boolean;
+  useHargaNotaWithOngkos: boolean;
+  useHargaBeliWithoutAtributOngkos: boolean;
+  useParameterHargaBeli: boolean;
+  useParameterHargaEmas: boolean;
+  enableHargaRataEdit: boolean;
+  requireWeightToleranceAuthorization: boolean;
+  requireAbsoluteAuthorization: boolean;
+  disableAuthorizationAboveNota: boolean;
+  disableAuthorizationBelowNota: boolean;
+  unsupportedModules: string[];
+};
+
+export type NagagoldBootstrap = {
+  domain: string;
+  modules: NagagoldModule[];
+  capabilities: {
+    sales: NagagoldSalesCapabilities;
+    purchases: NagagoldPurchaseCapabilities;
+  };
+  masters: {
+    sales: NagagoldSalesPerson[];
+    rekenings: NagagoldRekening[];
+    tokos: NagagoldToko[];
+    jenis: NagagoldJenis[];
+    kondisi: NagagoldKondisiBeli[];
+    groups: NagagoldGroup[];
+    purchaseRounding: NagagoldPurchaseRounding;
+  };
 };
 
 export type NagagoldMember = {
@@ -515,6 +587,10 @@ export async function loadNagagoldDashboard(): Promise<NagagoldDashboard> {
 export async function loadNagagoldTodayHistory(type: "sale" | "purchase"): Promise<NagagoldRecentTransaction[]> {
   const data = await apiRequest<{ history: NagagoldRecentTransaction[] }>(`/api/nagagold/history/today?type=${type}`);
   return data.history;
+}
+
+export async function loadNagagoldBootstrap(): Promise<NagagoldBootstrap> {
+  return apiRequest<NagagoldBootstrap>("/api/nagagold/bootstrap");
 }
 
 export async function loadNagagoldSalesPeople(): Promise<NagagoldSalesPerson[]> {

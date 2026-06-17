@@ -75,6 +75,7 @@ type NagagoldSaleRequest = {
 type NagagoldPurchaseRequest = {
   kodeSales?: string;
   namaSales?: string;
+  kodeToko?: string;
   kodeMember?: string;
   namaCustomer?: string;
   alamatCustomer?: string;
@@ -129,11 +130,109 @@ type NagagoldAuthorizationRequest = {
   kodeIntern?: string;
 };
 
+type NagagoldModule = {
+  key: string;
+  value?: string | number | boolean;
+  label?: string;
+  type?: string;
+  raw?: Record<string, unknown>;
+};
+
+type NagagoldSalesCapabilities = {
+  requireSales: boolean;
+  allowNonMember: boolean;
+  showMemberPhone: boolean;
+  allowEditMemberCustomer: boolean;
+  allowDiscount: boolean;
+  allowEditItemName: boolean;
+  allowEditTotal: boolean;
+  allowEditPricePerGram: boolean;
+  showFinishing: boolean;
+  showSize: boolean;
+  showTax24k: boolean;
+  showMarketplacePayment: boolean;
+  showPpnTransaction: boolean;
+  showVoucher: boolean;
+  requireAuthorizationOnPriceChange: boolean;
+  requireAuthorizationOnDiamondPriceChange: boolean;
+  requireAuthorizationOnLowerOngkos: boolean;
+  allowQrisOnTransfer: boolean;
+};
+
+type NagagoldPurchaseCapabilities = {
+  requireSales: boolean;
+  allowTransferPayment: boolean;
+  requireTransferAuthorization: boolean;
+  allowPurchaseWithoutBarcode: boolean;
+  showStoreSelector: boolean;
+  showManualDiscount: boolean;
+  showBiayaAdmin: boolean;
+  showPhoto: boolean;
+  lockHargaBeli: boolean;
+  readOnlyHargaBeli: boolean;
+  disableBeratBeli: boolean;
+  useHargaNotaWithOngkos: boolean;
+  useHargaBeliWithoutAtributOngkos: boolean;
+  useParameterHargaBeli: boolean;
+  useParameterHargaEmas: boolean;
+  enableHargaRataEdit: boolean;
+  requireWeightToleranceAuthorization: boolean;
+  requireAbsoluteAuthorization: boolean;
+  disableAuthorizationAboveNota: boolean;
+  disableAuthorizationBelowNota: boolean;
+  unsupportedModules: string[];
+};
+
 type DashboardChart = {
   count: number;
   gram: number;
   rupiah: number;
   raw?: unknown;
+};
+
+const defaultSalesCapabilities: NagagoldSalesCapabilities = {
+  requireSales: true,
+  allowNonMember: true,
+  showMemberPhone: false,
+  allowEditMemberCustomer: false,
+  allowDiscount: false,
+  allowEditItemName: false,
+  allowEditTotal: false,
+  allowEditPricePerGram: false,
+  showFinishing: false,
+  showSize: false,
+  showTax24k: false,
+  showMarketplacePayment: false,
+  showPpnTransaction: false,
+  showVoucher: false,
+  requireAuthorizationOnPriceChange: false,
+  requireAuthorizationOnDiamondPriceChange: false,
+  requireAuthorizationOnLowerOngkos: false,
+  allowQrisOnTransfer: true,
+};
+
+const defaultPurchaseCapabilities: NagagoldPurchaseCapabilities = {
+  requireSales: true,
+  allowTransferPayment: true,
+  requireTransferAuthorization: false,
+  allowPurchaseWithoutBarcode: false,
+  showStoreSelector: true,
+  showManualDiscount: false,
+  showBiayaAdmin: false,
+  showPhoto: false,
+  lockHargaBeli: false,
+  readOnlyHargaBeli: false,
+  disableBeratBeli: false,
+  useHargaNotaWithOngkos: false,
+  useHargaBeliWithoutAtributOngkos: false,
+  useParameterHargaBeli: false,
+  useParameterHargaEmas: false,
+  enableHargaRataEdit: false,
+  requireWeightToleranceAuthorization: false,
+  requireAbsoluteAuthorization: false,
+  disableAuthorizationAboveNota: false,
+  disableAuthorizationBelowNota: false,
+  unsupportedModules: [],
 };
 
 type DashboardRecentTransaction = {
@@ -275,6 +374,98 @@ function unwrapNagagoldData(data: unknown): unknown {
     return current;
   }
   return current;
+}
+
+function normalizeNagagoldModules(data: unknown): NagagoldModule[] {
+  const unwrapped = unwrapNagagoldData(data);
+  if (!Array.isArray(unwrapped)) return [];
+
+  return unwrapped.flatMap((item) => {
+    if (!item || typeof item !== "object") return [];
+    const raw = item as Record<string, unknown>;
+    const key = asText(raw.key, "");
+    if (!key) return [];
+    const rawValue = raw.value;
+    if (rawValue === false || String(rawValue).toLowerCase() === "false") return [];
+
+    return [{
+      key,
+      value: rawValue as NagagoldModule["value"],
+      label: asText(raw.label ?? raw.name ?? raw.nama, ""),
+      type: asText(raw.type, ""),
+      raw,
+    }];
+  });
+}
+
+function createModuleReader(modules: NagagoldModule[]) {
+  const byKey = new Map(modules.map((module) => [module.key, module]));
+  return {
+    has: (key: string) => byKey.has(key),
+    value: (key: string) => byKey.get(key)?.value,
+  };
+}
+
+function buildSalesCapabilities(modules: NagagoldModule[]): NagagoldSalesCapabilities {
+  const module = createModuleReader(modules);
+
+  return {
+    ...defaultSalesCapabilities,
+    requireSales: !module.has("DISABLE_KODE_SALES_TRANSACTION"),
+    allowNonMember: !module.has("NONMEMBER_DISABLED_TRANSACTION"),
+    showMemberPhone: module.has("MODULE_MEMBER_NO_HP"),
+    allowEditMemberCustomer: module.has("ENABLE_EDIT_CUSTOMER_ON_MEMBER"),
+    allowDiscount: module.has("PENJUALAN_DISCOUNT_MODULE"),
+    allowEditItemName: module.has("EDIT_NAMA_BARANG_PENJUALAN_MODULE"),
+    allowEditTotal: module.has("MODIFY_TOTAL_HARGA_MODULE"),
+    allowEditPricePerGram: module.has("EDIT_HARGA_PER_GRAM_MODULE"),
+    showFinishing: module.has("FINISHING_BARANG_MODULE"),
+    showSize: module.has("SIZE_PERHIASAN_MODULE"),
+    showTax24k: module.has("PAJAK_24K_MODULE"),
+    showMarketplacePayment: module.has("MARKETPLACE_PEMBAYARAN_MODULE"),
+    showPpnTransaction: module.has("PPN_TRANSAKSI_MODULE"),
+    showVoucher: module.has("MODULE_VOUCHER"),
+    requireAuthorizationOnPriceChange: module.has("TRANSACTION_ABSOLUTE_AUTHORIZATION_MODULE") || module.has("MODULE_TOLERANSI_HARGA_JUAL"),
+    requireAuthorizationOnDiamondPriceChange: module.has("BERLIAN_TRANSACTION_AUTHORIZATION_MODULE"),
+    requireAuthorizationOnLowerOngkos: module.has("OTORISASI_ONGKOS_TURUN_PENJUALAN"),
+    allowQrisOnTransfer: true,
+  };
+}
+
+function buildPurchaseCapabilities(modules: NagagoldModule[]): NagagoldPurchaseCapabilities {
+  const module = createModuleReader(modules);
+  const unsupportedModules = [
+    "PARAMETER_HARGA_BELI",
+    "PARAMETER_HARGA_EMAS_PEMBELIAN",
+    "MODULE_BIAYA_ADMIN_PEMBELIAN",
+    "PEMBELIAN_DENGAN_FOTO",
+    "HARGA_BELI_TANPA_ATRIBUT_ONGKOS",
+  ].filter((key) => module.has(key));
+
+  return {
+    ...defaultPurchaseCapabilities,
+    requireSales: !module.has("DISABLE_KODE_SALES_TRANSACTION"),
+    allowTransferPayment: true,
+    requireTransferAuthorization: module.has("OTORISASI_PEMBAYARAN_TRANSFER"),
+    allowPurchaseWithoutBarcode: module.has("OTORISASI_PEMBELIAN_TANPA_BARCODE"),
+    showStoreSelector: true,
+    showManualDiscount: module.has("POTONGAN_MANUAL_PEMBELIAN_MODULE"),
+    showBiayaAdmin: module.has("MODULE_BIAYA_ADMIN_PEMBELIAN"),
+    showPhoto: module.has("PEMBELIAN_DENGAN_FOTO"),
+    lockHargaBeli: module.has("LOCK_HARGA_BELI_MODULE"),
+    readOnlyHargaBeli: module.has("HARGA_BELI_READ_ONLY"),
+    disableBeratBeli: module.has("BUYING_DISABLE_ACCESS_BERAT_BELI"),
+    useHargaNotaWithOngkos: module.has("HARGA_NOTA_DENGAN_ONGKOS_MODULE"),
+    useHargaBeliWithoutAtributOngkos: module.has("HARGA_BELI_TANPA_ATRIBUT_ONGKOS"),
+    useParameterHargaBeli: module.has("PARAMETER_HARGA_BELI"),
+    useParameterHargaEmas: module.has("PARAMETER_HARGA_EMAS_PEMBELIAN"),
+    enableHargaRataEdit: module.has("ENABLE_HARGA_RATA_PEMBELIAN_MODULE"),
+    requireWeightToleranceAuthorization: module.has("OTORISASI_TOLERANSI_BERAT_PEMBELIAN_MODULE"),
+    requireAbsoluteAuthorization: module.has("TRANSACTION_ABSOLUTE_AUTHORIZATION_MODULE"),
+    disableAuthorizationAboveNota: module.has("NON_AKTIF_OTORISASI_HARGA_BELI_DIATAS_HARGA_NOTA"),
+    disableAuthorizationBelowNota: module.has("NON_AKTIF_OTORISASI_HARGA_BELI_DIBAWAH_HARGA_NOTA"),
+    unsupportedModules,
+  };
 }
 
 function normalizeDashboardChart(data: unknown): DashboardChart {
@@ -575,10 +766,12 @@ function buildSalePayload(input: NagagoldSaleRequest) {
         const noCard = asText(payment.noCard, "-").toUpperCase();
         const keterangan = validMethod === "CASH"
           ? "CASH"
-          : `${nonCashInfo}${isCard && noCard !== "-" ? noCard : ""}`;
+          : isCard && noCard !== "-"
+            ? `${nonCashInfo} ~ ${noCard}`
+            : nonCashInfo;
         const bank = validMethod === "CASH"
           ? "CASH"
-          : nonCashInfo;
+          : asText(payment.bank, nonCashInfo);
 
         return {
           bank,
@@ -683,6 +876,8 @@ function buildPurchasePayload(input: NagagoldPurchaseRequest) {
   return {
     kode_sales: asText(input.kodeSales),
     nama_sales: asText(input.namaSales ?? input.kodeSales),
+    kode_toko: asText(input.kodeToko, "-"),
+    kode_gudang: asText(input.kodeToko, "-"),
     nama_customer: asText(input.namaCustomer),
     kode_member: asText(input.kodeMember),
     alamat_customer: asText(input.alamatCustomer),
@@ -805,6 +1000,55 @@ app.get("/api/nagagold/test-connection", async (_req, res, next) => {
       status: response.status,
       checkedAt: connection.checkedAt,
       response: response.data,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+app.get("/api/nagagold/bootstrap", async (_req, res, next) => {
+  try {
+    const domain = await loadNagagoldDomain();
+    if (!domain) {
+      res.status(400).json({ message: "Domain NAGAGOLD belum diatur." });
+      return;
+    }
+
+    const [moduleResponse, salesResponse, rekeningResponse, tokoResponse, jenisResponse, kondisiResponse, groupResponse, pembulatanResponse] = await Promise.all([
+      nagagoldFetch("/api/v1/para-system/type/module", { method: "GET" }),
+      nagagoldFetch("/api/v1/sales/get/all", { method: "GET" }).catch(() => ({ data: [] })),
+      nagagoldFetch("/api/v1/rekenings", { method: "GET" }).catch(() => ({ data: [] })),
+      nagagoldFetch("/api/v1/tokos", { method: "GET" }).catch(() => ({ data: [] })),
+      nagagoldFetch("/api/v1/jenis/get/all", { method: "GET" }).catch(() => ({ data: [] })),
+      nagagoldFetch("/api/v1/parabeli/get/all", { method: "GET" }).catch(() => ({ data: [] })),
+      nagagoldFetch("/api/v1/group/get/all", { method: "GET" }).catch(() => ({ data: [] })),
+      nagagoldFetch("/api/v1/para-system/key/PEMBULATAN", { method: "GET" }).catch(() => ({ data: { value: 500 } })),
+    ]);
+    const modules = normalizeNagagoldModules(moduleResponse.data);
+    const purchaseCapabilities = buildPurchaseCapabilities(modules);
+    const pembulatanData = firstArrayItem(unwrapNagagoldData(pembulatanResponse.data));
+
+    res.json({
+      domain,
+      modules,
+      capabilities: {
+        sales: buildSalesCapabilities(modules),
+        purchases: purchaseCapabilities,
+      },
+      masters: {
+        sales: Array.isArray(salesResponse.data) ? salesResponse.data : [],
+        rekenings: Array.isArray(rekeningResponse.data) ? rekeningResponse.data : [],
+        tokos: Array.isArray(tokoResponse.data) ? tokoResponse.data : [],
+        jenis: Array.isArray(jenisResponse.data) ? jenisResponse.data : [],
+        kondisi: Array.isArray(kondisiResponse.data) ? kondisiResponse.data : [],
+        groups: Array.isArray(groupResponse.data) ? groupResponse.data : [],
+        purchaseRounding: {
+          value: asNumber(pembulatanData?.value) || 500,
+          roundDown: modules.some((item) => item.key === "PEMBULATAN_PEMBELIAN_KEBAWAH_MODULE"),
+          disableAuthorizationAboveNota: purchaseCapabilities.disableAuthorizationAboveNota,
+          disableAuthorizationBelowNota: purchaseCapabilities.disableAuthorizationBelowNota,
+        },
+      },
     });
   } catch (error) {
     next(error);
@@ -1000,11 +1244,13 @@ app.get("/api/nagagold/pembelian/groups", async (_req, res, next) => {
 app.get("/api/nagagold/pembelian/barang/:barcode", async (req, res, next) => {
   try {
     const barcode = encodeURIComponent(req.params.barcode.trim().toUpperCase().slice(0, 8));
+    const kodeToko = String(req.query.kodeToko ?? "").trim();
     if (!barcode) {
       res.status(400).json({ message: "Kode barcode wajib diisi." });
       return;
     }
-    const response = await nagagoldFetch(`/api/v1/pembelian/get/jual/${barcode}`, { method: "GET" });
+    const query = kodeToko ? `?kode_toko=${encodeURIComponent(kodeToko)}&kodeToko=${encodeURIComponent(kodeToko)}` : "";
+    const response = await nagagoldFetch(`/api/v1/pembelian/get/jual/${barcode}${query}`, { method: "GET" });
     const item = firstArrayItem(response.data);
     if (!item) {
       res.status(404).json({ message: typeof response.data === "string" ? response.data : "Data pembelian barang tidak ditemukan." });
@@ -1127,8 +1373,8 @@ app.delete("/api/payments/:id", async (req, res, next) => {
 app.post("/api/nagagold/penjualan", async (req, res, next) => {
   try {
     const body = req.body as NagagoldSaleRequest;
-    if (!body.kodeSales || !body.kodeBarcode || !body.namaCustomer) {
-      res.status(400).json({ message: "Kode sales, customer, dan barcode wajib diisi." });
+    if (!body.kodeBarcode || !body.namaCustomer) {
+      res.status(400).json({ message: "Customer dan barcode wajib diisi." });
       return;
     }
 
@@ -1143,8 +1389,8 @@ app.post("/api/nagagold/penjualan", async (req, res, next) => {
 app.post("/api/nagagold/pembelian", async (req, res, next) => {
   try {
     const body = req.body as NagagoldPurchaseRequest;
-    if (!body.kodeSales || !body.kodeBarcode || !body.namaCustomer) {
-      res.status(400).json({ message: "Kode sales, customer, dan barcode wajib diisi." });
+    if (!body.kodeBarcode || !body.namaCustomer) {
+      res.status(400).json({ message: "Customer dan barcode wajib diisi." });
       return;
     }
 

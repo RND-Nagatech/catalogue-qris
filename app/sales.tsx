@@ -19,17 +19,18 @@ import { useFocusEffect } from "expo-router";
 import { AppHeader, EmptyState } from "../components/ui";
 import {
   authorizeNagagoldTransaction,
+  loadNagagoldBootstrap,
   loadNagagoldDomain,
-  loadNagagoldRekenings,
-  loadNagagoldSalesPeople,
   loadQrisString,
   lookupNagagoldMemberByCode,
   lookupNagagoldSaleItem,
   searchNagagoldMembers,
   submitNagagoldSale,
+  type NagagoldModule,
   type NagagoldMember,
   type NagagoldRekening,
   type NagagoldSaleLookupItem,
+  type NagagoldSalesCapabilities,
   type NagagoldSalesPerson,
 } from "../lib/dataStore";
 import { generateDynamicQris } from "../contohqris";
@@ -76,6 +77,26 @@ type PaymentLine = {
 };
 
 const paymentMethods: PaymentLine["method"][] = ["CASH", "TRANSFER", "DEBET", "CREDIT"];
+const defaultSalesCapabilities: NagagoldSalesCapabilities = {
+  requireSales: true,
+  allowNonMember: true,
+  showMemberPhone: false,
+  allowEditMemberCustomer: false,
+  allowDiscount: false,
+  allowEditItemName: false,
+  allowEditTotal: false,
+  allowEditPricePerGram: false,
+  showFinishing: false,
+  showSize: false,
+  showTax24k: false,
+  showMarketplacePayment: false,
+  showPpnTransaction: false,
+  showVoucher: false,
+  requireAuthorizationOnPriceChange: false,
+  requireAuthorizationOnDiamondPriceChange: false,
+  requireAuthorizationOnLowerOngkos: false,
+  allowQrisOnTransfer: true,
+};
 const colors = {
   background: "#F8F9FA",
   surface: "#FFFFFF",
@@ -98,6 +119,8 @@ export default function Sales() {
   const theme = useAppTheme();
   const [domain, setDomain] = useState("");
   const [savedQris, setSavedQris] = useState("");
+  const [modules, setModules] = useState<NagagoldModule[]>([]);
+  const [salesCapabilities, setSalesCapabilities] = useState<NagagoldSalesCapabilities>(defaultSalesCapabilities);
   const [salesPeople, setSalesPeople] = useState<NagagoldSalesPerson[]>([]);
   const [rekenings, setRekenings] = useState<NagagoldRekening[]>([]);
   const [isLoadingMaster, setIsLoadingMaster] = useState(false);
@@ -138,17 +161,25 @@ export default function Sales() {
       let active = true;
       setIsLoadingMaster(true);
       Promise.all([
-        loadNagagoldDomain(),
         loadQrisString().catch(() => ""),
-        loadNagagoldSalesPeople().catch(() => []),
-        loadNagagoldRekenings().catch(() => []),
+        loadNagagoldBootstrap().catch(async () => ({
+          domain: await loadNagagoldDomain().catch(() => ""),
+          modules: [],
+          capabilities: { sales: defaultSalesCapabilities },
+          masters: { sales: [], rekenings: [] },
+        })),
       ])
-        .then(([savedDomain, nextQris, nextSalesPeople, nextRekenings]) => {
+        .then(([nextQris, bootstrap]) => {
           if (!active) return;
-          setDomain(savedDomain);
+          setDomain(bootstrap.domain);
           setSavedQris(nextQris);
-          setSalesPeople(nextSalesPeople);
-          setRekenings(nextRekenings);
+          setModules(bootstrap.modules);
+          setSalesCapabilities(bootstrap.capabilities.sales);
+          setSalesPeople(bootstrap.masters.sales.filter((item) => item.status_aktif !== false));
+          setRekenings(bootstrap.masters.rekenings);
+          if (!bootstrap.capabilities.sales.allowNonMember) {
+            setJenisCustomer("MEMBER");
+          }
         })
         .catch(() => {
           if (active) setDomain("");
@@ -166,11 +197,16 @@ export default function Sales() {
   const paidTotal = payments.reduce((sum, item) => sum + item.amount, 0);
   const remaining = Math.max(total - paidTotal, 0);
   const firstItem = items[0];
-  const canOpenPayment = Boolean(kodeSales.trim() && items.length);
+  const hasRequiredSales = !salesCapabilities.requireSales || Boolean(kodeSales.trim());
+  const canOpenPayment = Boolean(hasRequiredSales && items.length);
 
   const saveCustomer = async () => {
-    if (!kodeSales.trim()) {
+    if (salesCapabilities.requireSales && !kodeSales.trim()) {
       Alert.alert("Data belum lengkap", "Kode sales wajib dipilih.");
+      return;
+    }
+    if (!salesCapabilities.allowNonMember && normalizeCustomerType(jenisCustomer) === "NONMEMBER") {
+      Alert.alert("Customer belum valid", "Domain NAGAGOLD ini tidak mengizinkan transaksi NON MEMBER.");
       return;
     }
     if (!namaCustomer.trim()) {
@@ -253,7 +289,7 @@ export default function Sales() {
 
       const nextBerat = Number(item.berat ?? 0);
       const nextHargaJual = Number(item.harga_jual ?? 0);
-      const nextHargaGram = Number(item.harga_skrg ?? 0) || (nextBerat > 0 ? Math.floor(nextHargaJual / nextBerat) : 0);
+      const nextHargaGram = Number(item.harga_gram ?? item.harga_skrg ?? 0) || (nextBerat > 0 ? Math.floor(nextHargaJual / nextBerat) : 0);
       const nextOngkos = calculateItemOngkos(item, nextBerat);
       const nextBarcode = String(item.kode_barcode ?? barcode).trim().toUpperCase().slice(0, 8);
       setKodeBarcode(nextBarcode);
@@ -284,7 +320,7 @@ export default function Sales() {
       Alert.alert("Data barang belum lengkap", "Barcode, nama barang, berat, dan harga jual wajib diisi.");
       return;
     }
-    const authReasons = getSaleAuthorizationReasons(saleItemRaw, nextBerat, nextHargaJual);
+    const authReasons = getSaleAuthorizationReasons(saleItemRaw, nextBerat, nextHargaJual, salesCapabilities);
     if (authReasons.length && !authorizationId) {
       setPendingAuthorization({
         reasons: authReasons,
@@ -397,7 +433,7 @@ export default function Sales() {
       Alert.alert("Domain belum diatur", "Isi domain NAGAGOLD di menu Pengaturan terlebih dahulu.");
       return;
     }
-    if (!kodeSales.trim()) {
+    if (salesCapabilities.requireSales && !kodeSales.trim()) {
       Alert.alert("Customer belum lengkap", "Lengkapi Data Customer terlebih dahulu.");
       return;
     }
@@ -417,7 +453,7 @@ export default function Sales() {
   };
 
   const openPayment = () => {
-    if (!kodeSales.trim()) {
+    if (salesCapabilities.requireSales && !kodeSales.trim()) {
       Alert.alert("Sales belum dipilih", "Pilih Kode Sales di Data Customer terlebih dahulu.");
       return;
     }
@@ -516,6 +552,7 @@ export default function Sales() {
             {domain ? (isLoadingMaster ? "Memuat master " : "Terhubung ke ") : "Atur domain "}
             <Text style={[styles.domainNoticeStrong, { color: theme.colors.primary }]}>Server</Text>
             {domain ? "" : " di Pengaturan"}
+            {domain && modules.length ? ` • ${modules.length} module` : ""}
           </Text>
         </View>
 
@@ -620,6 +657,7 @@ export default function Sales() {
         onClose={() => setCustomerOpen(false)}
         onSave={saveCustomer}
         salesPeople={salesPeople}
+        capabilities={salesCapabilities}
         memberResults={memberResults}
         isLookingUpMember={isLookingUpMember}
         onLookupMember={lookupMember}
@@ -628,6 +666,7 @@ export default function Sales() {
       />
       <ItemModal
         visible={itemOpen}
+        capabilities={salesCapabilities}
         kodeBarcode={kodeBarcode}
         setKodeBarcode={(value) => {
           setKodeBarcode(value);
@@ -671,6 +710,7 @@ export default function Sales() {
         feePercent={paymentFeePercent}
         setFeePercent={setPaymentFeePercent}
         qrisString={savedQris}
+        allowQrisOnTransfer={salesCapabilities.allowQrisOnTransfer}
         payments={payments}
         setPayments={setPayments}
         isSubmitting={isSubmitting}
@@ -743,6 +783,7 @@ function CustomerModal(props: {
   alamatCustomer: string;
   setAlamatCustomer: (value: string) => void;
   salesPeople: NagagoldSalesPerson[];
+  capabilities: NagagoldSalesCapabilities;
   memberResults: NagagoldMember[];
   isLookingUpMember: boolean;
   onLookupMember: () => void;
@@ -754,18 +795,23 @@ function CustomerModal(props: {
   const theme = useAppTheme();
   const [salesPickerOpen, setSalesPickerOpen] = useState(false);
   const selectedSales = props.salesPeople.find((sales) => sales.kode_sales === props.kodeSales);
+  const customerOptions = props.capabilities.allowNonMember ? ["NONMEMBER", "MEMBER"] : ["MEMBER"];
 
   return (
     <Sheet visible={props.visible} title="Form Data Customer" onClose={props.onClose}>
-      <Text style={[styles.label, { color: theme.colors.subtleText }]}>Pilih Kode Sales</Text>
-      <SelectField
-        value={selectedSales ? `${selectedSales.kode_sales} - ${selectedSales.nama_sales}` : ""}
-        placeholder="Pilih kode sales"
-        onPress={() => setSalesPickerOpen(true)}
-      />
+      {props.capabilities.requireSales ? (
+        <>
+          <Text style={[styles.label, { color: theme.colors.subtleText }]}>Pilih Kode Sales</Text>
+          <SelectField
+            value={selectedSales ? `${selectedSales.kode_sales} - ${selectedSales.nama_sales}` : ""}
+            placeholder="Pilih kode sales"
+            onPress={() => setSalesPickerOpen(true)}
+          />
+        </>
+      ) : null}
       <Text style={[styles.label, { color: theme.colors.subtleText }]}>Pilih Pelanggan</Text>
       <View style={styles.optionWrap}>
-        {["NONMEMBER", "MEMBER"].map((type) => (
+        {customerOptions.map((type) => (
           <Pressable
             key={type}
             style={[
@@ -787,14 +833,14 @@ function CustomerModal(props: {
           </Pressable>
         ))}
       </View>
-      <Input label="Kode Customer" value={props.kodeMember} onChangeText={props.setKodeMember} placeholder="AUTO / kode member" />
+      <Input label="Kode Customer" value={props.kodeMember} onChangeText={props.setKodeMember} placeholder="AUTO / kode member" uppercase />
       <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={props.onLookupMember}>
         <Ionicons name="search-outline" size={17} color={theme.colors.primary} />
         <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>{props.isLookingUpMember ? "Mencari Member..." : "Ambil Data Member"}</Text>
       </Pressable>
-      <Input label="Nama Customer" value={props.namaCustomer} onChangeText={props.setNamaCustomer} placeholder="Nama customer" />
+      <Input label="Nama Customer" value={props.namaCustomer} onChangeText={props.setNamaCustomer} placeholder="Nama customer" uppercase />
       <Input label="No HP" value={props.noHp} onChangeText={props.setNoHp} placeholder="Nomor HP" keyboardType="phone-pad" />
-      <Input label="Alamat Customer" value={props.alamatCustomer} onChangeText={props.setAlamatCustomer} placeholder="Alamat customer" multiline />
+      <Input label="Alamat Customer" value={props.alamatCustomer} onChangeText={props.setAlamatCustomer} placeholder="Alamat customer" multiline uppercase />
       <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]} onPress={props.onSearchMembers}>
         <Ionicons name="filter-outline" size={17} color={theme.colors.primary} />
         <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>{props.isLookingUpMember ? "Memfilter Customer..." : "Filter Data Customer"}</Text>
@@ -840,6 +886,7 @@ function CustomerModal(props: {
 
 function ItemModal(props: {
   visible: boolean;
+  capabilities: NagagoldSalesCapabilities;
   kodeBarcode: string;
   setKodeBarcode: (value: string) => void;
   namaBarang: string;
@@ -866,7 +913,7 @@ function ItemModal(props: {
   const handleBeratChange = (value: string) => {
     props.setBerat(value);
     const nextBerat = parseDecimal(value);
-    if (hargaGramValue > 0 && nextBerat > 0) {
+    if (props.capabilities.allowEditPricePerGram && hargaGramValue > 0 && nextBerat > 0) {
       props.setHargaJual(String(Math.floor(hargaGramValue * nextBerat)));
     } else if (!value.trim()) {
       props.setHargaJual("");
@@ -897,24 +944,41 @@ function ItemModal(props: {
           </Pressable>
         </View>
       </View>
-      <Input label="Kode Barcode" value={props.kodeBarcode} onChangeText={props.setKodeBarcode} placeholder="Scan atau input kode barcode" />
+      <Input label="Kode Barcode" value={props.kodeBarcode} onChangeText={props.setKodeBarcode} placeholder="Scan atau input kode barcode" uppercase />
       <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={props.onLookupBarcode}>
         <Ionicons name="barcode-outline" size={17} color={theme.colors.primary} />
         <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>{props.isLookingUpItem ? "Mengambil Barang..." : "Ambil Data Barang dari Barcode"}</Text>
       </Pressable>
-      <Input label="Nama Barang" value={props.namaBarang} onChangeText={props.setNamaBarang} placeholder="Nama barang" />
+      <Input
+        label="Nama Barang"
+        value={props.namaBarang}
+        onChangeText={props.setNamaBarang}
+        placeholder="Nama barang"
+        editable={props.capabilities.allowEditItemName}
+        uppercase
+      />
       <View style={styles.twoColumn}>
         <Input label="Berat Jual (gr)" value={props.berat} onChangeText={handleBeratChange} placeholder="0" keyboardType="decimal-pad" />
         <CurrencyInput label="Harga Jual" value={props.hargaJual} onChangeText={props.setHargaJual} />
       </View>
       <View style={styles.twoColumn}>
-        <ReadOnly label="Harga/Gram" value={formatRupiah(hargaGramValue)} />
+        {props.capabilities.allowEditPricePerGram ? (
+          <CurrencyInput label="Harga/Gram" value={props.hargaGram} onChangeText={props.setHargaGram} />
+        ) : (
+          <ReadOnly label="Harga/Gram" value={formatRupiah(hargaGramValue)} />
+        )}
         <CurrencyInput label="Ongkos" value={props.ongkos} onChangeText={props.setOngkos} />
       </View>
+      {props.capabilities.allowDiscount ? (
+        <View style={[styles.moduleNotice, { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}>
+          <Ionicons name="pricetag-outline" size={16} color={theme.colors.secondary} />
+          <Text style={[styles.moduleNoticeText, { color: theme.colors.muted }]}>Module diskon penjualan aktif. Diskon mengikuti payload/data NAGAGOLD saat simpan transaksi.</Text>
+        </View>
+      ) : null}
       <View style={styles.twoColumn}>
         <ReadOnly label="Total" value={formatRupiah(total)} />
       </View>
-      <Input label="Keterangan" value={props.itemNote} onChangeText={props.setItemNote} placeholder="Keterangan barang opsional" multiline />
+      <Input label="Keterangan" value={props.itemNote} onChangeText={props.setItemNote} placeholder="Keterangan barang opsional" multiline uppercase />
       <View style={styles.sheetFooter}>
         <Pressable style={[styles.sheetSecondaryButton, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surfaceContainerLowest }]} onPress={props.onClose}>
           <Text style={[styles.sheetSecondaryText, { color: theme.colors.text }]}>Tutup</Text>
@@ -944,6 +1008,7 @@ function PaymentModal(props: {
   feePercent: string;
   setFeePercent: (value: string) => void;
   qrisString: string;
+  allowQrisOnTransfer: boolean;
   payments: PaymentLine[];
   setPayments: (value: PaymentLine[]) => void;
   isSubmitting: boolean;
@@ -956,20 +1021,24 @@ function PaymentModal(props: {
   const [rekeningPickerOpen, setRekeningPickerOpen] = useState(false);
   const [showTransferQris, setShowTransferQris] = useState(false);
   const amount = parseCurrency(props.amount);
+  const qrisAmount = amount > 0 ? amount : props.remaining;
   const feePercent = parseDecimal(props.feePercent);
   const feeAmount = ["DEBET", "CREDIT"].includes(props.method) ? Math.floor((amount * feePercent) / 100) : 0;
   const nominalWithFee = ["DEBET", "CREDIT"].includes(props.method) ? amount + feeAmount : amount;
-  const generatedQris = props.method === "TRANSFER" && showTransferQris ? buildPaymentQris(props.qrisString, amount) : "";
+  const generatedQris = props.method === "TRANSFER" && showTransferQris ? buildPaymentQris(props.qrisString, qrisAmount) : "";
   const selectedRekening = props.rekenings.find((rekening) => rekeningKey(rekening) === props.rekening);
   const generateTransferQris = () => {
     if (props.method !== "TRANSFER") return;
-    if (amount <= 0) {
-      Alert.alert("Nominal belum valid", "Isi nominal transfer terlebih dahulu sebelum generate QRIS.");
+    if (qrisAmount <= 0) {
+      Alert.alert("Nominal belum valid", "Isi nominal transfer atau pastikan masih ada sisa pembayaran.");
       return;
     }
-    if (!buildPaymentQris(props.qrisString, amount)) {
+    if (!buildPaymentQris(props.qrisString, qrisAmount)) {
       Alert.alert("QRIS belum siap", "Simpan QRIS merchant di Pengaturan terlebih dahulu.");
       return;
+    }
+    if (amount <= 0) {
+      props.setAmount(String(qrisAmount));
     }
     setShowTransferQris(true);
   };
@@ -1002,7 +1071,7 @@ function PaymentModal(props: {
           <Ionicons name="add" size={32} color="#FFFFFF" />
         </Pressable>
       </View>
-      {props.method === "TRANSFER" ? (
+      {props.method === "TRANSFER" && props.allowQrisOnTransfer ? (
         <>
           <Pressable
             style={[styles.qrisGenerateButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]}
@@ -1019,7 +1088,7 @@ function PaymentModal(props: {
                 <>
                   <QRCode value={generatedQris} size={168} backgroundColor="#FFFFFF" color="#0F172A" />
                   <Text style={[styles.qrisCaption, { color: theme.colors.muted }]}>
-                    QRIS untuk pembayaran transfer {formatRupiah(amount)}
+                    QRIS untuk pembayaran transfer {formatRupiah(qrisAmount)}
                   </Text>
                 </>
               ) : (
@@ -1253,27 +1322,36 @@ function Sheet({ visible, title, onClose, children }: {
   );
 }
 
-function Input({ label, value, onChangeText, placeholder, keyboardType = "default", multiline = false }: {
+function Input({ label, value, onChangeText, placeholder, keyboardType = "default", multiline = false, editable = true, uppercase = false }: {
   label: string;
   value: string;
   onChangeText: (value: string) => void;
   placeholder: string;
   keyboardType?: "default" | "number-pad" | "decimal-pad" | "phone-pad";
   multiline?: boolean;
+  editable?: boolean;
+  uppercase?: boolean;
 }) {
   const theme = useAppTheme();
+  const handleChangeText = (text: string) => onChangeText(uppercase ? text.toUpperCase() : text);
 
   return (
     <View style={styles.field}>
       <Text style={[styles.label, { color: theme.colors.subtleText }]}>{label}</Text>
       <TextInput
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={handleChangeText}
         placeholder={placeholder}
         placeholderTextColor={theme.colors.subtleText}
         keyboardType={keyboardType}
+        autoCapitalize={uppercase ? "characters" : "sentences"}
         multiline={multiline}
-        style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }, multiline && styles.textarea]}
+        editable={editable}
+        style={[
+          styles.input,
+          { backgroundColor: editable ? theme.colors.inputBackground : theme.colors.surfaceContainerLow, borderColor: theme.colors.inputBorder, color: theme.colors.text },
+          multiline && styles.textarea,
+        ]}
       />
     </View>
   );
@@ -1401,8 +1479,14 @@ function getRawText(raw: Record<string, unknown> | null | undefined, key: string
   return value || fallback;
 }
 
-function getSaleAuthorizationReasons(raw: Record<string, unknown> | null | undefined, nextBerat: number, nextHargaJual: number): string[] {
+function getSaleAuthorizationReasons(
+  raw: Record<string, unknown> | null | undefined,
+  nextBerat: number,
+  nextHargaJual: number,
+  capabilities: NagagoldSalesCapabilities,
+): string[] {
   if (!raw) return [];
+  if (!capabilities.requireAuthorizationOnPriceChange && !capabilities.requireAuthorizationOnDiamondPriceChange) return [];
   const reasons: string[] = [];
   const originalBerat = getRawNumber(raw, "berat", getRawNumber(raw, "berat_awal", nextBerat));
   const originalHargaJual = getRawNumber(raw, "harga_jual", nextHargaJual);
@@ -1839,6 +1923,15 @@ const styles = StyleSheet.create({
   },
   photoButtonText: { color: colors.text, fontSize: 13, fontWeight: "700" },
   twoColumn: { flexDirection: "row", gap: 12 },
+  moduleNotice: {
+    alignItems: "flex-start",
+    borderRadius: 12,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    padding: 10,
+  },
+  moduleNoticeText: { flex: 1, fontSize: 11, fontWeight: "600", lineHeight: 17 },
   noteText: { color: "#DC2626", fontSize: 12, fontStyle: "italic", fontWeight: "700" },
   paymentStats: { flexDirection: "row", gap: 8 },
   statCard: {

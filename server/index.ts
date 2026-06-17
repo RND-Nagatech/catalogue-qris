@@ -49,6 +49,10 @@ type NagagoldSaleRequest = {
     hargaJual?: number;
     ongkos?: number;
     total?: number;
+    diskonPenjualan?: number;
+    typeDiskon?: string;
+    diskonRp?: number;
+    diskonPersen?: number;
     keterangan?: string;
     authorizationIds?: string[];
     raw?: Record<string, unknown>;
@@ -65,6 +69,7 @@ type NagagoldSaleRequest = {
     rekening?: string;
     noCard?: string;
     marketplace?: string;
+    detailBarang?: Record<string, unknown>[];
     feePercent?: number;
     feeAmount?: number;
     feeDropdown?: string;
@@ -913,7 +918,7 @@ function buildSalePayload(input: NagagoldSaleRequest) {
       nama_barang: asText(item.namaBarang),
       nama_atribut: getRawText(raw, "nama_atribut", "-"),
       marketplace: getRawText(raw, "marketplace", "-"),
-      diskon_penjualan: getRawNumber(raw, "diskon_penjualan", getRawNumber(raw, "diskon_rp", 0)),
+      diskon_penjualan: asNumber(item.diskonPenjualan) || getRawNumber(raw, "diskon_penjualan", getRawNumber(raw, "diskon_rp", 0)),
       ongkos,
       qty: getRawNumber(raw, "qty", 1) || 1,
       ppn_diamond: getRawNumber(raw, "ppn_diamond", 0),
@@ -946,11 +951,11 @@ function buildSalePayload(input: NagagoldSaleRequest) {
         const isCard = validMethod === "DEBET" || validMethod === "CREDIT";
         const nonCashInfo = asText(payment.rekening || payment.bank, "-").toUpperCase();
         const noCard = asText(payment.noCard, "-").toUpperCase();
-        const marketplace = asText(payment.marketplace, "-");
+        const marketplace = asText(payment.marketplace, "");
         const keterangan = validMethod === "CASH"
           ? "CASH"
           : validMethod === "TUKAR"
-            ? "TUKAR"
+            ? "-"
           : isCard && noCard !== "-"
             ? `${nonCashInfo} ~ ${noCard}`
             : nonCashInfo;
@@ -963,7 +968,8 @@ function buildSalePayload(input: NagagoldSaleRequest) {
           jenis: validMethod,
           bayar_lebih: "TIDAK",
           keterangan,
-          marketplace,
+          marketplace: marketplace || "-",
+          detail_barang: Array.isArray(payment.detailBarang) ? payment.detailBarang : undefined,
           param_fee: isCard ? asText(payment.feeDropdown ?? payment.feePercent, "-") : "-",
           fee: isCard ? asNumber(payment.feePercent) : 0,
           jumlah_rp: asNumber(payment.amount ?? payment.nominalWithFee),
@@ -1558,8 +1564,8 @@ app.post("/api/nagagold/penjualan", async (req, res, next) => {
 app.post("/api/nagagold/pembelian", async (req, res, next) => {
   try {
     const body = req.body as NagagoldPurchaseRequest;
-    if (!body.kodeBarcode || !body.namaCustomer) {
-      res.status(400).json({ message: "Customer dan barcode wajib diisi." });
+    if (!body.namaCustomer) {
+      res.status(400).json({ message: "Customer wajib diisi." });
       return;
     }
 

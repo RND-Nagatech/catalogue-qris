@@ -21,12 +21,14 @@ import {
   authorizeNagagoldTransaction,
   loadQrisString,
   lookupNagagoldMemberByCode,
+  lookupNagagoldPurchaseItem,
   lookupNagagoldSaleItem,
   searchNagagoldMembers,
   submitNagagoldSale,
-  type NagagoldModule,
   type NagagoldMember,
+  type NagagoldKondisiBeli,
   type NagagoldMarketplace,
+  type NagagoldPurchaseLookupItem,
   type NagagoldRekening,
   type NagagoldSaleLookupItem,
   type NagagoldSalesCapabilities,
@@ -45,10 +47,32 @@ type SaleItem = {
   hargaGram: number;
   hargaJual: number;
   ongkos: number;
+  diskonPenjualan: number;
+  typeDiskon: "DISKON_RP" | "DISKON_PERSEN" | "";
+  diskonRp: number;
+  diskonPersen: number;
   total: number;
   keterangan: string;
   imageUrl?: string;
   authorizationIds?: string[];
+  raw?: Record<string, unknown>;
+};
+
+type ExchangeItem = {
+  id: string;
+  noFaktur: string;
+  kodeBarcode: string;
+  namaBarang: string;
+  berat: number;
+  beratNota: number;
+  hargaNota: number;
+  hargaBeli: number;
+  hargaGram: number;
+  kadar: number;
+  kondisiBarang: string;
+  kodeDept: string;
+  kodeGroup: string;
+  potonganLainLain: number;
   raw?: Record<string, unknown>;
 };
 
@@ -65,7 +89,7 @@ type PendingSaleAuthorization = {
 
 type PaymentLine = {
   id: string;
-  method: "CASH" | "TRANSFER" | "DEBET" | "CREDIT" | "TUKAR";
+  method: "CASH" | "TRANSFER" | "DEBET" | "CREDIT";
   amount: number;
   nominalWithFee: number;
   bank?: string;
@@ -77,7 +101,7 @@ type PaymentLine = {
   rekeningLabel?: string;
 };
 
-const paymentMethods: PaymentLine["method"][] = ["CASH", "TRANSFER", "DEBET", "CREDIT", "TUKAR"];
+const paymentMethods: PaymentLine["method"][] = ["CASH", "TRANSFER", "DEBET", "CREDIT"];
 const defaultSalesCapabilities: NagagoldSalesCapabilities = {
   requireSales: true,
   allowNonMember: true,
@@ -121,10 +145,10 @@ export default function Sales() {
   const nagagoldConfig = useNagagoldConfig();
   const [domain, setDomain] = useState("");
   const [savedQris, setSavedQris] = useState("");
-  const [modules, setModules] = useState<NagagoldModule[]>([]);
   const [salesCapabilities, setSalesCapabilities] = useState<NagagoldSalesCapabilities>(defaultSalesCapabilities);
   const [salesPeople, setSalesPeople] = useState<NagagoldSalesPerson[]>([]);
   const [marketplaces, setMarketplaces] = useState<NagagoldMarketplace[]>([]);
+  const [kondisiList, setKondisiList] = useState<NagagoldKondisiBeli[]>([]);
   const [rekenings, setRekenings] = useState<NagagoldRekening[]>([]);
   const [isLoadingMaster, setIsLoadingMaster] = useState(false);
   const [customerOpen, setCustomerOpen] = useState(false);
@@ -143,6 +167,8 @@ export default function Sales() {
   const [hargaJual, setHargaJual] = useState("");
   const [hargaGram, setHargaGram] = useState("");
   const [ongkos, setOngkos] = useState("");
+  const [discountType, setDiscountType] = useState<"DISKON_RP" | "DISKON_PERSEN" | "">("");
+  const [discountValue, setDiscountValue] = useState("");
   const [itemNote, setItemNote] = useState("");
   const [itemImageUrl, setItemImageUrl] = useState("");
   const [saleItemRaw, setSaleItemRaw] = useState<NagagoldSaleLookupItem | null>(null);
@@ -155,6 +181,14 @@ export default function Sales() {
   const [paymentFeePercent, setPaymentFeePercent] = useState("");
   const [isLookingUpMember, setIsLookingUpMember] = useState(false);
   const [isLookingUpItem, setIsLookingUpItem] = useState(false);
+  const [exchangeOpen, setExchangeOpen] = useState(false);
+  const [exchangeBarcode, setExchangeBarcode] = useState("");
+  const [exchangeLookup, setExchangeLookup] = useState<NagagoldPurchaseLookupItem | null>(null);
+  const [exchangeHargaBeli, setExchangeHargaBeli] = useState("");
+  const [exchangePotongan, setExchangePotongan] = useState("");
+  const [exchangeKondisi, setExchangeKondisi] = useState("");
+  const [isLookingUpExchange, setIsLookingUpExchange] = useState(false);
+  const [exchangeItems, setExchangeItems] = useState<ExchangeItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [pendingAuthorization, setPendingAuthorization] = useState<PendingSaleAuthorization | null>(null);
@@ -163,10 +197,10 @@ export default function Sales() {
   const applyRuntimeConfig = useCallback((config: typeof nagagoldConfig.config) => {
     if (!config) return;
     setDomain(config.domain);
-    setModules(config.modules);
     setSalesCapabilities(config.capabilities.sales);
     setSalesPeople(config.masters.sales.filter((item) => item.status_aktif !== false));
     setMarketplaces((config.masters.marketplaces ?? []).filter((item) => item.status_aktif !== false));
+    setKondisiList((config.masters.kondisi ?? []).filter((item) => item.status_aktif !== false));
     setRekenings(config.masters.rekenings);
     if (!config.capabilities.sales.allowNonMember) {
       setJenisCustomer("MEMBER");
@@ -204,7 +238,9 @@ export default function Sales() {
   }, [applyRuntimeConfig, nagagoldConfig.config?.version]);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.total, 0), [items]);
-  const paidTotal = payments.reduce((sum, item) => sum + item.amount, 0);
+  const exchangeTotal = useMemo(() => exchangeItems.reduce((sum, item) => sum + item.hargaBeli, 0), [exchangeItems]);
+  const cashPaidTotal = payments.reduce((sum, item) => sum + item.amount, 0);
+  const paidTotal = cashPaidTotal + exchangeTotal;
   const remaining = Math.max(total - paidTotal, 0);
   const firstItem = items[0];
   const hasRequiredSales = !salesCapabilities.requireSales || Boolean(kodeSales.trim());
@@ -324,7 +360,9 @@ export default function Sales() {
     const nextHargaJual = parseCurrency(hargaJual);
     const nextHargaGram = parseCurrency(hargaGram);
     const nextOngkos = parseCurrency(ongkos);
-    const nextTotal = nextHargaJual + nextOngkos + Number(saleItemRaw?.harga_atribut ?? 0);
+    const baseTotal = nextHargaJual + nextOngkos + Number(saleItemRaw?.harga_atribut ?? 0);
+    const nextDiscount = calculateSaleDiscount(baseTotal, discountType, discountValue);
+    const nextTotal = Math.max(0, baseTotal - nextDiscount);
     if (!kodeBarcode.trim() || !namaBarang.trim() || nextBerat <= 0 || nextHargaJual <= 0) {
       Alert.alert("Data barang belum lengkap", "Barcode, nama barang, berat, dan harga jual wajib diisi.");
       return;
@@ -354,6 +392,10 @@ export default function Sales() {
         hargaGram: nextHargaGram,
         hargaJual: nextHargaJual,
         ongkos: nextOngkos,
+        diskonPenjualan: nextDiscount,
+        typeDiskon: discountType,
+        diskonRp: discountType === "DISKON_RP" ? nextDiscount : 0,
+        diskonPersen: discountType === "DISKON_PERSEN" ? parseDecimal(discountValue) : 0,
         total: nextTotal,
         keterangan: itemNote.trim(),
         imageUrl: itemImageUrl,
@@ -367,6 +409,8 @@ export default function Sales() {
     setHargaJual("");
     setHargaGram("");
     setOngkos("");
+    setDiscountType("");
+    setDiscountValue("");
     setItemNote("");
     setItemImageUrl("");
     setSaleItemRaw(null);
@@ -424,9 +468,9 @@ export default function Sales() {
         method: paymentMethod,
         amount,
         nominalWithFee,
-        bank: paymentMethod === "CASH" || paymentMethod === "TUKAR" ? paymentMethod : selectedRekening?.kode_bank,
-        rekening: paymentMethod === "CASH" || paymentMethod === "TUKAR" ? paymentMethod : rekeningPayload(selectedRekening),
-        rekeningLabel: paymentMethod === "CASH" || paymentMethod === "TUKAR" ? paymentMethod : rekeningLabel(selectedRekening),
+        bank: paymentMethod === "CASH" ? paymentMethod : selectedRekening?.kode_bank,
+        rekening: paymentMethod === "CASH" ? paymentMethod : rekeningPayload(selectedRekening),
+        rekeningLabel: paymentMethod === "CASH" ? paymentMethod : rekeningLabel(selectedRekening),
         noCard: paymentNoCard.trim(),
         marketplace: paymentMarketplace.trim(),
         feePercent,
@@ -476,6 +520,88 @@ export default function Sales() {
     setPaymentOpen(true);
   };
 
+  const lookupExchangeItem = async () => {
+    const barcode = exchangeBarcode.trim().toUpperCase();
+    if (!barcode) {
+      Alert.alert("Kode kosong", "Masukkan kode barcode atau no faktur barang tukar terlebih dahulu.");
+      return;
+    }
+    if (exchangeItems.some((item) => item.kodeBarcode === barcode || item.noFaktur === barcode)) {
+      Alert.alert("Barang sudah ada", "Kode Barcode Sudah Ada Dalam Table.");
+      return;
+    }
+
+    setIsLookingUpExchange(true);
+    try {
+      const item = await lookupNagagoldPurchaseItem(barcode);
+      const hargaNota = Number(item.harga_jual ?? 0) + Number(item.harga_atribut ?? 0);
+      const hargaBeli = Number(item.harga_beli ?? item.harga_modal ?? hargaNota) || hargaNota;
+      setExchangeLookup(item);
+      setExchangeBarcode(String(item.kode_barcode ?? barcode).trim().toUpperCase());
+      setExchangeHargaBeli(String(hargaBeli || ""));
+      setExchangePotongan("");
+      const rawKondisi = getRawText(item, "kondisi_barang", getRawText(item, "kondisi", ""));
+      const matchedKondisi = kondisiList.find((kondisi) => kondisiKey(kondisi) === rawKondisi.toUpperCase());
+      setExchangeKondisi(matchedKondisi ? kondisiKey(matchedKondisi) : "");
+      await Haptics.selectionAsync();
+    } catch (error) {
+      setExchangeLookup(null);
+      Alert.alert("Barang tukar tidak ditemukan", error instanceof Error ? error.message : "Data barang tukar belum bisa diambil dari NAGAGOLD.");
+    } finally {
+      setIsLookingUpExchange(false);
+    }
+  };
+
+  const addExchangeItem = async () => {
+    if (!exchangeLookup) {
+      Alert.alert("Barang tukar kosong", "Ambil data barang tukar terlebih dahulu.");
+      return;
+    }
+    const kode = getRawText(exchangeLookup, "kode_barcode", exchangeBarcode).toUpperCase();
+    const noFaktur = getRawText(exchangeLookup, "no_faktur_jual", getRawText(exchangeLookup, "no_faktur", exchangeBarcode)).toUpperCase();
+    if (exchangeItems.some((item) => item.kodeBarcode === kode || item.noFaktur === noFaktur)) {
+      Alert.alert("Barang sudah ada", "Kode Barcode Sudah Ada Dalam Table.");
+      return;
+    }
+    const hargaNota = Number(exchangeLookup.harga_jual ?? 0) + Number(exchangeLookup.harga_atribut ?? 0);
+    const hargaBeli = parseCurrency(exchangeHargaBeli) || Math.max(0, hargaNota - parseCurrency(exchangePotongan));
+    if (hargaBeli <= 0) {
+      Alert.alert("Harga beli belum valid", "Harga beli barang tukar harus lebih dari nol.");
+      return;
+    }
+    if (!exchangeKondisi.trim()) {
+      Alert.alert("Kondisi belum dipilih", "Pilih kondisi barang tukar dari master kondisi pembelian.");
+      return;
+    }
+
+    setExchangeItems([
+      ...exchangeItems,
+      {
+        id: `EXCHANGE-${Date.now()}`,
+        noFaktur,
+        kodeBarcode: kode,
+        namaBarang: getRawText(exchangeLookup, "nama_barang", "-").toUpperCase(),
+        berat: getRawNumber(exchangeLookup, "berat", getRawNumber(exchangeLookup, "berat_awal", 0)),
+        beratNota: getRawNumber(exchangeLookup, "berat_nota", getRawNumber(exchangeLookup, "berat_awal", 0)),
+        hargaNota,
+        hargaBeli,
+        hargaGram: getRawNumber(exchangeLookup, "harga_gram", hargaBeli),
+        kadar: getRawNumber(exchangeLookup, "kadar", 0),
+        kondisiBarang: exchangeKondisi.trim().toUpperCase(),
+        kodeDept: getRawText(exchangeLookup, "kode_dept", "-"),
+        kodeGroup: getRawText(exchangeLookup, "kode_group", "-"),
+        potonganLainLain: parseCurrency(exchangePotongan),
+        raw: exchangeLookup,
+      },
+    ]);
+    setExchangeBarcode("");
+    setExchangeLookup(null);
+    setExchangeHargaBeli("");
+    setExchangePotongan("");
+    setExchangeKondisi("");
+    await Haptics.selectionAsync();
+  };
+
   const submitConfirmed = async () => {
     if (!firstItem) return;
     setIsSubmitting(true);
@@ -484,8 +610,8 @@ export default function Sales() {
         kodeSales: kodeSales.trim(),
         kodeMember: normalizeCustomerType(jenisCustomer) === "NONMEMBER" ? "NONMEMBER" : kodeMember.trim(),
         namaCustomer: namaCustomer.trim() || "REGULER",
-        alamatCustomer: alamatCustomer.trim(),
-        noHp: noHp.trim(),
+        alamatCustomer: alamatCustomer.trim() || "-",
+        noHp: noHp.trim() || "-",
         kodeBarcode: firstItem.kodeBarcode,
         namaBarang: firstItem.namaBarang,
         berat: firstItem.berat,
@@ -498,25 +624,56 @@ export default function Sales() {
           hargaGram: item.hargaGram,
           hargaJual: item.hargaJual,
           ongkos: item.ongkos,
+          diskonPenjualan: item.diskonPenjualan,
+          typeDiskon: item.typeDiskon,
+          diskonRp: item.diskonRp,
+          diskonPersen: item.diskonPersen,
           total: item.total,
           keterangan: item.keterangan,
           authorizationIds: item.authorizationIds,
           raw: item.raw,
         })),
         jumlahBayar: paidTotal,
-        keterangan: payments.map((item) => item.method).join(", "),
-        payments: payments.map((payment) => ({
-          method: payment.method,
-          amount: payment.amount,
-          bank: payment.bank,
-          rekening: payment.rekening,
-          noCard: payment.noCard,
-          marketplace: payment.marketplace,
-          feePercent: payment.feePercent,
-          feeAmount: payment.feeAmount,
-          feeDropdown: payment.feePercent ? String(payment.feePercent) : "-",
-          nominalWithFee: payment.amount,
-        })),
+        keterangan: [...payments.map((item) => item.method), ...(exchangeItems.length ? ["TUKAR"] : [])].join(", "),
+        payments: [
+          ...payments.map((payment) => ({
+            method: payment.method,
+            amount: payment.amount,
+            bank: payment.bank,
+            rekening: payment.rekening,
+            noCard: payment.noCard,
+            marketplace: payment.marketplace,
+            feePercent: payment.feePercent,
+            feeAmount: payment.feeAmount,
+            feeDropdown: payment.feePercent ? String(payment.feePercent) : "-",
+            nominalWithFee: payment.amount,
+          })),
+          ...(exchangeItems.length ? [{
+            method: "TUKAR" as const,
+            amount: exchangeTotal,
+            bank: "TUKAR",
+            rekening: "TUKAR",
+            detailBarang: exchangeItems.map((item) => ({
+              no_faktur: item.noFaktur,
+              nama_barang: item.namaBarang,
+              kode_barcode: item.kodeBarcode,
+              jenis_group: getRawText(item.raw, "jenis_group", "-"),
+              qty: 1,
+              kadar: item.kadar,
+              berat: item.berat,
+              harga_nota: item.hargaNota,
+              harga_beli: item.hargaBeli,
+              harga_gram: item.hargaGram,
+              kode_dept: item.kodeDept,
+              kode_group: item.kodeGroup,
+              potongan_lain_lain: item.potonganLainLain,
+              berat_nota: item.beratNota,
+              kondisi_barang: item.kondisiBarang,
+              kode_cabang: getRawText(item.raw, "kode_toko", ""),
+              kode_harga_beli: "-",
+            })),
+          }] : []),
+        ],
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Penjualan tersimpan", "Transaksi berhasil disimpan.");
@@ -542,11 +699,19 @@ export default function Sales() {
     setHargaJual("");
     setHargaGram("");
     setOngkos("");
+    setDiscountType("");
+    setDiscountValue("");
     setItemNote("");
     setSaleItemRaw(null);
     setItemImageUrl("");
     setItems([]);
     setPayments([]);
+    setExchangeItems([]);
+    setExchangeLookup(null);
+    setExchangeBarcode("");
+    setExchangeHargaBeli("");
+    setExchangePotongan("");
+    setExchangeKondisi("");
     setPaymentMethod("CASH");
     setPaymentRekening("");
     setPaymentAmount("");
@@ -566,7 +731,6 @@ export default function Sales() {
             {domain ? (isLoadingMaster ? "Memuat master " : "Terhubung ke ") : "Atur domain "}
             <Text style={[styles.domainNoticeStrong, { color: theme.colors.primary }]}>Server</Text>
             {domain ? "" : " di Pengaturan"}
-            {domain && modules.length ? ` • ${modules.length} module` : ""}
           </Text>
         </View>
 
@@ -615,6 +779,8 @@ export default function Sales() {
                   <Row label="Nama Barang" value={item.namaBarang} />
                   <Row label="Harga Jual" value={formatRupiah(item.hargaJual)} />
                   <Row label="Ongkos" value={formatRupiah(item.ongkos)} />
+                  {item.diskonPenjualan > 0 ? <Row label="Diskon" value={formatRupiah(item.diskonPenjualan)} /> : null}
+                  <Row label="Total" value={formatRupiah(item.total)} />
                 </View>
                 <Pressable
                   style={styles.deleteIcon}
@@ -652,6 +818,41 @@ export default function Sales() {
             <Text style={[styles.paymentButtonText, { color: canOpenPayment ? theme.colors.onPrimary : theme.colors.subtleText }]}>Lanjut ke Pembayaran</Text>
           </Pressable>
         </View>
+        <View style={styles.exchangeActionRow}>
+          <Pressable
+            style={[
+              styles.exchangeMainButton,
+              { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.secondary },
+              !canOpenPayment && { opacity: 0.55 },
+            ]}
+            disabled={!canOpenPayment}
+            onPress={() => setExchangeOpen(true)}
+          >
+            <Ionicons name="swap-horizontal-outline" size={18} color={theme.colors.secondary} />
+            <Text style={[styles.exchangeMainText, { color: theme.colors.secondary }]}>Bayar Dengan Tukar</Text>
+          </Pressable>
+          {exchangeTotal > 0 ? (
+            <View style={[styles.exchangeTotalPill, { backgroundColor: theme.colors.warningContainer }]}>
+              <Text style={[styles.exchangeTotalText, { color: theme.colors.secondary }]}>{formatRupiah(exchangeTotal)}</Text>
+            </View>
+          ) : null}
+        </View>
+        {exchangeItems.length ? (
+          <View style={styles.itemList}>
+            {exchangeItems.map((item) => (
+              <View key={item.id} style={[styles.exchangeCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.exchangeTitle, { color: theme.colors.text }]}>{item.namaBarang}</Text>
+                  <Text style={[styles.exchangeSub, { color: theme.colors.muted }]}>{item.kodeBarcode} • {item.berat} gr • {item.kondisiBarang}</Text>
+                </View>
+                <Text style={[styles.exchangeValue, { color: theme.colors.secondary }]}>{formatRupiah(item.hargaBeli)}</Text>
+                <Pressable onPress={() => setExchangeItems(exchangeItems.filter((nextItem) => nextItem.id !== item.id))}>
+                  <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : null}
       </ScrollView>
 
       <CustomerModal
@@ -699,6 +900,10 @@ export default function Sales() {
         setHargaGram={setHargaGram}
         ongkos={ongkos}
         setOngkos={setOngkos}
+        discountType={discountType}
+        setDiscountType={setDiscountType}
+        discountValue={discountValue}
+        setDiscountValue={setDiscountValue}
         itemNote={itemNote}
         setItemNote={setItemNote}
         imageUrl={itemImageUrl}
@@ -730,11 +935,39 @@ export default function Sales() {
         qrisString={savedQris}
         allowQrisOnTransfer={salesCapabilities.allowQrisOnTransfer}
         payments={payments}
+        exchangeItems={exchangeItems}
         setPayments={setPayments}
+        onRemoveExchange={(id) => setExchangeItems(exchangeItems.filter((item) => item.id !== id))}
         isSubmitting={isSubmitting}
         onAddPayment={addPayment}
         onClose={() => setPaymentOpen(false)}
         onSubmit={submit}
+      />
+      <ExchangeModal
+        visible={exchangeOpen}
+        barcode={exchangeBarcode}
+        setBarcode={(value) => setExchangeBarcode(value.toUpperCase())}
+        lookup={exchangeLookup}
+        hargaBeli={exchangeHargaBeli}
+        setHargaBeli={setExchangeHargaBeli}
+        potongan={exchangePotongan}
+        setPotongan={(value) => {
+          const cleanValue = value.replace(/\D/g, "");
+          setExchangePotongan(cleanValue);
+          if (exchangeLookup) {
+            const hargaNota = Number(exchangeLookup.harga_jual ?? 0) + Number(exchangeLookup.harga_atribut ?? 0);
+            setExchangeHargaBeli(String(Math.max(0, hargaNota - parseCurrency(cleanValue))));
+          }
+        }}
+        kondisi={exchangeKondisi}
+        setKondisi={(value) => setExchangeKondisi(value.toUpperCase())}
+        kondisiList={kondisiList}
+        items={exchangeItems}
+        isLookingUp={isLookingUpExchange}
+        onLookup={lookupExchangeItem}
+        onAdd={addExchangeItem}
+        onRemove={(id) => setExchangeItems(exchangeItems.filter((item) => item.id !== id))}
+        onClose={() => setExchangeOpen(false)}
       />
       <AuthorizationModal
         visible={Boolean(pendingAuthorization)}
@@ -917,6 +1150,10 @@ function ItemModal(props: {
   setHargaGram: (value: string) => void;
   ongkos: string;
   setOngkos: (value: string) => void;
+  discountType: "DISKON_RP" | "DISKON_PERSEN" | "";
+  setDiscountType: (value: "DISKON_RP" | "DISKON_PERSEN" | "") => void;
+  discountValue: string;
+  setDiscountValue: (value: string) => void;
   itemNote: string;
   setItemNote: (value: string) => void;
   imageUrl: string;
@@ -926,8 +1163,11 @@ function ItemModal(props: {
   onSave: () => void;
 }) {
   const theme = useAppTheme();
+  const [discountPickerOpen, setDiscountPickerOpen] = useState(false);
   const hargaGramValue = parseCurrency(props.hargaGram);
-  const total = parseCurrency(props.hargaJual) + parseCurrency(props.ongkos);
+  const baseTotal = parseCurrency(props.hargaJual) + parseCurrency(props.ongkos);
+  const discountAmount = calculateSaleDiscount(baseTotal, props.discountType, props.discountValue);
+  const total = Math.max(0, baseTotal - discountAmount);
   const handleBeratChange = (value: string) => {
     props.setBerat(value);
     const nextBerat = parseDecimal(value);
@@ -988,10 +1228,28 @@ function ItemModal(props: {
         <CurrencyInput label="Ongkos" value={props.ongkos} onChangeText={props.setOngkos} />
       </View>
       {props.capabilities.allowDiscount ? (
-        <View style={[styles.moduleNotice, { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}>
-          <Ionicons name="pricetag-outline" size={16} color={theme.colors.secondary} />
-          <Text style={[styles.moduleNoticeText, { color: theme.colors.muted }]}>Module diskon penjualan aktif. Diskon mengikuti payload/data NAGAGOLD saat simpan transaksi.</Text>
-        </View>
+        <>
+          <Text style={[styles.label, { color: theme.colors.subtleText }]}>Tipe Diskon</Text>
+          <SelectField
+            value={props.discountType === "DISKON_PERSEN" ? "Diskon Persen" : props.discountType === "DISKON_RP" ? "Diskon Rp" : ""}
+            placeholder="Pilih tipe diskon"
+            onPress={() => setDiscountPickerOpen(true)}
+          />
+          {props.discountType === "DISKON_PERSEN" ? (
+            <View style={styles.twoColumn}>
+              <Input
+                label="Diskon Persen"
+                value={props.discountValue}
+                onChangeText={(value) => props.setDiscountValue(value.replace(/[^0-9.,]/g, ""))}
+                placeholder="0"
+                keyboardType="decimal-pad"
+              />
+              <ReadOnly label="Total Diskon" value={formatRupiah(discountAmount)} />
+            </View>
+          ) : props.discountType === "DISKON_RP" ? (
+            <CurrencyInput label="Discount Rp" value={props.discountValue} onChangeText={props.setDiscountValue} />
+          ) : null}
+        </>
       ) : null}
       <View style={styles.twoColumn}>
         <ReadOnly label="Total" value={formatRupiah(total)} />
@@ -1005,6 +1263,22 @@ function ItemModal(props: {
           <Text style={styles.sheetPrimaryText}>Simpan Data</Text>
         </Pressable>
       </View>
+      <OptionSheet
+        visible={discountPickerOpen}
+        title="Pilih Tipe Diskon"
+        onClose={() => setDiscountPickerOpen(false)}
+        options={[
+          { key: "", label: "Tanpa Diskon" },
+          { key: "DISKON_RP", label: "Diskon Rp" },
+          { key: "DISKON_PERSEN", label: "Diskon Persen" },
+        ]}
+        selectedKey={props.discountType}
+        onSelect={(key) => {
+          props.setDiscountType(key as "DISKON_RP" | "DISKON_PERSEN" | "");
+          props.setDiscountValue("");
+          setDiscountPickerOpen(false);
+        }}
+      />
     </Sheet>
   );
 }
@@ -1032,7 +1306,9 @@ function PaymentModal(props: {
   qrisString: string;
   allowQrisOnTransfer: boolean;
   payments: PaymentLine[];
+  exchangeItems: ExchangeItem[];
   setPayments: (value: PaymentLine[]) => void;
+  onRemoveExchange: (id: string) => void;
   isSubmitting: boolean;
   onAddPayment: () => void;
   onClose: () => void;
@@ -1051,6 +1327,7 @@ function PaymentModal(props: {
   const generatedQris = props.method === "TRANSFER" && showTransferQris ? buildPaymentQris(props.qrisString, qrisAmount) : "";
   const selectedRekening = props.rekenings.find((rekening) => rekeningKey(rekening) === props.rekening);
   const selectedMarketplace = props.marketplaces.find((marketplace) => marketplaceKey(marketplace) === props.marketplace);
+  const exchangeTotal = props.exchangeItems.reduce((sum, item) => sum + item.hargaBeli, 0);
   const generateTransferQris = () => {
     if (props.method !== "TRANSFER") return;
     if (qrisAmount <= 0) {
@@ -1086,15 +1363,6 @@ function PaymentModal(props: {
             onPress={() => setRekeningPickerOpen(true)}
           />
         </>
-      ) : null}
-      {props.method === "TUKAR" ? (
-        <Pressable
-          style={[styles.tukarButton, { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}
-          onPress={() => props.setAmount(String(props.remaining))}
-        >
-          <Ionicons name="swap-horizontal-outline" size={18} color={theme.colors.secondary} />
-          <Text style={[styles.tukarButtonText, { color: theme.colors.secondary }]}>Bayar Dengan Tukar</Text>
-        </Pressable>
       ) : null}
       {props.showMarketplacePayment ? (
         <>
@@ -1184,6 +1452,21 @@ function PaymentModal(props: {
             </Pressable>
           </View>
         ))}
+        {props.exchangeItems.length ? (
+          <View style={[styles.paymentLine, { borderBottomColor: theme.colors.divider }]}>
+            <Text style={[styles.paymentIndex, { color: theme.colors.text }]}>{props.payments.length + 1}</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.paymentMethod, { color: theme.colors.text }]}>TUKAR</Text>
+              <Text style={[styles.paymentSub, { color: theme.colors.muted }]}>
+                {props.exchangeItems.length} barang tukar
+              </Text>
+            </View>
+            <Text style={[styles.paymentValue, { color: theme.colors.text }]}>{formatRupiah(exchangeTotal)}</Text>
+            <Pressable onPress={() => props.exchangeItems.forEach((item) => props.onRemoveExchange(item.id))}>
+              <Ionicons name="trash-outline" size={18} color="#DC2626" />
+            </Pressable>
+          </View>
+        ) : null}
         <View style={[styles.paymentGrandLine, { backgroundColor: theme.colors.surfaceContainerLow }]}>
           <Text style={[styles.paymentGrandLabel, { color: theme.colors.text }]}>Grand Total</Text>
           <Text style={[styles.paymentGrandValue, { color: theme.colors.primary }]}>{formatRupiah(props.paidTotal)}</Text>
@@ -1235,6 +1518,122 @@ function PaymentModal(props: {
         onSelect={(key) => {
           props.setMarketplace(key);
           setMarketplacePickerOpen(false);
+        }}
+      />
+    </Sheet>
+  );
+}
+
+function ExchangeModal(props: {
+  visible: boolean;
+  barcode: string;
+  setBarcode: (value: string) => void;
+  lookup: NagagoldPurchaseLookupItem | null;
+  hargaBeli: string;
+  setHargaBeli: (value: string) => void;
+  potongan: string;
+  setPotongan: (value: string) => void;
+  kondisi: string;
+  setKondisi: (value: string) => void;
+  kondisiList: NagagoldKondisiBeli[];
+  items: ExchangeItem[];
+  isLookingUp: boolean;
+  onLookup: () => void;
+  onAdd: () => void;
+  onRemove: (id: string) => void;
+  onClose: () => void;
+}) {
+  const theme = useAppTheme();
+  const [kondisiPickerOpen, setKondisiPickerOpen] = useState(false);
+  const hargaNota = props.lookup ? Number(props.lookup.harga_jual ?? 0) + Number(props.lookup.harga_atribut ?? 0) : 0;
+  const selectedKondisi = props.kondisiList.find((kondisi) => kondisiKey(kondisi) === props.kondisi);
+
+  return (
+    <Sheet visible={props.visible} title="Bayar Dengan Tukar" onClose={props.onClose}>
+      <Input
+        label="Kode Barcode / No Faktur"
+        value={props.barcode}
+        onChangeText={props.setBarcode}
+        placeholder="Scan atau input kode"
+        uppercase
+      />
+      <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={props.onLookup}>
+        <Ionicons name="barcode-outline" size={17} color={theme.colors.primary} />
+        <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>
+          {props.isLookingUp ? "Mengambil Barang..." : "Ambil Data Barang Tukar"}
+        </Text>
+      </Pressable>
+
+      {props.lookup ? (
+        <>
+          <View style={[styles.exchangeLookupBox, { backgroundColor: theme.colors.surfaceContainerLow, borderColor: theme.colors.outlineVariant }]}>
+            <Text style={[styles.exchangeTitle, { color: theme.colors.text }]}>{getRawText(props.lookup, "nama_barang", "-")}</Text>
+            <Text style={[styles.exchangeSub, { color: theme.colors.muted }]}>
+              {getRawText(props.lookup, "kode_barcode", props.barcode)} • Faktur {getRawText(props.lookup, "no_faktur_jual", "-")}
+            </Text>
+          </View>
+          <View style={styles.twoColumn}>
+            <ReadOnly label="Berat Nota" value={`${getRawNumber(props.lookup, "berat_nota", getRawNumber(props.lookup, "berat_awal", 0))} gr`} />
+            <ReadOnly label="Berat" value={`${getRawNumber(props.lookup, "berat", getRawNumber(props.lookup, "berat_awal", 0))} gr`} />
+          </View>
+          <View style={styles.twoColumn}>
+            <ReadOnly label="Harga Nota" value={formatRupiah(hargaNota)} />
+            <ReadOnly label="Harga/Gram" value={formatRupiah(getRawNumber(props.lookup, "harga_gram", 0))} />
+          </View>
+          <View style={styles.twoColumn}>
+            <CurrencyInput label="Potongan Lain Lain" value={props.potongan} onChangeText={props.setPotongan} />
+            <CurrencyInput label="Harga Beli" value={props.hargaBeli} onChangeText={props.setHargaBeli} />
+          </View>
+          <Text style={[styles.label, { color: theme.colors.subtleText }]}>Kondisi Barang</Text>
+          <SelectField
+            value={selectedKondisi ? kondisiLabel(selectedKondisi) : ""}
+            placeholder="Pilih kondisi"
+            onPress={() => setKondisiPickerOpen(true)}
+          />
+          <Pressable style={[styles.sheetPrimaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={props.onAdd}>
+            <Text style={styles.sheetPrimaryText}>Simpan Barang Tukar</Text>
+          </Pressable>
+        </>
+      ) : null}
+
+      {props.items.length ? (
+        <>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Daftar Barang Tukar</Text>
+          <View style={[styles.paymentList, { borderColor: theme.colors.outlineVariant }]}>
+            {props.items.map((item) => (
+              <View key={item.id} style={[styles.paymentLine, { borderBottomColor: theme.colors.divider }]}>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.paymentMethod, { color: theme.colors.text }]}>{item.namaBarang}</Text>
+                  <Text style={[styles.paymentSub, { color: theme.colors.muted }]}>{item.kodeBarcode} • {item.berat} gr</Text>
+                </View>
+                <Text style={[styles.paymentValue, { color: theme.colors.secondary }]}>{formatRupiah(item.hargaBeli)}</Text>
+                <Pressable onPress={() => props.onRemove(item.id)}>
+                  <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        </>
+      ) : null}
+
+      <View style={styles.sheetFooter}>
+        <Pressable style={[styles.sheetSecondaryButton, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surfaceContainerLowest }]} onPress={props.onClose}>
+          <Text style={[styles.sheetSecondaryText, { color: theme.colors.text }]}>Tutup</Text>
+        </Pressable>
+      </View>
+      <OptionSheet
+        visible={kondisiPickerOpen}
+        title="Pilih Kondisi Barang"
+        onClose={() => setKondisiPickerOpen(false)}
+        options={props.kondisiList.map((kondisi) => ({
+          key: kondisiKey(kondisi),
+          label: kondisiLabel(kondisi),
+        }))}
+        emptyText="Master kondisi pembelian kosong."
+        selectedKey={props.kondisi}
+        onSelect={(key) => {
+          props.setKondisi(key);
+          setKondisiPickerOpen(false);
         }}
       />
     </Sheet>
@@ -1491,7 +1890,6 @@ function StatCard({ label, value, icon, active }: { label: string; value: string
 function methodIcon(method: PaymentLine["method"]): keyof typeof Ionicons.glyphMap {
   if (method === "TRANSFER") return "business-outline";
   if (method === "DEBET" || method === "CREDIT") return "card-outline";
-  if (method === "TUKAR") return "swap-horizontal-outline";
   return "cash-outline";
 }
 
@@ -1503,6 +1901,18 @@ function marketplaceLabel(marketplace: NagagoldMarketplace): string {
   const key = marketplaceKey(marketplace);
   const name = String(marketplace.nama_marketplace ?? marketplace.nama ?? marketplace.marketplace ?? "").trim();
   return [key, name].filter(Boolean).join(" - ") || "-";
+}
+
+function kondisiKey(kondisi: NagagoldKondisiBeli): string {
+  return String(kondisi.kondisi_barang ?? "").trim().toUpperCase();
+}
+
+function kondisiLabel(kondisi: NagagoldKondisiBeli): string {
+  const key = kondisiKey(kondisi);
+  const percent = Number(kondisi.persentase ?? 0);
+  const fixed = Number(kondisi.potongan ?? 0);
+  const suffix = fixed > 0 ? ` - ${formatRupiah(fixed)}` : percent > 0 ? ` - ${percent}%` : "";
+  return `${key}${suffix}` || "-";
 }
 
 function buildPaymentQris(qrisString: string, amount: number): string {
@@ -1593,6 +2003,14 @@ function parseCurrency(value: string): number {
 
 function parseDecimal(value: string): number {
   return Number(value.replace(",", ".")) || 0;
+}
+
+function calculateSaleDiscount(baseTotal: number, type: SaleItem["typeDiskon"], value: string): number {
+  if (!type || baseTotal <= 0) return 0;
+  if (type === "DISKON_RP") return Math.min(baseTotal, parseCurrency(value));
+  const percent = parseDecimal(value);
+  if (!Number.isFinite(percent) || percent <= 0) return 0;
+  return Math.min(baseTotal, Math.floor((baseTotal * percent) / 100));
 }
 
 const styles = StyleSheet.create({
@@ -1779,6 +2197,40 @@ const styles = StyleSheet.create({
   },
   paymentButtonDisabled: { backgroundColor: colors.surfaceContainer },
   paymentButtonText: { color: "#FFFFFF", flexShrink: 1, fontSize: 13, fontWeight: "700" },
+  exchangeActionRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  exchangeMainButton: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 50,
+    paddingHorizontal: 12,
+  },
+  exchangeMainText: { fontSize: 13, fontWeight: "800" },
+  exchangeTotalPill: {
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  exchangeTotalText: { fontSize: 12, fontWeight: "800" },
+  exchangeCard: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    padding: 12,
+  },
+  exchangeTitle: { fontSize: 14, fontWeight: "800" },
+  exchangeSub: { fontSize: 11, fontWeight: "600", marginTop: 3 },
+  exchangeValue: { fontSize: 13, fontWeight: "800" },
   modalBackdrop: {
     backgroundColor: "rgba(15, 23, 42, 0.45)",
     flex: 1,
@@ -2058,16 +2510,11 @@ const styles = StyleSheet.create({
   },
   qrisGenerateText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
   qrisCaption: { color: colors.muted, fontSize: 12, fontWeight: "700", textAlign: "center" },
-  tukarButton: {
-    alignItems: "center",
-    borderRadius: 12,
+  exchangeLookupBox: {
+    borderRadius: 14,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    minHeight: 48,
+    padding: 12,
   },
-  tukarButtonText: { fontSize: 13, fontWeight: "800" },
   authNotice: {
     alignItems: "flex-start",
     backgroundColor: "#FFF4E8",

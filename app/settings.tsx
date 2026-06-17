@@ -201,10 +201,8 @@ export default function Settings() {
           )}
           {nagagoldConfig.config ? (
             <View style={[styles.configBadge, { backgroundColor: theme.colors.surfaceContainerLow, borderColor: theme.colors.outlineVariant }]}>
-              <Ionicons name="layers-outline" size={15} color={theme.colors.primary} />
-              <Text style={[styles.helperText, { color: theme.colors.muted }]}>
-                {nagagoldConfig.modules.length} module • {nagagoldConfig.parameters.length} parameter • {nagagoldConfig.dynamicFeatures.length} fitur dinamis
-              </Text>
+              <Ionicons name="checkmark-done-outline" size={15} color={theme.colors.primary} />
+              <Text style={[styles.helperText, { color: theme.colors.muted }]}>Konfigurasi server sudah dimuat.</Text>
             </View>
           ) : null}
           <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={saveDomain}>

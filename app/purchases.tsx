@@ -9,7 +9,6 @@ import {
   lookupNagagoldPurchaseItem,
   searchNagagoldMembers,
   submitNagagoldPurchase,
-  type NagagoldModule,
   type NagagoldGroup,
   type NagagoldJenis,
   type NagagoldKondisiBeli,
@@ -44,6 +43,7 @@ type PurchaseItem = {
   statusBarang?: string;
   beratAtribut?: number;
   hargaAtribut?: number;
+  potonganManual?: number;
   potonganKondisiBeli?: number;
   kodeHargaBeli?: string;
   authorizationIds?: string[];
@@ -109,11 +109,14 @@ function normalizeBarcode(value: string): string {
   return value.trim().toUpperCase().slice(0, 8);
 }
 
+function jenisValue(item: NagagoldJenis): string {
+  return `${item.kode_dept}${item.nama_dept ? ` - ${item.nama_dept}` : ""}`;
+}
+
 export default function Purchases() {
   const theme = useAppTheme();
   const nagagoldConfig = useNagagoldConfig();
   const [domain, setDomain] = useState("");
-  const [modules, setModules] = useState<NagagoldModule[]>([]);
   const [purchaseCapabilities, setPurchaseCapabilities] = useState<NagagoldPurchaseCapabilities>(defaultPurchaseCapabilities);
   const [tokos, setTokos] = useState<NagagoldToko[]>([]);
   const [jenisList, setJenisList] = useState<NagagoldJenis[]>([]);
@@ -143,6 +146,7 @@ export default function Purchases() {
   const [berat, setBerat] = useState("");
   const [hargaNota, setHargaNota] = useState("");
   const [hargaBeli, setHargaBeli] = useState("");
+  const [potonganManual, setPotonganManual] = useState("");
   const [purchaseRaw, setPurchaseRaw] = useState<NagagoldPurchaseLookupItem | null>(null);
   const [isLookingUpItem, setIsLookingUpItem] = useState(false);
   const [items, setItems] = useState<PurchaseItem[]>([]);
@@ -164,7 +168,6 @@ export default function Purchases() {
   const applyRuntimeConfig = useCallback((config: typeof nagagoldConfig.config) => {
     if (!config) return;
     setDomain(config.domain);
-    setModules(config.modules);
     setPurchaseCapabilities(config.capabilities.purchases ?? defaultPurchaseCapabilities);
     setTokos(config.masters.tokos ?? []);
     setJenisList((config.masters.jenis ?? []).filter((item) => item.status_aktif !== false));
@@ -224,14 +227,17 @@ export default function Purchases() {
     hargaNota?: string;
     kondisi?: string;
     typeKondisi?: string;
+    potonganManual?: string;
   }) => {
     const nextBerat = parseDecimal(overrides?.berat ?? berat) || 1;
     const nextHargaNota = parseCurrency(overrides?.hargaNota ?? hargaNota);
     const nextKondisi = overrides?.kondisi ?? kondisi;
     const nextTypeKondisi = overrides?.typeKondisi ?? typeKondisi;
+    const nextPotonganManual = parseCurrency(overrides?.potonganManual ?? potonganManual);
     const condition = kondisiList.find((item) => item.kondisi_barang === nextKondisi);
 
-    if (!nextHargaNota || !condition) return nextHargaNota;
+    if (!nextHargaNota) return 0;
+    if (!condition) return roundNagagoldPurchasePrice(Math.max(0, nextHargaNota - nextPotonganManual), roundingConfig);
 
     const potongan = Number(condition.potongan ?? 0);
     const persentase = Number(condition.persentase ?? 0);
@@ -239,7 +245,7 @@ export default function Purchases() {
       ? potongan * nextBerat
       : (persentase / 100) * nextHargaNota;
 
-    return roundNagagoldPurchasePrice(Math.max(0, nextHargaNota - discount), roundingConfig);
+    return roundNagagoldPurchasePrice(Math.max(0, nextHargaNota - discount - nextPotonganManual), roundingConfig);
   };
 
   const recalculateHargaBeli = (overrides?: {
@@ -247,6 +253,7 @@ export default function Purchases() {
     hargaNota?: string;
     kondisi?: string;
     typeKondisi?: string;
+    potonganManual?: string;
   }) => {
     const nextHargaBeli = calculateHargaBeli(overrides);
     setHargaBeli(nextHargaBeli ? String(nextHargaBeli) : "");
@@ -294,7 +301,7 @@ export default function Purchases() {
 
     setPurchaseRaw(item);
     setKodeBarcode(String(item.kode_barcode ?? kodeBarcode));
-    setKodeJenis(jenis ? `${jenis.kode_dept} - ${jenis.nama_dept}` : nextKodeJenis);
+    setKodeJenis(jenis ? jenisValue(jenis) : nextKodeJenis);
     setNamaBarang(String(item.nama_barang ?? jenis?.nama_dept ?? ""));
     setKadar(String(item.kadar ?? group?.kadar ?? 0));
     setKadarModal(String(item.kadar_modal ?? 100));
@@ -374,8 +381,8 @@ export default function Purchases() {
   const addItem = async (authorizationId?: string) => {
     if (unsupportedPurchaseModules.length) {
       Alert.alert(
-        "Module belum didukung",
-        `Domain ini mengaktifkan module pembelian yang belum aman diproses APK: ${unsupportedPurchaseModules.join(", ")}. Gunakan web NAGAGOLD untuk transaksi ini sampai adapter module dibuat.`,
+        "Konfigurasi belum didukung",
+        "Konfigurasi pembelian di toko ini belum aman diproses dari APK. Gunakan web NAGAGOLD untuk transaksi ini.",
       );
       return;
     }
@@ -383,16 +390,12 @@ export default function Purchases() {
     const nextBeratNota = parseDecimal(beratNota) || nextBerat;
     const nextHargaBeli = parseCurrency(hargaBeli);
     const nextHargaNota = parseCurrency(hargaNota) || nextHargaBeli;
-    if (!purchaseRaw && !purchaseCapabilities.allowPurchaseWithoutBarcode) {
-      Alert.alert("Data scan belum ada", "Ambil Data Barang dari barcode terlebih dahulu supaya kode jenis dan data jual sesuai NAGAGOLD.");
+    const nextKodeBarcode = normalizeBarcode(kodeBarcode) || "-";
+    if (!kodeJenis.trim() || !namaBarang.trim() || !kondisi.trim() || nextBerat <= 0 || nextHargaBeli <= 0) {
+      Alert.alert("Data barang belum lengkap", "Kode jenis, kondisi, nama barang, berat, dan harga beli wajib diisi.");
       return;
     }
-    const nextKodeBarcode = normalizeBarcode(kodeBarcode);
-    if (!nextKodeBarcode || !kodeJenis.trim() || !namaBarang.trim() || !kondisi.trim() || nextBerat <= 0 || nextHargaBeli <= 0) {
-      Alert.alert("Data barang belum lengkap", "Barcode, kode jenis, kondisi, nama barang, berat, dan harga beli wajib diisi.");
-      return;
-    }
-    if (items.some((item) => normalizeBarcode(item.kodeBarcode) === nextKodeBarcode)) {
+    if (nextKodeBarcode !== "-" && items.some((item) => normalizeBarcode(item.kodeBarcode) === nextKodeBarcode)) {
       Alert.alert("Kode Barcode Sudah Ada Dalam Table", "Barang ini sudah masuk di daftar pembelian.");
       return;
     }
@@ -412,8 +415,8 @@ export default function Purchases() {
     setItems([...items, {
       id: `BUY-${Date.now()}`,
       kodeBarcode: nextKodeBarcode,
-      noFakturJual: String(purchaseRaw?.no_faktur_jual ?? `FAK-${Date.now()}`),
-      kodeJenis: String(purchaseRaw?.kode_dept ?? (extractKodeDept(kodeJenis) || "ABB")),
+      noFakturJual: String(purchaseRaw?.no_faktur_jual ?? "-"),
+      kodeJenis: String(purchaseRaw?.kode_dept ?? (extractKodeDept(kodeJenis) || "")),
       namaBarang: namaBarang.trim(),
       beratNota: nextBeratNota,
       berat: nextBerat,
@@ -427,6 +430,7 @@ export default function Purchases() {
       statusBarang: String(purchaseRaw?.status_barang ?? "BARU"),
       beratAtribut: Number(purchaseRaw?.berat_atribut ?? 0),
       hargaAtribut: Number(purchaseRaw?.harga_atribut ?? 0),
+      potonganManual: parseCurrency(potonganManual),
       potonganKondisiBeli: typeKondisi === "RP"
         ? Number(selectedKondisi?.potongan ?? 0)
         : Number(selectedKondisi?.persentase ?? 0),
@@ -473,15 +477,11 @@ export default function Purchases() {
       return;
     }
     if (unsupportedPurchaseModules.length) {
-      Alert.alert("Module belum didukung", `Tidak bisa simpan dari APK karena module aktif belum didukung: ${unsupportedPurchaseModules.join(", ")}.`);
+      Alert.alert("Konfigurasi belum didukung", "Tidak bisa simpan dari APK karena konfigurasi pembelian toko ini belum didukung.");
       return;
     }
     if (purchaseCapabilities.requireSales && !kodeSales.trim()) {
       Alert.alert("Sales belum dipilih", "Pilih kode sales terlebih dahulu.");
-      return;
-    }
-    if (!namaCustomer.trim()) {
-      Alert.alert("Customer belum lengkap", "Kode sales dan nama customer wajib diisi.");
       return;
     }
     if (paymentType === "TRANSFER" && purchaseCapabilities.requireTransferAuthorization) {
@@ -504,9 +504,9 @@ export default function Purchases() {
         namaSales: namaSales.trim(),
         kodeToko: kodeToko.trim(),
         kodeMember: kodeMember.trim(),
-        namaCustomer: namaCustomer.trim(),
-        alamatCustomer: alamatCustomer.trim(),
-        noHp: noHp.trim(),
+        namaCustomer: namaCustomer.trim() || "REGULER",
+        alamatCustomer: alamatCustomer.trim() || "-",
+        noHp: noHp.trim() || "-",
         nikSimPassport: nikSimPassport.trim(),
         kodeBarcode: firstItem.kodeBarcode,
         noFakturJual: firstItem.noFakturJual,
@@ -529,6 +529,7 @@ export default function Purchases() {
           kadar: item.kadar,
           kadarModal: item.kadarModal,
           kadarCetak: item.kadarCetak,
+          potonganManual: item.potonganManual,
           potonganKondisiBeli: item.potonganKondisiBeli,
           beratAtribut: item.beratAtribut,
           hargaAtribut: item.hargaAtribut,
@@ -556,10 +557,14 @@ export default function Purchases() {
     setKodeBarcode("");
     setKodeJenis("");
     setNamaBarang("");
+    setKadar("100");
+    setKadarModal("0");
+    setKadarCetak("100");
     setBeratNota("");
     setBerat("");
     setHargaNota("");
     setHargaBeli("");
+    setPotonganManual("");
     setPurchaseRaw(null);
   };
 
@@ -590,7 +595,6 @@ export default function Purchases() {
           {domain ? (isLoadingMaster ? "Memuat master " : "Terhubung ke ") : "Atur domain "}
           <Text style={[styles.domainNoticeStrong, { color: theme.colors.primary }]}>Server</Text>
           {domain ? "" : " di Pengaturan"}
-          {domain && modules.length ? ` • ${modules.length} module` : ""}
         </Text>
       </View>
       <Stepper step={step} />
@@ -634,7 +638,22 @@ export default function Purchases() {
               }} placeholder="MULUS" uppercase />}
             />
           </View>
-          <ReadOnly label="Kode Jenis" value={kodeJenis || "-"} />
+          <OptionGroup
+            label="Kode Jenis"
+            value={kodeJenis}
+            options={jenisList.map((item) => ({ value: jenisValue(item), label: jenisValue(item) }))}
+            onChange={(value) => {
+              setKodeJenis(value);
+              const selectedJenis = jenisList.find((item) => jenisValue(item) === value);
+              const group = groups.find((item) => item.kode_group === selectedJenis?.kode_group);
+              if (selectedJenis && !namaBarang.trim()) setNamaBarang(selectedJenis.nama_dept);
+              if (group) {
+                setKadar(String(group.kadar ?? kadar));
+                setKadarModal(String((group as Record<string, unknown>).kadar_modal ?? kadarModal));
+              }
+            }}
+            fallback={<Input label="" value={kodeJenis} onChangeText={setKodeJenis} placeholder="Pilih kode jenis" uppercase />}
+          />
           <Input label="Nama Barang" value={namaBarang} onChangeText={setNamaBarang} placeholder="Nama barang" uppercase />
           <View style={styles.twoColumn}>
             <Input label="Kadar" value={kadar} onChangeText={setKadar} placeholder="100" keyboardType="decimal-pad" />
@@ -651,7 +670,17 @@ export default function Purchases() {
           <CurrencyInput label="Harga Nota" value={hargaNota} onChangeText={(value) => {
             setHargaNota(value);
             recalculateHargaBeli({ hargaNota: value });
-          }} locked />
+          }} locked={Boolean(purchaseRaw)} />
+          {purchaseCapabilities.showManualDiscount ? (
+            <CurrencyInput
+              label="Potongan Manual"
+              value={potonganManual}
+              onChangeText={(value) => {
+                setPotonganManual(value);
+                recalculateHargaBeli({ potonganManual: value });
+              }}
+            />
+          ) : null}
           <CurrencyInput label="Harga Beli" value={hargaBeli} onChangeText={setHargaBeli} locked={purchaseCapabilities.lockHargaBeli || purchaseCapabilities.readOnlyHargaBeli} />
           <View style={styles.twoColumn}>
             <ReadOnly label="Harga Rata" value={formatRupiah(hargaRata)} />
@@ -695,6 +724,7 @@ export default function Purchases() {
                 <Metric label="Berat Nota" value={String(item.beratNota)} />
                 <Metric label="Harga Rata" value={formatNumber(Math.floor(item.hargaBeli / item.berat))} />
                 <Metric label="Berat" value={String(item.berat)} />
+                {item.potonganManual ? <Metric label="Potongan Manual" value={formatNumber(item.potonganManual)} /> : null}
                 <Metric label="Harga Beli" value={formatNumber(item.hargaBeli)} />
                 <Metric label="Kondisi" value={item.kondisi} badge />
               </View>

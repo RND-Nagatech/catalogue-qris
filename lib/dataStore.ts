@@ -52,6 +52,10 @@ export type NagagoldSalePayload = {
     hargaJual: number;
     ongkos: number;
     total: number;
+    diskonPenjualan?: number;
+    typeDiskon?: "DISKON_RP" | "DISKON_PERSEN" | "";
+    diskonRp?: number;
+    diskonPersen?: number;
     keterangan: string;
     authorizationIds?: string[];
     raw?: Record<string, unknown>;
@@ -68,6 +72,7 @@ export type NagagoldSalePayload = {
     rekening?: string;
     noCard?: string;
     marketplace?: string;
+    detailBarang?: Record<string, unknown>[];
     feePercent?: number;
     feeAmount?: number;
     feeDropdown?: string;

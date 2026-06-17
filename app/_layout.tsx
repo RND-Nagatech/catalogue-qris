@@ -3,6 +3,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemeProvider, useAppTheme } from "../lib/theme";
+import { createBottomTabScreenOptions } from "../components/ui";
 
 export default function RootLayout() {
   return (
@@ -21,23 +22,7 @@ function RootTabs() {
     <>
       <StatusBar style={theme.isDark ? "light" : "dark"} />
       <Tabs
-        screenOptions={{
-          headerShown: false,
-          headerStyle: { backgroundColor: theme.colors.background },
-          headerTitleStyle: { fontSize: 18, fontWeight: "700", color: theme.colors.text },
-          headerShadowVisible: false,
-          sceneStyle: { backgroundColor: theme.colors.background },
-          tabBarActiveTintColor: theme.colors.primaryContainer,
-          tabBarInactiveTintColor: theme.colors.tabInactive,
-          tabBarLabelStyle: { fontSize: 11, fontWeight: "700" },
-          tabBarStyle: {
-            backgroundColor: theme.colors.surface,
-            borderTopColor: theme.colors.outline,
-            height: 72,
-            paddingBottom: 10,
-            paddingTop: 8,
-          },
-        }}
+        screenOptions={createBottomTabScreenOptions(theme)}
       >
         <Tabs.Screen
           name="index"

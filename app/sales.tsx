@@ -16,6 +16,7 @@ import QRCode from "react-native-qrcode-svg";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
+import { AppHeader, EmptyState } from "../components/ui";
 import {
   authorizeNagagoldTransaction,
   loadNagagoldDomain,
@@ -76,20 +77,20 @@ type PaymentLine = {
 
 const paymentMethods: PaymentLine["method"][] = ["CASH", "TRANSFER", "DEBET", "CREDIT"];
 const colors = {
-  background: "#F7F9FB",
+  background: "#F8F9FA",
   surface: "#FFFFFF",
-  surfaceLow: "#F2F4F6",
-  surfaceContainer: "#ECEEF0",
-  text: "#191C1E",
-  muted: "#3F4944",
-  outline: "#BEC9C2",
-  outlineStrong: "#6F7973",
-  primary: "#004532",
-  primaryContainer: "#065F46",
-  primarySoft: "#A6F2D1",
-  secondary: "#904D00",
-  secondaryContainer: "#FE932C",
-  tertiary: "#2D3D52",
+  surfaceLow: "#F3F4F5",
+  surfaceContainer: "#EDEEEF",
+  text: "#191C1D",
+  muted: "#3D4A3F",
+  outline: "#BCCABC",
+  outlineStrong: "#6D7A6E",
+  primary: "#006A37",
+  primaryContainer: "#008648",
+  primarySoft: "#79FCA5",
+  secondary: "#865300",
+  secondaryContainer: "#FEA520",
+  tertiary: "#4C5E71",
   danger: "#BA1A1A",
 };
 
@@ -508,68 +509,50 @@ export default function Sales() {
   return (
     <>
       <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]} keyboardShouldPersistTaps="handled">
-        <View style={styles.topHeader}>
-          <View style={styles.headerLeft}>
-            <Pressable style={styles.headerIconButton}>
-              <Ionicons name="menu" size={21} color={theme.colors.text} />
-            </Pressable>
-            <Text style={[styles.screenTitle, theme.isDark && { color: theme.colors.primary }]}>Transaksi Penjualan</Text>
-          </View>
-          <View style={styles.headerActions}>
-            <Pressable style={styles.headerIconButton} onPress={theme.toggleTheme}>
-              <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={18} color={theme.colors.text} />
-            </Pressable>
-            <Pressable style={styles.headerIconButton}>
-              <Ionicons name="cart-outline" size={22} color={theme.colors.primary} />
-              <View style={styles.cartBadge}>
-                <Text style={styles.cartBadgeText}>{items.length}</Text>
-              </View>
-            </Pressable>
-          </View>
-        </View>
+        <AppHeader title="Transaksi Penjualan" rightIcon="cart-outline" rightBadge={items.length} />
 
-        <View style={[styles.domainNotice, theme.isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-          <Text style={[styles.domainNoticeText, theme.isDark && { color: theme.colors.muted }]}>
+        <View style={[styles.domainNotice, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]}>
+          <Text style={[styles.domainNoticeText, { color: theme.colors.muted }]}>
             {domain ? (isLoadingMaster ? "Memuat master " : "Terhubung ke ") : "Atur domain "}
-            <Text style={[styles.domainNoticeStrong, theme.isDark && { color: theme.colors.primary }]}>NAGAGOLD</Text>
+            <Text style={[styles.domainNoticeStrong, { color: theme.colors.primary }]}>Server</Text>
             {domain ? "" : " di Pengaturan"}
           </Text>
         </View>
 
-        <View style={[styles.customerCard, theme.isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline, borderLeftColor: theme.colors.primary }]}>
+        <View style={[styles.customerCard, theme.elevation.level1, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderLeftColor: theme.colors.secondaryContainer }]}>
           <InfoLine icon="person" label="Nama Customer" value={namaCustomer || "-"} tone="primary" />
           <InfoLine icon="pricetag" label="Jenis" value={jenisCustomer} tone="secondary" />
           <InfoLine icon="id-card" label="Kode Sales" value={kodeSales || "-"} tone="neutral" />
-          <Pressable style={[styles.editMiniButton, theme.isDark && { backgroundColor: "#243049" }]} onPress={() => setCustomerOpen(true)}>
+          <Pressable style={[styles.editMiniButton, { backgroundColor: theme.colors.surfaceContainer }]} onPress={() => setCustomerOpen(true)}>
             <Ionicons name="pencil" size={17} color={theme.colors.primary} />
           </Pressable>
         </View>
 
         <View style={styles.actionRow}>
-          <Pressable style={[styles.actionButton, styles.customerButton, theme.isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.secondary, borderWidth: 1 }]} onPress={() => setCustomerOpen(true)}>
-            <Ionicons name="person-add-outline" size={17} color={theme.isDark ? theme.colors.secondary : colors.text} />
+          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.secondaryContainer }]} onPress={() => setCustomerOpen(true)}>
+            <Ionicons name="person-add-outline" size={17} color={theme.colors.onSecondaryContainer} />
             <View>
-              <Text style={[styles.actionButtonText, styles.customerButtonText, theme.isDark && { color: theme.colors.secondary }]}>Data Customer</Text>
+              <Text style={[styles.actionButtonText, { color: theme.colors.onSecondaryContainer }]}>Data Customer</Text>
             </View>
           </Pressable>
-          <Pressable style={[styles.actionButton, styles.itemButton, theme.isDark && { backgroundColor: theme.colors.primary }]} onPress={() => setItemOpen(true)}>
-            <Ionicons name="add-outline" size={17} color={theme.colors.primaryText} />
+          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={() => setItemOpen(true)}>
+            <Ionicons name="add-circle-outline" size={17} color={theme.colors.onPrimary} />
             <View>
-              <Text style={[styles.actionButtonText, theme.isDark && { color: theme.colors.primaryText }]}>Data Barang</Text>
+              <Text style={[styles.actionButtonText, { color: theme.colors.onPrimary }]}>Data Barang</Text>
             </View>
           </Pressable>
         </View>
 
         <View style={styles.sectionHeader}>
-          <Text style={[styles.sectionTitle, theme.isDark && { color: theme.colors.text }]}>Daftar Barang</Text>
-          <Text style={[styles.sectionCount, theme.isDark && { backgroundColor: "#243049", color: theme.colors.muted }]}>{items.length} item</Text>
+          <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Daftar Barang</Text>
+          <Text style={[styles.sectionCount, { backgroundColor: theme.colors.surfaceContainer, color: theme.colors.subtleText }]}>{items.length} item</Text>
         </View>
 
         {items.length ? (
           <View style={styles.itemList}>
             {items.map((item) => (
-              <View key={item.id} style={[styles.itemCard, theme.isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-                <View style={[styles.itemImage, theme.isDark && { backgroundColor: theme.colors.surfaceLow }]}>
+              <View key={item.id} style={[styles.itemCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+                <View style={[styles.itemImage, { backgroundColor: theme.colors.warningContainer }]}>
                   {item.imageUrl ? (
                     <Image source={{ uri: item.imageUrl }} style={styles.itemImagePhoto} />
                   ) : (
@@ -592,29 +575,30 @@ export default function Sales() {
             ))}
           </View>
         ) : (
-          <View style={[styles.emptyCard, theme.isDark && { backgroundColor: "rgba(26,36,56,0.35)", borderColor: theme.colors.outline }]}>
-            <Ionicons name="cube-outline" size={34} color={theme.colors.muted} />
-            <Text style={[styles.emptyTitle, theme.isDark && { color: theme.colors.text }]}>Belum ada barang</Text>
-            <Text style={[styles.emptyText, theme.isDark && { color: theme.colors.muted }]}>Tambahkan Data Barang untuk mulai transaksi penjualan.</Text>
-          </View>
+          <EmptyState
+            icon="cube-outline"
+            title="Belum ada barang"
+            description="Tambahkan Data Barang untuk mulai transaksi penjualan."
+            style={[styles.emptyCard, { backgroundColor: theme.colors.surfaceContainerLow, borderColor: theme.colors.outlineVariant }]}
+          />
         )}
 
-        <View style={[styles.bottomSummary, theme.isDark && { backgroundColor: "#243049", borderColor: theme.colors.outline }]}>
+        <View style={[styles.bottomSummary, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]}>
           <View>
-            <Text style={[styles.totalCaption, theme.isDark && { color: theme.colors.muted }]}>Total</Text>
-            <Text style={styles.totalBig}>{formatRupiah(total)}</Text>
+            <Text style={[styles.totalCaption, { color: theme.colors.subtleText }]}>Total</Text>
+            <Text style={[styles.totalBig, { color: theme.colors.primary }]}>{formatRupiah(total)}</Text>
           </View>
           <Pressable
             style={[
               styles.paymentButton,
-              theme.isDark && { backgroundColor: theme.colors.primary },
+              { backgroundColor: theme.colors.buttonPrimary },
               !canOpenPayment && styles.paymentButtonDisabled,
-              theme.isDark && !canOpenPayment && { backgroundColor: theme.colors.surfaceLow },
+              !canOpenPayment && { backgroundColor: theme.colors.surfaceContainer },
             ]}
             onPress={openPayment}
           >
-            <Ionicons name="card-outline" size={21} color={canOpenPayment ? theme.colors.primaryText : theme.colors.muted} />
-            <Text style={[styles.paymentButtonText, theme.isDark && !canOpenPayment && { color: theme.colors.muted }]}>Lanjut ke Pembayaran</Text>
+            <Ionicons name="card-outline" size={21} color={canOpenPayment ? theme.colors.onPrimary : theme.colors.subtleText} />
+            <Text style={[styles.paymentButtonText, { color: canOpenPayment ? theme.colors.onPrimary : theme.colors.subtleText }]}>Lanjut ke Pembayaran</Text>
           </Pressable>
         </View>
       </ScrollView>
@@ -718,21 +702,16 @@ function InfoLine({
   tone?: "primary" | "secondary" | "neutral";
 }) {
   const theme = useAppTheme();
-  const iconStyle = tone === "secondary" ? styles.infoIconSecondary : tone === "neutral" ? styles.infoIconNeutral : styles.infoIconPrimary;
-  const iconColor = tone === "secondary" ? theme.colors.secondary : tone === "neutral" ? "#38BDF8" : theme.colors.primary;
-  const iconBg = tone === "secondary"
-    ? "rgba(245, 158, 11, 0.12)"
-    : tone === "neutral"
-      ? "rgba(56, 189, 248, 0.12)"
-      : "rgba(16, 185, 129, 0.12)";
+  const iconColor = tone === "secondary" ? theme.colors.secondary : tone === "neutral" ? theme.colors.info : theme.colors.primary;
+  const iconBg = tone === "secondary" ? theme.colors.warningContainer : tone === "neutral" ? theme.colors.infoContainer : theme.colors.successContainer;
   return (
     <View style={styles.infoLine}>
-      <View style={[styles.infoIcon, iconStyle, theme.isDark && { backgroundColor: iconBg }]}>
+      <View style={[styles.infoIcon, { backgroundColor: iconBg }]}>
         <Ionicons name={icon} size={16} color={iconColor} />
       </View>
       <View style={styles.infoTextStack}>
-        <Text style={[styles.infoLabel, theme.isDark && { color: theme.colors.muted }]}>{label}</Text>
-        <Text style={[styles.infoValue, theme.isDark && { color: theme.colors.text }]}>{value}</Text>
+        <Text style={[styles.infoLabel, { color: theme.colors.subtleText }]}>{label}</Text>
+        <Text style={[styles.infoValue, { color: theme.colors.text }]}>{value}</Text>
       </View>
     </View>
   );
@@ -743,8 +722,8 @@ function Row({ label, value }: { label: string; value: string }) {
 
   return (
     <View style={styles.row}>
-      <Text style={[styles.rowLabel, theme.isDark && { color: theme.colors.muted }]}>{label}</Text>
-      <Text style={[styles.rowValue, theme.isDark && { color: theme.colors.text }]}>{value}</Text>
+      <Text style={[styles.rowLabel, { color: theme.colors.subtleText }]}>{label}</Text>
+      <Text style={[styles.rowValue, { color: theme.colors.text }]}>{value}</Text>
     </View>
   );
 }
@@ -778,30 +757,30 @@ function CustomerModal(props: {
 
   return (
     <Sheet visible={props.visible} title="Form Data Customer" onClose={props.onClose}>
-      <Text style={[styles.label, theme.isDark && { color: theme.colors.muted }]}>Pilih Kode Sales</Text>
+      <Text style={[styles.label, { color: theme.colors.subtleText }]}>Pilih Kode Sales</Text>
       <SelectField
         value={selectedSales ? `${selectedSales.kode_sales} - ${selectedSales.nama_sales}` : ""}
         placeholder="Pilih kode sales"
         onPress={() => setSalesPickerOpen(true)}
       />
-      <Text style={[styles.label, theme.isDark && { color: theme.colors.muted }]}>Pilih Pelanggan</Text>
+      <Text style={[styles.label, { color: theme.colors.subtleText }]}>Pilih Pelanggan</Text>
       <View style={styles.optionWrap}>
         {["NONMEMBER", "MEMBER"].map((type) => (
           <Pressable
             key={type}
             style={[
               styles.optionButton,
-              theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.outline },
+              { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant },
               normalizeCustomerType(props.jenisCustomer) === type && styles.optionButtonActive,
-              theme.isDark && normalizeCustomerType(props.jenisCustomer) === type && { backgroundColor: "rgba(16,185,129,0.12)", borderColor: theme.colors.primary },
+              normalizeCustomerType(props.jenisCustomer) === type && { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary },
             ]}
             onPress={() => props.setJenisCustomer(type === "NONMEMBER" ? "NON MEMBER" : "MEMBER")}
           >
             <Text style={[
               styles.optionText,
-              theme.isDark && { color: theme.colors.muted },
+              { color: theme.colors.muted },
               normalizeCustomerType(props.jenisCustomer) === type && styles.optionTextActive,
-              theme.isDark && normalizeCustomerType(props.jenisCustomer) === type && { color: theme.colors.primary },
+              normalizeCustomerType(props.jenisCustomer) === type && { color: theme.colors.primary },
             ]}>
               {type === "NONMEMBER" ? "NON MEMBER" : "MEMBER"}
             </Text>
@@ -809,35 +788,35 @@ function CustomerModal(props: {
         ))}
       </View>
       <Input label="Kode Customer" value={props.kodeMember} onChangeText={props.setKodeMember} placeholder="AUTO / kode member" />
-      <Pressable style={[styles.outlineButton, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.primary }]} onPress={props.onLookupMember}>
+      <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={props.onLookupMember}>
         <Ionicons name="search-outline" size={17} color={theme.colors.primary} />
-        <Text style={[styles.outlineButtonText, theme.isDark && { color: theme.colors.primary }]}>{props.isLookingUpMember ? "Mencari Member..." : "Ambil Data Member"}</Text>
+        <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>{props.isLookingUpMember ? "Mencari Member..." : "Ambil Data Member"}</Text>
       </Pressable>
       <Input label="Nama Customer" value={props.namaCustomer} onChangeText={props.setNamaCustomer} placeholder="Nama customer" />
       <Input label="No HP" value={props.noHp} onChangeText={props.setNoHp} placeholder="Nomor HP" keyboardType="phone-pad" />
       <Input label="Alamat Customer" value={props.alamatCustomer} onChangeText={props.setAlamatCustomer} placeholder="Alamat customer" multiline />
-      <Pressable style={[styles.outlineButton, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.primary }]} onPress={props.onSearchMembers}>
+      <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]} onPress={props.onSearchMembers}>
         <Ionicons name="filter-outline" size={17} color={theme.colors.primary} />
-        <Text style={[styles.outlineButtonText, theme.isDark && { color: theme.colors.primary }]}>{props.isLookingUpMember ? "Memfilter Customer..." : "Filter Data Customer"}</Text>
+        <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>{props.isLookingUpMember ? "Memfilter Customer..." : "Filter Data Customer"}</Text>
       </Pressable>
       {props.memberResults.length ? (
-        <View style={[styles.resultList, theme.isDark && { borderColor: theme.colors.outline }]}>
+        <View style={[styles.resultList, { borderColor: theme.colors.outlineVariant }]}>
           {props.memberResults.slice(0, 5).map((member, index) => (
             <Pressable
               key={`${member.kode_member ?? member.kode_customer ?? index}`}
-              style={[styles.resultRow, theme.isDark && { borderBottomColor: theme.colors.outline }]}
+              style={[styles.resultRow, { borderBottomColor: theme.colors.divider }]}
               onPress={() => props.onSelectMember(member)}
             >
               <View style={{ flex: 1 }}>
-                <Text style={[styles.resultTitle, theme.isDark && { color: theme.colors.text }]}>{member.nama_customer || "-"}</Text>
-                <Text style={[styles.resultSubtitle, theme.isDark && { color: theme.colors.muted }]}>{member.kode_member || member.kode_customer || "-"} • {member.no_hp || "-"}</Text>
+                <Text style={[styles.resultTitle, { color: theme.colors.text }]}>{member.nama_customer || "-"}</Text>
+                <Text style={[styles.resultSubtitle, { color: theme.colors.muted }]}>{member.kode_member || member.kode_customer || "-"} • {member.no_hp || "-"}</Text>
               </View>
               <Ionicons name="chevron-forward" size={17} color={theme.colors.muted} />
             </Pressable>
           ))}
         </View>
       ) : null}
-      <Pressable style={[styles.sheetPrimaryButton, theme.isDark && { backgroundColor: theme.colors.primary }]} onPress={props.onSave}>
+      <Pressable style={[styles.sheetPrimaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={props.onSave}>
         <Text style={styles.sheetPrimaryText}>Simpan Data</Text>
       </Pressable>
       <OptionSheet
@@ -896,32 +875,32 @@ function ItemModal(props: {
 
   return (
     <Sheet visible={props.visible} title="Form Data Barang" onClose={props.onClose}>
-      <View style={[styles.photoPanel, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.outline }]}>
-        <View style={[styles.photoBox, theme.isDark && { backgroundColor: theme.colors.background, borderColor: theme.colors.outline }]}>
+      <View style={[styles.photoPanel, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
+        <View style={[styles.photoBox, { backgroundColor: theme.colors.surfaceContainerLow, borderColor: theme.colors.outlineVariant }]}>
           {props.imageUrl ? (
             <Image source={{ uri: props.imageUrl }} style={styles.photoImage} />
           ) : (
             <>
               <Ionicons name="camera" size={32} color={theme.colors.muted} />
-              <Text style={[styles.photoText, theme.isDark && { color: theme.colors.muted }]}>120 x 120</Text>
+              <Text style={[styles.photoText, { color: theme.colors.muted }]}>120 x 120</Text>
             </>
           )}
         </View>
         <View style={styles.photoActions}>
-          <Pressable style={[styles.photoButton, theme.isDark && { borderColor: theme.colors.outline }]}>
+          <Pressable style={[styles.photoButton, { borderColor: theme.colors.outlineVariant }]}>
             <Ionicons name="image-outline" size={17} color={theme.colors.primary} />
-            <Text style={[styles.photoButtonText, theme.isDark && { color: theme.colors.text }]}>Pilih Gambar</Text>
+            <Text style={[styles.photoButtonText, { color: theme.colors.text }]}>Pilih Gambar</Text>
           </Pressable>
-          <Pressable style={[styles.photoButton, theme.isDark && { borderColor: theme.colors.outline }]}>
+          <Pressable style={[styles.photoButton, { borderColor: theme.colors.outlineVariant }]}>
             <Ionicons name="camera-outline" size={17} color={theme.colors.primary} />
-            <Text style={[styles.photoButtonText, theme.isDark && { color: theme.colors.text }]}>WebCam</Text>
+            <Text style={[styles.photoButtonText, { color: theme.colors.text }]}>WebCam</Text>
           </Pressable>
         </View>
       </View>
       <Input label="Kode Barcode" value={props.kodeBarcode} onChangeText={props.setKodeBarcode} placeholder="Scan atau input kode barcode" />
-      <Pressable style={[styles.outlineButton, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.primary }]} onPress={props.onLookupBarcode}>
+      <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={props.onLookupBarcode}>
         <Ionicons name="barcode-outline" size={17} color={theme.colors.primary} />
-        <Text style={[styles.outlineButtonText, theme.isDark && { color: theme.colors.primary }]}>{props.isLookingUpItem ? "Mengambil Barang..." : "Ambil Data Barang dari Barcode"}</Text>
+        <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>{props.isLookingUpItem ? "Mengambil Barang..." : "Ambil Data Barang dari Barcode"}</Text>
       </Pressable>
       <Input label="Nama Barang" value={props.namaBarang} onChangeText={props.setNamaBarang} placeholder="Nama barang" />
       <View style={styles.twoColumn}>
@@ -936,12 +915,11 @@ function ItemModal(props: {
         <ReadOnly label="Total" value={formatRupiah(total)} />
       </View>
       <Input label="Keterangan" value={props.itemNote} onChangeText={props.setItemNote} placeholder="Keterangan barang opsional" multiline />
-      {/* <Text style={styles.noteText}>Notes: Search Barang (F8)</Text> */}
       <View style={styles.sheetFooter}>
-        <Pressable style={[styles.sheetSecondaryButton, theme.isDark && { borderColor: theme.colors.outline, backgroundColor: theme.colors.surfaceLow }]} onPress={props.onClose}>
-          <Text style={[styles.sheetSecondaryText, theme.isDark && { color: theme.colors.text }]}>Tutup</Text>
+        <Pressable style={[styles.sheetSecondaryButton, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surfaceContainerLowest }]} onPress={props.onClose}>
+          <Text style={[styles.sheetSecondaryText, { color: theme.colors.text }]}>Tutup</Text>
         </Pressable>
-        <Pressable style={[styles.sheetPrimaryButtonSmall, theme.isDark && { backgroundColor: theme.colors.primary }]} onPress={props.onSave}>
+        <Pressable style={[styles.sheetPrimaryButtonSmall, { backgroundColor: theme.colors.buttonPrimary }]} onPress={props.onSave}>
           <Text style={styles.sheetPrimaryText}>Simpan Data</Text>
         </Pressable>
       </View>
@@ -1003,12 +981,12 @@ function PaymentModal(props: {
         <StatCard label="Total DP" value={formatRupiah(0)} icon="wallet-outline" />
         <StatCard label="Harus Bayar" value={formatRupiah(props.remaining)} icon="cash-outline" active />
       </View>
-      <Text style={[styles.sectionTitle, theme.isDark && { color: theme.colors.text }]}>Tambah Pembayaran</Text>
-      <Text style={[styles.label, theme.isDark && { color: theme.colors.muted }]}>Metode Pembayaran</Text>
+      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Tambah Pembayaran</Text>
+      <Text style={[styles.label, { color: theme.colors.subtleText }]}>Metode Pembayaran</Text>
       <SelectField value={props.method} placeholder="Pilih metode pembayaran" onPress={() => setMethodPickerOpen(true)} />
       {["TRANSFER", "DEBET", "CREDIT"].includes(props.method) ? (
         <>
-          <Text style={[styles.label, theme.isDark && { color: theme.colors.muted }]}>Pilih Bank/Rekening</Text>
+          <Text style={[styles.label, { color: theme.colors.subtleText }]}>Pilih Bank/Rekening</Text>
           <SelectField
             value={selectedRekening ? rekeningLabel(selectedRekening) : ""}
             placeholder="Pilih rekening dari master"
@@ -1027,25 +1005,25 @@ function PaymentModal(props: {
       {props.method === "TRANSFER" ? (
         <>
           <Pressable
-            style={[styles.qrisGenerateButton, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.primary }]}
+            style={[styles.qrisGenerateButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]}
             onPress={generateTransferQris}
           >
             <Ionicons name="qr-code-outline" size={18} color={theme.colors.primary} />
-            <Text style={[styles.qrisGenerateText, theme.isDark && { color: theme.colors.primary }]}>
+            <Text style={[styles.qrisGenerateText, { color: theme.colors.primary }]}>
               {showTransferQris ? "Update QRIS Transfer" : "Generate QRIS Transfer"}
             </Text>
           </Pressable>
           {showTransferQris ? (
-            <View style={[styles.qrisPreview, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.outline }]}>
+            <View style={[styles.qrisPreview, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]}>
               {generatedQris ? (
                 <>
                   <QRCode value={generatedQris} size={168} backgroundColor="#FFFFFF" color="#0F172A" />
-                  <Text style={[styles.qrisCaption, theme.isDark && { color: theme.colors.muted }]}>
+                  <Text style={[styles.qrisCaption, { color: theme.colors.muted }]}>
                     QRIS untuk pembayaran transfer {formatRupiah(amount)}
                   </Text>
                 </>
               ) : (
-                <Text style={[styles.qrisCaption, theme.isDark && { color: theme.colors.muted }]}>Isi nominal dan pastikan QRIS merchant sudah tersimpan di Pengaturan.</Text>
+                <Text style={[styles.qrisCaption, { color: theme.colors.muted }]}>Isi nominal dan pastikan QRIS merchant sudah tersimpan di Pengaturan.</Text>
               )}
             </View>
           ) : null}
@@ -1070,34 +1048,34 @@ function PaymentModal(props: {
         </>
       ) : null}
       <ReadOnly label="Sisa" value={formatRupiah(props.remaining)} onPress={() => props.setAmount(String(props.remaining))} />
-      <Text style={[styles.sectionTitle, theme.isDark && { color: theme.colors.text }]}>Rincian Pembayaran</Text>
-      <View style={[styles.paymentList, theme.isDark && { borderColor: theme.colors.outline }]}>
+      <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Rincian Pembayaran</Text>
+      <View style={[styles.paymentList, { borderColor: theme.colors.outlineVariant }]}>
         {props.payments.map((payment, index) => (
-          <View key={payment.id} style={[styles.paymentLine, theme.isDark && { borderBottomColor: theme.colors.outline }]}>
-            <Text style={[styles.paymentIndex, theme.isDark && { color: theme.colors.text }]}>{index + 1}</Text>
+          <View key={payment.id} style={[styles.paymentLine, { borderBottomColor: theme.colors.divider }]}>
+            <Text style={[styles.paymentIndex, { color: theme.colors.text }]}>{index + 1}</Text>
             <View style={{ flex: 1 }}>
-              <Text style={[styles.paymentMethod, theme.isDark && { color: theme.colors.text }]}>{payment.method}</Text>
+              <Text style={[styles.paymentMethod, { color: theme.colors.text }]}>{payment.method}</Text>
               {payment.rekeningLabel && payment.rekeningLabel !== payment.method ? (
-                <Text style={[styles.paymentSub, theme.isDark && { color: theme.colors.muted }]}>{payment.rekeningLabel}</Text>
+                <Text style={[styles.paymentSub, { color: theme.colors.muted }]}>{payment.rekeningLabel}</Text>
               ) : null}
             </View>
-            <Text style={[styles.paymentValue, theme.isDark && { color: theme.colors.text }]}>{formatRupiah(payment.amount)}</Text>
+            <Text style={[styles.paymentValue, { color: theme.colors.text }]}>{formatRupiah(payment.amount)}</Text>
             <Pressable onPress={() => props.setPayments(props.payments.filter((item) => item.id !== payment.id))}>
               <Ionicons name="trash-outline" size={18} color="#DC2626" />
             </Pressable>
           </View>
         ))}
-        <View style={[styles.paymentGrandLine, theme.isDark && { backgroundColor: theme.colors.surfaceLow }]}>
-          <Text style={[styles.paymentGrandLabel, theme.isDark && { color: theme.colors.text }]}>Grand Total</Text>
-          <Text style={[styles.paymentGrandValue, theme.isDark && { color: theme.colors.primary }]}>{formatRupiah(props.paidTotal)}</Text>
+        <View style={[styles.paymentGrandLine, { backgroundColor: theme.colors.surfaceContainerLow }]}>
+          <Text style={[styles.paymentGrandLabel, { color: theme.colors.text }]}>Grand Total</Text>
+          <Text style={[styles.paymentGrandValue, { color: theme.colors.primary }]}>{formatRupiah(props.paidTotal)}</Text>
         </View>
       </View>
       <View style={styles.sheetFooter}>
-        <Pressable style={[styles.sheetPrimaryButtonSmall, theme.isDark && { backgroundColor: theme.colors.primary }]} disabled={props.isSubmitting} onPress={props.onSubmit}>
+        <Pressable style={[styles.sheetPrimaryButtonSmall, { backgroundColor: theme.colors.buttonPrimary }]} disabled={props.isSubmitting} onPress={props.onSubmit}>
           <Text style={styles.sheetPrimaryText}>{props.isSubmitting ? "Mengirim..." : "Bayar Sekarang"}</Text>
         </Pressable>
-        <Pressable style={[styles.sheetSecondaryButton, theme.isDark && { borderColor: theme.colors.outline, backgroundColor: theme.colors.surfaceLow }]}>
-          <Text style={[styles.sheetSecondaryText, theme.isDark && { color: theme.colors.text }]}>Bayar DP</Text>
+        <Pressable style={[styles.sheetSecondaryButton, { borderColor: theme.colors.primary, backgroundColor: theme.colors.surfaceContainerLowest }]}>
+          <Text style={[styles.sheetSecondaryText, { color: theme.colors.primary }]}>Bayar DP</Text>
         </Pressable>
       </View>
       <OptionSheet
@@ -1154,12 +1132,12 @@ function AuthorizationModal(props: {
 
   return (
     <Sheet visible={props.visible} title={props.title} onClose={props.onClose}>
-      <View style={[styles.authNotice, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.secondary }]}>
+      <View style={[styles.authNotice, { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}>
         <Ionicons name="shield-checkmark-outline" size={20} color={theme.colors.secondary} />
         <View style={{ flex: 1 }}>
-          <Text style={[styles.authNoticeTitle, theme.isDark && { color: theme.colors.text }]}>Perlu otorisasi SPV/Owner</Text>
+          <Text style={[styles.authNoticeTitle, { color: theme.colors.text }]}>Perlu otorisasi SPV/Owner</Text>
           {props.reasons.map((reason) => (
-            <Text key={reason} style={[styles.authReason, theme.isDark && { color: theme.colors.muted }]}>- {reason}</Text>
+            <Text key={reason} style={[styles.authReason, { color: theme.colors.muted }]}>- {reason}</Text>
           ))}
         </View>
       </View>
@@ -1167,10 +1145,10 @@ function AuthorizationModal(props: {
       <Input label="Password" value={password} onChangeText={setPassword} placeholder="Password" />
       <Input label="Keterangan" value={keterangan} onChangeText={setKeterangan} placeholder="Alasan otorisasi" multiline />
       <View style={styles.sheetFooter}>
-        <Pressable style={[styles.sheetSecondaryButton, theme.isDark && { borderColor: theme.colors.outline, backgroundColor: theme.colors.surfaceLow }]} onPress={props.onClose}>
-          <Text style={[styles.sheetSecondaryText, theme.isDark && { color: theme.colors.text }]}>Batal</Text>
+        <Pressable style={[styles.sheetSecondaryButton, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surfaceContainerLowest }]} onPress={props.onClose}>
+          <Text style={[styles.sheetSecondaryText, { color: theme.colors.text }]}>Batal</Text>
         </Pressable>
-        <Pressable style={[styles.sheetPrimaryButtonSmall, theme.isDark && { backgroundColor: theme.colors.primary }, props.isSubmitting && styles.disabledButton]} disabled={props.isSubmitting} onPress={submit}>
+        <Pressable style={[styles.sheetPrimaryButtonSmall, { backgroundColor: theme.colors.buttonPrimary }, props.isSubmitting && styles.disabledButton]} disabled={props.isSubmitting} onPress={submit}>
           <Text style={styles.sheetPrimaryText}>{props.isSubmitting ? "Memproses..." : "Otorisasi"}</Text>
         </Pressable>
       </View>
@@ -1182,8 +1160,8 @@ function SelectField({ value, placeholder, onPress }: { value: string; placehold
   const theme = useAppTheme();
 
   return (
-    <Pressable style={[styles.selectField, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.outline }]} onPress={onPress}>
-      <Text style={[styles.selectValue, theme.isDark && { color: theme.colors.text }, !value && styles.selectPlaceholder, theme.isDark && !value && { color: theme.colors.muted }]}>{value || placeholder}</Text>
+    <Pressable style={[styles.selectField, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]} onPress={onPress}>
+      <Text style={[styles.selectValue, { color: value ? theme.colors.text : theme.colors.subtleText }, !value && styles.selectPlaceholder]}>{value || placeholder}</Text>
       <Ionicons name="chevron-down" size={18} color={theme.colors.muted} />
     </Pressable>
   );
@@ -1202,11 +1180,11 @@ function OptionSheet(props: {
 
   return (
     <Modal animationType="slide" transparent visible={props.visible} onRequestClose={props.onClose}>
-      <View style={styles.optionBackdrop}>
-        <View style={[styles.optionSheet, theme.isDark && { backgroundColor: theme.colors.surface }]}>
-          <View style={styles.sheetHandle} />
-          <View style={[styles.sheetHeader, theme.isDark && { borderBottomColor: theme.colors.outline }]}>
-            <Text style={[styles.sheetTitle, theme.isDark && { color: theme.colors.text }]}>{props.title}</Text>
+      <View style={[styles.optionBackdrop, { backgroundColor: theme.colors.scrim }]}>
+        <View style={[styles.optionSheet, { backgroundColor: theme.colors.surfaceContainerLowest }]}>
+          <View style={[styles.sheetHandle, { backgroundColor: theme.colors.outlineVariant }]} />
+          <View style={[styles.sheetHeader, { borderBottomColor: theme.colors.divider }]}>
+            <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>{props.title}</Text>
             <Pressable onPress={props.onClose}>
               <Ionicons name="close" size={25} color={theme.colors.text} />
             </Pressable>
@@ -1222,12 +1200,12 @@ function OptionSheet(props: {
               return (
                 <Pressable
                   key={option.key}
-                  style={[styles.optionRow, theme.isDark && { borderColor: theme.colors.outline }, selected && styles.optionRowActive, theme.isDark && selected && { backgroundColor: "rgba(16,185,129,0.12)", borderColor: theme.colors.primary }]}
+                  style={[styles.optionRow, { borderColor: selected ? theme.colors.primary : theme.colors.outlineVariant, backgroundColor: selected ? theme.colors.successContainer : theme.colors.surfaceContainerLowest }, selected && styles.optionRowActive]}
                   onPress={() => props.onSelect(option.key)}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={[styles.optionRowTitle, theme.isDark && { color: theme.colors.text }, selected && styles.optionRowTitleActive]}>{option.label}</Text>
-                    {option.description ? <Text style={[styles.optionRowDescription, theme.isDark && { color: theme.colors.muted }]}>{option.description}</Text> : null}
+                    <Text style={[styles.optionRowTitle, { color: selected ? theme.colors.primary : theme.colors.text }, selected && styles.optionRowTitleActive]}>{option.label}</Text>
+                    {option.description ? <Text style={[styles.optionRowDescription, { color: theme.colors.muted }]}>{option.description}</Text> : null}
                   </View>
                   {selected ? <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} /> : null}
                 </Pressable>
@@ -1252,11 +1230,11 @@ function Sheet({ visible, title, onClose, children }: {
 
   return (
     <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.modalBackdrop}>
-        <View style={[styles.sheet, theme.isDark && { backgroundColor: theme.colors.surface }]}>
-          <View style={styles.sheetHandle} />
-          <View style={[styles.sheetHeader, theme.isDark && { borderBottomColor: theme.colors.outline }]}>
-            <Text style={[styles.sheetTitle, theme.isDark && { color: theme.colors.text }]}>{title}</Text>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.modalBackdrop, { backgroundColor: theme.colors.scrim }]}>
+        <View style={[styles.sheet, { backgroundColor: theme.colors.surfaceContainerLowest }]}>
+          <View style={[styles.sheetHandle, { backgroundColor: theme.colors.outlineVariant }]} />
+          <View style={[styles.sheetHeader, { borderBottomColor: theme.colors.divider }]}>
+            <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>{title}</Text>
             <Pressable onPress={onClose}>
               <Ionicons name="close" size={25} color={theme.colors.text} />
             </Pressable>
@@ -1287,15 +1265,15 @@ function Input({ label, value, onChangeText, placeholder, keyboardType = "defaul
 
   return (
     <View style={styles.field}>
-      <Text style={[styles.label, theme.isDark && { color: theme.colors.muted }]}>{label}</Text>
+      <Text style={[styles.label, { color: theme.colors.subtleText }]}>{label}</Text>
       <TextInput
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor="#94A3B8"
+        placeholderTextColor={theme.colors.subtleText}
         keyboardType={keyboardType}
         multiline={multiline}
-        style={[styles.input, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.outline, color: theme.colors.text }, multiline && styles.textarea]}
+        style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }, multiline && styles.textarea]}
       />
     </View>
   );
@@ -1310,16 +1288,16 @@ function CurrencyInput({ label, value, onChangeText }: {
 
   return (
     <View style={styles.field}>
-      <Text style={[styles.label, theme.isDark && { color: theme.colors.muted }]}>{label}</Text>
-      <View style={[styles.currencyWrap, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.outline }]}>
-        <Text style={styles.rp}>Rp</Text>
+      <Text style={[styles.label, { color: theme.colors.subtleText }]}>{label}</Text>
+      <View style={[styles.currencyWrap, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
+        <Text style={[styles.rp, { color: theme.colors.subtleText }]}>Rp</Text>
         <TextInput
           value={value ? Number(value.replace(/\D/g, "")).toLocaleString("id-ID") : ""}
           onChangeText={(text) => onChangeText(text.replace(/\D/g, ""))}
           placeholder="0"
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={theme.colors.subtleText}
           keyboardType="number-pad"
-          style={[styles.currencyInput, theme.isDark && { color: theme.colors.text }]}
+          style={[styles.currencyInput, { color: theme.colors.text }]}
         />
       </View>
     </View>
@@ -1330,9 +1308,9 @@ function ReadOnly({ label, value, onPress }: { label: string; value: string; onP
   const theme = useAppTheme();
   const content = (
     <>
-      <Text style={[styles.label, theme.isDark && { color: theme.colors.muted }]}>{label}</Text>
-      <View style={[styles.readOnly, theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.outline }, onPress && styles.readOnlyPressable]}>
-        <Text style={[styles.readOnlyText, theme.isDark && { color: theme.colors.text }]}>{value}</Text>
+      <Text style={[styles.label, { color: theme.colors.subtleText }]}>{label}</Text>
+      <View style={[styles.readOnly, { backgroundColor: theme.colors.surfaceContainerLow, borderColor: theme.colors.outlineVariant }, onPress && styles.readOnlyPressable, onPress && { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary }]}>
+        <Text style={[styles.readOnlyText, { color: theme.colors.text }]}>{value}</Text>
       </View>
     </>
   );
@@ -1358,12 +1336,12 @@ function StatCard({ label, value, icon, active }: { label: string; value: string
   return (
     <View style={[
       styles.statCard,
-      theme.isDark && { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.outline },
+      { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant },
       active && styles.statCardActive,
-      theme.isDark && active && { backgroundColor: "rgba(16,185,129,0.12)", borderColor: theme.colors.primary },
+      active && { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary },
     ]}>
-      <Text style={[styles.statLabel, theme.isDark && { color: theme.colors.muted }]}>{label}</Text>
-      <Text style={[styles.statValue, theme.isDark && { color: theme.colors.text }, active && styles.statValueActive, theme.isDark && active && { color: theme.colors.primary }]}>{value}</Text>
+      <Text style={[styles.statLabel, { color: theme.colors.subtleText }]}>{label}</Text>
+      <Text style={[styles.statValue, { color: active ? theme.colors.primary : theme.colors.text }, active && styles.statValueActive]}>{value}</Text>
       <Ionicons name={icon} size={24} color={active ? theme.colors.primary : theme.colors.secondary} />
     </View>
   );

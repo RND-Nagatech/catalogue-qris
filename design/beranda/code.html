@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+
+<html lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, viewport-fit=cover" name="viewport"/>
+<title>NAGAGOLD - Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .fill-icon {
+            font-variation-settings: 'FILL' 1;
+        }
+        body {
+            font-family: 'Hanken+Grotesk', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.9);
+            backdrop-filter: blur(10px);
+        }
+    </style>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "outline-variant": "#bccabc",
+                    "on-secondary-fixed": "#2b1700",
+                    "on-surface": "#191c1d",
+                    "outline": "#6d7a6e",
+                    "on-secondary": "#ffffff",
+                    "background": "#f8f9fa",
+                    "inverse-on-surface": "#f0f1f2",
+                    "surface-container-high": "#e7e8e9",
+                    "on-tertiary": "#ffffff",
+                    "secondary-fixed-dim": "#ffb961",
+                    "on-background": "#191c1d",
+                    "tertiary-fixed-dim": "#b5c8df",
+                    "on-error-container": "#93000a",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary": "#ffffff",
+                    "primary-fixed": "#79fca5",
+                    "tertiary": "#4c5e71",
+                    "secondary-fixed": "#ffddb9",
+                    "on-primary-fixed": "#00210d",
+                    "on-primary-container": "#f6fff4",
+                    "error": "#ba1a1a",
+                    "on-tertiary-fixed-variant": "#36485b",
+                    "inverse-surface": "#2e3132",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed": "#091d2e",
+                    "surface-container-low": "#f3f4f5",
+                    "surface-bright": "#f8f9fa",
+                    "on-primary-fixed-variant": "#00522a",
+                    "primary-container": "#008648",
+                    "secondary-container": "#fea520",
+                    "primary": "#006a37",
+                    "surface-container": "#edeeef",
+                    "tertiary-fixed": "#d1e4fb",
+                    "on-surface-variant": "#3d4a3f",
+                    "on-error": "#ffffff",
+                    "surface-dim": "#d9dadb",
+                    "primary-fixed-dim": "#5bdf8c",
+                    "on-secondary-container": "#694000",
+                    "inverse-primary": "#5bdf8c",
+                    "surface-container-highest": "#e1e3e4",
+                    "tertiary-container": "#64768a",
+                    "on-tertiary-container": "#fdfcff",
+                    "on-secondary-fixed-variant": "#663e00",
+                    "surface": "#f8f9fa",
+                    "secondary": "#865300",
+                    "surface-tint": "#006d39",
+                    "surface-variant": "#e1e3e4"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "lg": "24px",
+                    "xl": "32px",
+                    "container-max": "1200px",
+                    "base": "4px",
+                    "xs": "4px",
+                    "gutter": "16px",
+                    "sm": "8px",
+                    "md": "16px"
+            },
+            "fontFamily": {
+                    "display-lg-mobile": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"],
+                    "headline-md": ["Hanken Grotesk"],
+                    "display-lg": ["Hanken Grotesk"],
+                    "body-sm": ["Hanken Grotesk"],
+                    "label-caps": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "display-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.08em", "fontWeight": "800"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-background text-on-surface antialiased min-h-screen flex flex-col">
+<!-- Top AppBar (Mobile/Desktop Hybrid) -->
+<header class="fixed top-0 w-full z-50 bg-surface dark:bg-surface-dim shadow-sm flex items-center justify-between px-md h-12 w-full">
+<div class="flex items-center gap-sm">
+<button class="material-symbols-outlined text-primary dark:text-primary-fixed-dim hover:bg-surface-container-high transition-colors active:scale-95 p-2 rounded-full">menu</button>
+<h1 class="font-display-lg-mobile text-display-lg-mobile font-bold text-primary dark:text-primary-fixed-dim tracking-tight">NAGAGOLD</h1>
+</div>
+<div class="flex items-center">
+<div class="w-8 h-8 rounded-full bg-primary-container flex items-center justify-center text-on-primary-container font-bold text-xs overflow-hidden">
+<img alt="Admin" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuCYv7yjfzlYjb3JhexiZfGM0z71_cTkJr32ert7Krdgv0vpe8Yp0YKJYbCB9Ucp1xczqIEICkWr8rGNUZ_2EbmoT_xyyh--caLrJsIUG0uNY_IaWGggAsjm9uKillVQUPumvUzGc8iHOB1tfoaIehasf_tdnyswHAmryxe0UM4F_F8OYPxU8VMQXjWQjpWVyoEgt9h-mnmhrOoTT3N_Rdkd4Ezi5zI7lwF0S8SpXTYGIjNOIukMK-gc8Cfu4DgzDfLgoVYLtYCWCAch"/>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow pt-16 pb-24 md:pb-8 px-md max-w-container-max mx-auto w-full">
+<!-- Welcome Section -->
+<section class="mb-lg animate-in fade-in slide-in-from-top duration-700">
+<h2 class="font-body-lg text-body-lg text-on-surface-variant">Selamat datang kembali👋</h2>
+<div class="flex items-center gap-2">
+<span class="font-headline-md text-headline-md text-on-surface">Terhubung ke </span>
+<span class="font-headline-md text-headline-md text-primary font-extrabold">Server</span>
+<span class="w-2 h-2 rounded-full bg-primary animate-pulse"></span>
+</div>
+</section>
+<!-- Stats Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-md mb-lg">
+<!-- Green Card: Penjualan -->
+<div class="bg-primary rounded-xl p-md shadow-[0_4px_20px_rgba(0,166,90,0.15)] flex flex-col justify-between min-h-[180px] group transition-all hover:scale-[1.02]">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-caps text-label-caps text-on-primary-container/80 uppercase">Total Penjualan</p>
+<h3 class="font-display-lg-mobile text-display-lg-mobile text-white mt-1">Rp 4.144.000</h3>
+</div>
+<span class="material-symbols-outlined text-on-primary-container text-4xl opacity-40">sell</span>
+</div>
+<div class="mt-4 flex items-center justify-between">
+<div class="flex gap-4">
+<div class="text-white">
+<p class="text-[10px] uppercase font-bold opacity-70">Gramasi</p>
+<p class="font-bold">6 Gr</p>
+</div>
+<div class="text-white border-l border-white/20 pl-4">
+<p class="text-[10px] uppercase font-bold opacity-70">History</p>
+<p class="font-bold">4 Transaksi</p>
+</div>
+</div>
+<button class="bg-white text-primary px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm">add</span>
+                        Transaksi Baru
+                    </button>
+</div>
+</div>
+<!-- Orange Card: Pembelian -->
+<div class="bg-secondary-container rounded-xl p-md shadow-[0_4px_20px_rgba(254,165,32,0.15)] flex flex-col justify-between min-h-[180px] group transition-all hover:scale-[1.02]">
+<div class="flex justify-between items-start">
+<div>
+<p class="font-label-caps text-label-caps text-on-secondary-container/80 uppercase">Total Pembelian</p>
+<h3 class="font-display-lg-mobile text-display-lg-mobile text-on-secondary-container mt-1">Rp 3.886.500</h3>
+</div>
+<span class="material-symbols-outlined text-on-secondary-container text-4xl opacity-40">shopping_bag</span>
+</div>
+<div class="mt-4 flex items-center justify-between">
+<div class="flex gap-4">
+<div class="text-on-secondary-container">
+<p class="text-[10px] uppercase font-bold opacity-70">Gramasi</p>
+<p class="font-bold">26 Gr</p>
+</div>
+<div class="text-on-secondary-container border-l border-on-secondary-container/20 pl-4">
+<p class="text-[10px] uppercase font-bold opacity-70">History</p>
+<p class="font-bold">4 Transaksi</p>
+</div>
+</div>
+<button class="bg-on-secondary-container text-white px-4 py-2 rounded-lg font-bold text-sm flex items-center gap-2 active:scale-95 transition-transform">
+<span class="material-symbols-outlined text-sm">add</span>
+                        Transaksi Baru
+                    </button>
+</div>
+</div>
+</section>
+<!-- Transaction History -->
+<section class="mb-lg">
+<div class="flex items-center justify-between mb-md">
+<h2 class="font-headline-md text-headline-md text-on-surface">Transaksi Terbaru</h2>
+<button class="text-primary font-bold text-sm flex items-center gap-1 hover:underline">
+                    Lihat Semua
+                    <span class="material-symbols-outlined text-sm">arrow_forward</span>
+</button>
+</div>
+<div class="bg-white rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.05)] overflow-hidden">
+<!-- Item 1 -->
+<div class="flex items-center justify-between p-md border-b border-outline-variant/30 hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">diamond</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Kalung Milano</h4>
+<p class="text-body-sm text-on-surface-variant">12 Mei 2024 • 2.5 Gr</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-primary">Rp 1.250.000</p>
+<span class="bg-primary/10 text-primary text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Selesai</span>
+</div>
+</div>
+<!-- Item 2 -->
+<div class="flex items-center justify-between p-md border-b border-outline-variant/30 hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-secondary">token</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Cincin Muda</h4>
+<p class="text-body-sm text-on-surface-variant">11 Mei 2024 • 1.2 Gr</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-primary">Rp 850.000</p>
+<span class="bg-primary/10 text-primary text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Selesai</span>
+</div>
+</div>
+<!-- Item 3 -->
+<div class="flex items-center justify-between p-md border-b border-outline-variant/30 hover:bg-surface-container transition-colors cursor-pointer">
+<div class="flex items-center gap-md">
+<div class="w-12 h-12 rounded-lg bg-surface-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary">diamond</span>
+</div>
+<div>
+<h4 class="font-bold text-on-surface">Gelang Rantai</h4>
+<p class="text-body-sm text-on-surface-variant">10 Mei 2024 • 4.0 Gr</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-bold text-primary">Rp 2.044.000</p>
+<span class="bg-primary/10 text-primary text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase">Selesai</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Promotional Banner -->
+<section class="relative h-32 rounded-2xl overflow-hidden shadow-lg group">
+<img class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" data-alt="A luxurious close-up of pure gold bars and jewelry shimmering under warm spotlighting. The background is a sophisticated mix of deep shadows and golden reflections, creating a professional and premium finance-focused aesthetic that feels modern and trustworthy. The lighting is soft but dramatic, highlighting the texture of the gold." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_bXtNBiorXimQ4Q93A4RDGWFYRF_M1OLfT-koiiyyz5e_99xfIY1D1YUlFPOvfGt4M05czbRMUYjbvWbUSldprpCp-qZxP0MPiWqJ0AlKCY_BGznuu4n_z9LAW2gImUoxPRCLRNFNhKO9zU_JKlc-iTxFIkhellflt5WLp6cskDCYpVYddd3xp8pxYkODzpA76GEh4QvY8Pjg6eUh4fjvb77jso-YxLLvGiwYHeJVlSOsWK3RzIezsuG4fOTW42Vf50KnQHkytWrv"/>
+<div class="absolute inset-0 bg-gradient-to-r from-primary/90 to-transparent flex flex-col justify-center px-lg">
+<h3 class="text-white font-display-lg-mobile text-display-lg-mobile mb-1">Update Harga Emas Hari Ini</h3>
+<p class="text-white/80 font-body-sm text-body-sm max-w-[200px]">Pantau pergerakan harga emas real-time hanya di NAGAGOLD.</p>
+<div class="mt-2">
+<span class="inline-flex items-center gap-1 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full text-white text-[10px] font-bold uppercase">
+<span class="w-1.5 h-1.5 rounded-full bg-green-400"></span>
+                        Pasar Sedang Naik
+                    </span>
+</div>
+</div>
+<button class="absolute right-4 bottom-4 w-10 h-10 rounded-full bg-white text-primary flex items-center justify-center shadow-lg active:scale-90 transition-all">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Mobile Focused) -->
+<nav class="fixed bottom-0 left-0 w-full h-16 flex justify-around items-center px-sm pb-safe bg-surface dark:bg-surface-container-lowest shadow-[0_-4px_20px_rgba(0,0,0,0.05)] md:hidden z-50 rounded-t-xl">
+<a class="flex flex-col items-center justify-center bg-secondary-container text-on-secondary-container rounded-2xl px-4 py-1 active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined fill-icon">home</span>
+<span class="font-label-caps text-label-caps mt-1">Beranda</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant/50 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">sell</span>
+<span class="font-label-caps text-label-caps mt-1">Penjualan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant/50 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">shopping_bag</span>
+<span class="font-label-caps text-label-caps mt-1">Pembelian</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant/50 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">history</span>
+<span class="font-label-caps text-label-caps mt-1">Riwayat</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-variant/50 transition-colors active:scale-90 duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-caps text-label-caps mt-1">Pengaturan</span>
+</a>
+</nav>
+<!-- Floating Action Button Contextual Logic -->
+<button class="fixed bottom-20 right-4 w-14 h-14 bg-primary text-white rounded-full shadow-2xl flex items-center justify-center z-40 md:bottom-8 md:right-8 transition-all hover:rotate-90 active:scale-90">
+<span class="material-symbols-outlined text-3xl">add</span>
+</button>
+<script>
+        // Micro-interaction for currency counts
+        document.querySelectorAll('h3').forEach(el => {
+            if(el.innerText.includes('Rp')) {
+                el.addEventListener('mouseenter', () => {
+                    el.classList.add('scale-105', 'text-white');
+                    el.style.transition = 'all 0.3s ease';
+                });
+                el.addEventListener('mouseleave', () => {
+                    el.classList.remove('scale-105');
+                });
+            }
+        });
+
+        // Simple animation on scroll
+        const observerOptions = {
+            threshold: 0.1
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('opacity-100', 'translate-y-0');
+                    entry.target.classList.remove('opacity-0', 'translate-y-4');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('section').forEach(section => {
+            section.classList.add('transition-all', 'duration-700', 'opacity-0', 'translate-y-4');
+            observer.observe(section);
+        });
+    </script>
+</body></html>

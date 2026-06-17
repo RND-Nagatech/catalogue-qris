@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+
+<html class="light" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>NAGAGOLD - Pengaturan</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "outline-variant": "#bccabc",
+                        "outline": "#6d7a6e",
+                        "on-secondary-fixed-variant": "#663e00",
+                        "on-tertiary-fixed-variant": "#36485b",
+                        "inverse-surface": "#2e3132",
+                        "surface-container-low": "#f3f4f5",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-primary-container": "#f6fff4",
+                        "secondary-fixed-dim": "#ffb961",
+                        "secondary-fixed": "#ffddb9",
+                        "secondary-container": "#fea520",
+                        "on-primary-fixed-variant": "#00522a",
+                        "surface-container": "#edeeef",
+                        "tertiary-container": "#64768a",
+                        "on-primary": "#ffffff",
+                        "surface-dim": "#d9dadb",
+                        "on-tertiary-container": "#fdfcff",
+                        "on-error": "#ffffff",
+                        "surface": "#f8f9fa",
+                        "surface-tint": "#006d39",
+                        "surface-container-lowest": "#ffffff",
+                        "error": "#ba1a1a",
+                        "inverse-primary": "#5bdf8c",
+                        "background": "#f8f9fa",
+                        "tertiary": "#4c5e71",
+                        "on-secondary": "#ffffff",
+                        "surface-variant": "#e1e3e4",
+                        "on-background": "#191c1d",
+                        "secondary": "#865300",
+                        "primary-container": "#008648",
+                        "on-secondary-fixed": "#2b1700",
+                        "error-container": "#ffdad6",
+                        "primary-fixed": "#79fca5",
+                        "surface-container-high": "#e7e8e9",
+                        "on-tertiary-fixed": "#091d2e",
+                        "primary-fixed-dim": "#5bdf8c",
+                        "on-surface": "#191c1d",
+                        "primary": "#006a37",
+                        "surface-container-highest": "#e1e3e4",
+                        "tertiary-fixed-dim": "#b5c8df",
+                        "on-secondary-container": "#694000",
+                        "tertiary-fixed": "#d1e4fb",
+                        "surface-bright": "#f8f9fa",
+                        "on-tertiary": "#ffffff",
+                        "on-surface-variant": "#3d4a3f",
+                        "on-primary-fixed": "#00210d",
+                        "on-error-container": "#93000a"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "16px",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "16px",
+                        "container-max": "1200px",
+                        "base": "4px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "xs": "4px",
+                        "xl": "32px",
+                        "sm": "8px"
+                    },
+                    "fontFamily": {
+                        "label-caps": ["Hanken Grotesk"],
+                        "body-sm": ["Hanken Grotesk"],
+                        "headline-md": ["Hanken Grotesk"],
+                        "body-lg": ["Hanken Grotesk"],
+                        "display-lg-mobile": ["Hanken Grotesk"],
+                        "display-lg": ["Hanken Grotesk"]
+                    },
+                    "fontSize": {
+                        "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.08em", "fontWeight": "800"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "display-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #f8f9fa;
+            font-family: 'Hanken Grotesk', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .active-nav-item {
+            font-variation-settings: 'FILL' 1;
+        }
+        /* Custom Shadow for cards as per Style Guidance */
+        .card-shadow {
+            box-shadow: 0px 4px 20px rgba(0,0,0,0.05);
+        }
+        .primary-glow:focus {
+            box-shadow: 0 0 0 4px rgba(0, 106, 55, 0.1);
+        }
+        .pb-safe {
+            padding-bottom: env(safe-area-inset-bottom);
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="text-on-surface">
+<!-- TopAppBar -->
+<header class="fixed top-0 left-0 w-full z-50 bg-surface flex justify-between items-center px-md h-16 shadow-sm">
+<div class="flex items-center gap-md">
+<button class="p-sm text-primary transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined text-[28px]" data-icon="menu">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Pengaturan</h1>
+</div>
+<div class="flex items-center">
+<button class="p-sm text-on-surface-variant transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined" data-icon="dark_mode">dark_mode</span>
+</button>
+</div>
+</header>
+<!-- Content Canvas -->
+<main class="mt-16 mb-24 max-w-container-max mx-auto px-gutter py-lg space-y-md">
+<!-- Koneksi dan QRIS Header Card -->
+<section class="bg-surface-container-lowest p-lg rounded-xl card-shadow border border-surface-variant/30">
+<h2 class="font-headline-md text-headline-md text-primary mb-xs">Koneksi dan QRIS</h2>
+<p class="font-body-sm text-on-surface-variant">Atur QRIS merchant dan koneksi Program</p>
+</section>
+<!-- Koneksi NAGAGOLD Section -->
+<section class="bg-surface-container-lowest p-lg rounded-xl card-shadow space-y-md border border-surface-variant/30">
+<div class="flex items-center gap-sm mb-sm">
+<span class="material-symbols-outlined text-primary" data-icon="language">language</span>
+<h3 class="font-headline-md text-[18px] text-on-surface font-bold uppercase tracking-wide">Koneksi Program</h3>
+</div>
+<div class="space-y-sm">
+<label class="font-label-caps text-on-surface-variant">Domain Program</label>
+<input class="w-full h-12 px-md rounded-lg border-outline-variant bg-surface focus:border-primary focus:ring-0 primary-glow transition-all font-body-lg text-on-surface" readonly="" type="text" value="https://qc-sambaspwj.ngtc-si.com"/>
+</div>
+<!-- Success Alert -->
+<div class="bg-on-primary-container/10 border border-primary-container/20 p-md rounded-xl flex items-start gap-sm">
+<span class="material-symbols-outlined text-primary mt-0.5" data-icon="check_circle">check_circle</span>
+<p class="font-body-sm text-primary font-semibold leading-tight">
+                    Terhubung ke <span class="underline">https://qc-sambaspwj.ngtc-si.com</span> lewat /api/v1/hutang/dashboard
+                </p>
+</div>
+<!-- Connection Actions -->
+<div class="grid grid-cols-1 gap-sm pt-sm">
+<button class="w-full h-[48px] bg-primary text-on-primary rounded-xl font-label-caps flex items-center justify-center gap-sm transition-all duration-200 active:scale-95 shadow-md">
+<span class="material-symbols-outlined text-[20px]" data-icon="save">save</span>
+                    Simpan Domain
+                </button>
+<button class="w-full h-[48px] bg-transparent border-2 border-outline-variant text-on-surface rounded-xl font-label-caps flex items-center justify-center gap-sm transition-all duration-200 active:scale-95 hover:bg-surface-container">
+<span class="material-symbols-outlined text-[20px]" data-icon="analytics">analytics</span>
+                    Test Koneksi
+                </button>
+</div>
+</section>
+<!-- Preview Merchant Section -->
+<section class="bg-surface-container-lowest p-lg rounded-xl card-shadow space-y-md border border-surface-variant/30">
+<!-- Success Status Header -->
+<div class="bg-on-primary-container/10 border border-primary-container/20 p-md rounded-xl flex items-start gap-sm">
+<span class="material-symbols-outlined text-primary" data-icon="check_circle">check_circle</span>
+<div class="space-y-1">
+<h4 class="font-label-caps text-primary text-[14px]">QRIS Merchant Tersimpan</h4>
+<p class="font-body-sm text-on-surface-variant">App akan memakai QRIS ini untuk generate nominal pembayaran.</p>
+</div>
+</div>
+<div class="flex items-center gap-sm mb-sm pt-sm">
+<span class="material-symbols-outlined text-primary" data-icon="info">info</span>
+<h3 class="font-headline-md text-[18px] text-on-surface font-bold uppercase tracking-wide">Preview Merchant</h3>
+</div>
+<!-- Merchant Table -->
+<div class="space-y-0 divide-y divide-surface-variant">
+<div class="flex justify-between items-center py-md">
+<span class="font-body-sm text-on-surface-variant">Merchant</span>
+<span class="font-label-caps text-on-surface text-right">UPT PAM PUPR BELTIM</span>
+</div>
+<div class="flex justify-between items-center py-md">
+<span class="font-body-sm text-on-surface-variant">City</span>
+<span class="font-label-caps text-on-surface text-right">BELITUNG TIMUR</span>
+</div>
+<div class="flex justify-between items-center py-md">
+<span class="font-body-sm text-on-surface-variant">Postal Code</span>
+<span class="font-label-caps text-on-surface text-right">33512</span>
+</div>
+<div class="flex justify-between items-center py-md">
+<span class="font-body-sm text-on-surface-variant">Issuer</span>
+<span class="font-label-caps text-on-surface text-right truncate max-w-[180px]">COM.BANKSUMSELBABEL.WWW</span>
+</div>
+<div class="flex justify-between items-center py-md">
+<span class="font-body-sm text-on-surface-variant">Method</span>
+<span class="font-label-caps text-on-surface text-right">Static</span>
+</div>
+<div class="flex justify-between items-center py-md">
+<span class="font-body-sm text-on-surface-variant">Category</span>
+<span class="font-label-caps text-on-surface text-right">9311</span>
+</div>
+<div class="flex justify-between items-center py-md">
+<span class="font-body-sm text-on-surface-variant">Currency</span>
+<span class="font-label-caps text-on-surface text-right">IDR (Rupiah)</span>
+</div>
+</div>
+<!-- Merchant Actions -->
+<div class="grid grid-cols-1 gap-sm pt-md">
+<button class="w-full h-[48px] bg-primary text-on-primary rounded-xl font-label-caps flex items-center justify-center gap-sm transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined text-[20px]" data-icon="edit">edit</span>
+                    Edit QRIS Merchant
+                </button>
+<button class="w-full h-[48px] bg-red-50 border-2 border-error/30 text-error rounded-xl font-label-caps flex items-center justify-center gap-sm transition-all duration-200 active:scale-95">
+<span class="material-symbols-outlined text-[20px]" data-icon="delete">delete</span>
+                    Kosongkan QRIS Tersimpan
+                </button>
+</div>
+</section>
+</main>
+<!-- BottomNavBar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 bg-surface flex justify-around items-center px-sm py-2 pb-safe shadow-[0_-4px_20px_rgba(0,0,0,0.05)] rounded-t-xl">
+<button class="flex flex-col items-center justify-center text-outline px-sm py-1 transition-transform duration-200 ease-in-out active:scale-90">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-caps text-[10px] mt-1">Beranda</span>
+</button>
+<button class="flex flex-col items-center justify-center text-outline px-sm py-1 transition-transform duration-200 ease-in-out active:scale-90">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-label-caps text-[10px] mt-1">Penjualan</span>
+</button>
+<button class="flex flex-col items-center justify-center text-outline px-sm py-1 transition-transform duration-200 ease-in-out active:scale-90">
+<span class="material-symbols-outlined" data-icon="shopping_bag">shopping_bag</span>
+<span class="font-label-caps text-[10px] mt-1">Pembelian</span>
+</button>
+<button class="flex flex-col items-center justify-center text-outline px-sm py-1 transition-transform duration-200 ease-in-out active:scale-90">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-label-caps text-[10px] mt-1">Riwayat</span>
+</button>
+<button class="flex flex-col items-center justify-center bg-primary-container text-on-primary-container rounded-xl px-sm py-1 transition-transform duration-200 ease-in-out active:scale-90">
+<span class="material-symbols-outlined active-nav-item" data-icon="settings">settings</span>
+<span class="font-label-caps text-[10px] mt-1">Pengaturan</span>
+</button>
+</nav>
+<script>
+        // Micro-interactions and Tab switching simulation
+        document.querySelectorAll('nav button').forEach(btn => {
+            btn.addEventListener('click', function() {
+                document.querySelectorAll('nav button').forEach(b => {
+                    b.classList.remove('bg-primary-container', 'text-on-primary-container', 'rounded-xl');
+                    b.classList.add('text-outline');
+                    b.querySelector('.material-symbols-outlined').classList.remove('active-nav-item');
+                });
+                this.classList.add('bg-primary-container', 'text-on-primary-container', 'rounded-xl');
+                this.classList.remove('text-outline');
+                this.querySelector('.material-symbols-outlined').classList.add('active-nav-item');
+            });
+        });
+    </script>
+</body></html>

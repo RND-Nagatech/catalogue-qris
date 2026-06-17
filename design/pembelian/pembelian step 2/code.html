@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+
+<html class="light" lang="id"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Transaksi Pembelian - Lihat Data Barang</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Tailwind Config Verbatim -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface": "#f8f9fa",
+                    "surface-tint": "#006d39",
+                    "surface-container-lowest": "#ffffff",
+                    "surface-dim": "#d9dadb",
+                    "on-tertiary-container": "#fdfcff",
+                    "on-error": "#ffffff",
+                    "tertiary-container": "#64768a",
+                    "on-primary": "#ffffff",
+                    "secondary-container": "#fea520",
+                    "on-primary-fixed-variant": "#00522a",
+                    "surface-container": "#edeeef",
+                    "surface-container-low": "#f3f4f5",
+                    "inverse-on-surface": "#f0f1f2",
+                    "secondary-fixed-dim": "#ffb961",
+                    "secondary-fixed": "#ffddb9",
+                    "on-primary-container": "#f6fff4",
+                    "outline": "#6d7a6e",
+                    "outline-variant": "#bccabc",
+                    "on-tertiary-fixed-variant": "#36485b",
+                    "inverse-surface": "#2e3132",
+                    "on-secondary-fixed-variant": "#663e00",
+                    "on-surface-variant": "#3d4a3f",
+                    "on-primary-fixed": "#00210d",
+                    "on-error-container": "#93000a",
+                    "on-tertiary": "#ffffff",
+                    "tertiary-fixed": "#d1e4fb",
+                    "surface-bright": "#f8f9fa",
+                    "on-secondary-container": "#694000",
+                    "surface-container-highest": "#e1e3e4",
+                    "tertiary-fixed-dim": "#b5c8df",
+                    "primary": "#006a37",
+                    "primary-fixed-dim": "#5bdf8c",
+                    "on-surface": "#191c1d",
+                    "error-container": "#ffdad6",
+                    "surface-container-high": "#e7e8e9",
+                    "on-tertiary-fixed": "#091d2e",
+                    "primary-fixed": "#79fca5",
+                    "surface-variant": "#e1e3e4",
+                    "secondary": "#865300",
+                    "primary-container": "#008648",
+                    "on-secondary-fixed": "#2b1700",
+                    "on-background": "#191c1d",
+                    "inverse-primary": "#5bdf8c",
+                    "background": "#f8f9fa",
+                    "error": "#ba1a1a",
+                    "tertiary": "#4c5e71",
+                    "on-secondary": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "16px",
+                    "container-max": "1200px",
+                    "base": "4px",
+                    "xs": "4px",
+                    "md": "16px",
+                    "lg": "24px",
+                    "sm": "8px",
+                    "xl": "32px"
+            },
+            "fontFamily": {
+                    "headline-md": ["Hanken Grotesk"],
+                    "label-caps": ["Hanken Grotesk"],
+                    "body-sm": ["Hanken Grotesk"],
+                    "display-lg-mobile": ["Hanken Grotesk"],
+                    "display-lg": ["Hanken Grotesk"],
+                    "body-lg": ["Hanken Grotesk"]
+            },
+            "fontSize": {
+                    "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "label-caps": ["12px", {"lineHeight": "16px", "letterSpacing": "0.08em", "fontWeight": "800"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "display-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                    "display-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Hanken Grotesk', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .step-active { background-color: #006a37; color: white; }
+        .step-complete { background-color: #006a37; color: white; }
+        .step-pending { background-color: #e1e3e4; color: #3d4a3f; }
+        
+        /* Custom elevation Level 1 */
+        .card-shadow {
+            box-shadow: 0px 4px 20px rgba(0,0,0,0.05);
+        }
+        
+        /* Smooth transitions */
+        .transition-all { transition: all 0.3s ease; }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen flex flex-col items-center">
+<!-- TopAppBar -->
+<header class="bg-surface fixed top-0 w-full z-50 flex justify-between items-center px-md h-[64px] border-b border-transparent">
+<div class="flex items-center gap-md">
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined text-primary" data-icon="menu">menu</span>
+</button>
+<h1 class="font-headline-md text-headline-md font-bold text-primary">Transaksi Pembelian</h1>
+</div>
+<button class="p-2 hover:bg-surface-container rounded-full transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="dark_mode">dark_mode</span>
+</button>
+</header>
+<main class="w-full max-w-container-max mt-[64px] mb-[80px] px-md py-lg flex flex-col gap-lg">
+<!-- Connection Banner -->
+<div class="w-full py-sm px-md rounded-full border border-outline-variant flex justify-center items-center gap-xs">
+<span class="text-body-sm font-body-sm text-on-surface-variant">Terhubung ke</span>
+<span class="text-body-sm font-headline-md font-bold text-on-surface">Server</span>
+</div>
+<!-- Progress Indicator -->
+<div class="flex justify-between items-start px-sm relative">
+<!-- Step 1: Input Barang (Complete) -->
+<div class="flex flex-col items-center gap-sm z-10 w-1/3">
+<div class="w-10 h-10 rounded-full flex items-center justify-center step-complete transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="check">check</span>
+</div>
+<span class="text-body-sm font-headline-md text-primary text-center">Input Barang</span>
+</div>
+<!-- Step 2: Lihat Data Barang (Active) -->
+<div class="flex flex-col items-center gap-sm z-10 w-1/3">
+<div class="w-10 h-10 rounded-full flex items-center justify-center step-active ring-4 ring-primary/20 transition-all">
+<span class="text-body-lg font-bold">2</span>
+</div>
+<span class="text-body-sm font-headline-md text-on-surface text-center">Lihat Data Barang</span>
+</div>
+<!-- Step 3: Data Customer (Pending) -->
+<div class="flex flex-col items-center gap-sm z-10 w-1/3">
+<div class="w-10 h-10 rounded-full flex items-center justify-center step-pending transition-all">
+<span class="text-body-lg font-bold">3</span>
+</div>
+<span class="text-body-sm font-headline-md text-on-surface-variant text-center">Data Customer</span>
+</div>
+<!-- Connector Lines (Visual) -->
+<div class="absolute top-5 left-[16.66%] right-[16.66%] h-[2px] bg-outline-variant -z-0">
+<div class="h-full bg-primary w-[50%]"></div>
+</div>
+</div>
+<!-- Search Bar -->
+<div class="relative w-full group">
+<input class="w-full h-12 px-md pr-12 bg-surface-container-lowest border border-outline-variant rounded-xl focus:ring-primary focus:border-primary transition-all outline-none" placeholder="Cari data..." type="text"/>
+<span class="material-symbols-outlined absolute right-md top-1/2 -translate-y-1/2 text-on-surface-variant" data-icon="search">search</span>
+</div>
+<!-- Content Area: Empty State -->
+<div class="w-full border-2 border-dashed border-outline-variant rounded-xl p-xl flex flex-col items-center justify-center gap-md bg-surface-container-low min-h-[280px]">
+<div class="w-16 h-16 rounded-full bg-surface-container-highest flex items-center justify-center">
+<span class="material-symbols-outlined text-[40px] text-on-surface-variant" data-icon="inventory_2">inventory_2</span>
+</div>
+<div class="text-center">
+<h3 class="font-headline-md text-headline-md text-on-surface">Belum ada barang</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-xs">Kembali ke Input Barang untuk menambahkan barang ke dalam daftar transaksi ini.</p>
+</div>
+<button class="px-md py-sm rounded-lg text-primary font-bold hover:bg-primary/10 transition-colors">
+                Tambah Barang +
+            </button>
+</div>
+<!-- Summary Card -->
+<div class="card-shadow bg-surface-container-lowest rounded-xl p-lg flex items-center gap-lg border border-outline-variant/30">
+<div class="w-16 h-16 bg-primary rounded-xl flex items-center justify-center text-white flex-shrink-0">
+<span class="material-symbols-outlined text-[32px]" data-icon="receipt_long">receipt_long</span>
+</div>
+<div class="flex-grow flex flex-col gap-xs">
+<div class="flex justify-between items-center">
+<span class="text-body-sm font-body-sm text-on-surface-variant">Total Harga Nota</span>
+<span class="text-body-sm font-bold text-on-surface">0</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-body-sm font-body-sm text-on-surface-variant">Total Berat Nota</span>
+<span class="text-body-sm font-bold text-on-surface">0</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-body-sm font-body-sm text-on-surface-variant">Total Harga Beli</span>
+<span class="text-body-sm font-bold text-on-surface">0</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-body-sm font-body-sm text-on-surface-variant">Total Berat</span>
+<span class="text-body-sm font-bold text-on-surface">0</span>
+</div>
+</div>
+</div>
+<!-- Action Buttons -->
+<div class="grid grid-cols-2 gap-md mt-sm">
+<button class="h-12 flex items-center justify-center gap-xs rounded-xl bg-surface-container-highest text-on-surface-variant font-bold hover:bg-surface-dim transition-all">
+<span class="material-symbols-outlined text-[20px]" data-icon="arrow_back">arrow_back</span>
+                Kembali
+            </button>
+<button class="h-12 flex items-center justify-center gap-xs rounded-xl bg-primary text-white font-bold shadow-lg shadow-primary/20 hover:bg-primary-container transition-all active:scale-95">
+                Next
+                <span class="material-symbols-outlined text-[20px]" data-icon="arrow_forward">arrow_forward</span>
+</button>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-surface fixed bottom-0 w-full z-50 flex justify-around items-center h-[80px] px-sm pb-safe shadow-lg border-t border-outline-variant">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-low px-4 rounded-lg transition-all scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="home">home</span>
+<span class="font-label-caps text-label-caps mt-1">Beranda</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-low px-4 rounded-lg transition-all scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="payments">payments</span>
+<span class="font-label-caps text-label-caps mt-1">Penjualan</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary font-bold hover:bg-surface-container-low px-4 rounded-lg transition-all scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="shopping_bag" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
+<span class="font-label-caps text-label-caps mt-1">Pembelian</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-low px-4 rounded-lg transition-all scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+<span class="font-label-caps text-label-caps mt-1">Riwayat</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:bg-surface-container-low px-4 rounded-lg transition-all scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-caps text-label-caps mt-1">Pengaturan</span>
+</a>
+</nav>
+<script>
+        // Simple micro-interaction for active states
+        document.querySelectorAll('button, a').forEach(elem => {
+            elem.addEventListener('click', function() {
+                // Mock interaction
+                console.log('Action triggered');
+            });
+        });
+    </script>
+</body></html>

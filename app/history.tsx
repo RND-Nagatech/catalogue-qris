@@ -1,6 +1,5 @@
 import { useCallback, useState, type ComponentProps } from "react";
 import {
-  ActivityIndicator,
   Platform,
   Pressable,
   RefreshControl,
@@ -11,6 +10,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
+import { AppHeader, EmptyState, LoadingState } from "../components/ui";
 import { loadNagagoldTodayHistory, type NagagoldRecentTransaction } from "../lib/dataStore";
 import { formatRupiah } from "../lib/qris";
 import { useAppTheme } from "../lib/theme";
@@ -77,37 +77,54 @@ export default function History() {
           />
         }
       >
-        <AppHeader />
+        <AppHeader title="Riwayat Transaksi" />
 
-        <View style={[styles.summaryHeader, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-          <Text style={[styles.summaryNumber, { color: mode === "sale" ? theme.colors.primaryContainer : theme.colors.secondaryContainer }]}>
-            {items.length}
-          </Text>
-          <Text style={[styles.summarySubtitle, { color: theme.colors.muted }]}>
-            {mode === "sale" ? "penjualan" : "pembelian"} hari ini
-          </Text>
+        <View
+          style={[
+            styles.summaryHeader,
+            {
+              backgroundColor: mode === "sale" ? theme.colors.primary : theme.colors.secondaryContainer,
+            },
+            theme.elevation.level2,
+          ]}
+        >
+          <View style={[styles.summaryIcon, { backgroundColor: "rgba(255,255,255,0.2)" }]}>
+            <Ionicons
+              name={mode === "sale" ? "trending-up-outline" : "bag-check-outline"}
+              size={22}
+              color={mode === "sale" ? theme.colors.onPrimary : theme.colors.onSecondaryContainer}
+            />
+          </View>
+          <View>
+            <Text style={[styles.summaryNumber, { color: mode === "sale" ? theme.colors.onPrimary : theme.colors.onSecondaryContainer }]}>
+              {items.length}
+            </Text>
+            <Text style={[styles.summarySubtitle, { color: mode === "sale" ? theme.colors.onPrimary : theme.colors.onSecondaryContainer }]}>
+              {mode === "sale" ? "Penjualan Hari Ini" : "Pembelian Hari Ini"}
+            </Text>
+          </View>
         </View>
 
         <View>
-          <Text style={[styles.segmentLabel, { color: theme.colors.text }]}>PILIH TRANSAKSI</Text>
-          <View style={[styles.segmentWrap, { backgroundColor: theme.isDark ? theme.colors.surfaceLow : "#EEF0F2", borderColor: theme.colors.outline }]}>
+          <Text style={[styles.segmentLabel, { color: theme.colors.subtleText }]}>PILIH TRANSAKSI</Text>
+          <View style={[styles.segmentWrap, { backgroundColor: theme.colors.surfaceContainer, borderColor: theme.colors.outlineVariant }]}>
             <SegmentButton active={mode === "sale"} label="PENJUALAN" onPress={() => switchMode("sale")} />
             <SegmentButton active={mode === "purchase"} label="PEMBELIAN" onPress={() => switchMode("purchase")} />
           </View>
         </View>
 
         {errorMessage ? (
-          <View style={[styles.notice, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
+          <View style={[styles.notice, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]}>
             <Ionicons name="information-circle-outline" size={18} color={theme.colors.secondary} />
             <Text style={[styles.noticeText, { color: theme.colors.muted }]}>{errorMessage}</Text>
           </View>
         ) : null}
 
         {isLoading ? (
-          <View style={[styles.emptyCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-            <ActivityIndicator color={theme.colors.primaryContainer} />
-            <Text style={[styles.emptyText, { color: theme.colors.muted }]}>Mengambil riwayat {mode === "sale" ? "penjualan" : "pembelian"}...</Text>
-          </View>
+          <LoadingState
+            title={`Mengambil riwayat ${mode === "sale" ? "penjualan" : "pembelian"}...`}
+            style={[styles.emptyCard, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]}
+          />
         ) : items.length ? (
           <View style={styles.list}>
             {items.map((item, index) => (
@@ -115,33 +132,14 @@ export default function History() {
             ))}
           </View>
         ) : (
-          <View style={[styles.emptyCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-            <Ionicons name={mode === "sale" ? "pricetag-outline" : "cart-outline"} size={34} color={theme.colors.muted} />
-            <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>Belum ada {mode === "sale" ? "penjualan" : "pembelian"} hari ini</Text>
-            <Text style={[styles.emptyText, { color: theme.colors.muted }]}>
-              Transaksi {mode === "sale" ? "penjualan" : "pembelian"} yang selesai hari ini akan tampil di sini.
-            </Text>
-          </View>
+          <EmptyState
+            icon={mode === "sale" ? "pricetag-outline" : "cart-outline"}
+            title={`Belum ada ${mode === "sale" ? "penjualan" : "pembelian"} hari ini`}
+            description={`Transaksi ${mode === "sale" ? "penjualan" : "pembelian"} yang selesai hari ini akan tampil di sini.`}
+            style={[styles.emptyCard, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]}
+          />
         )}
       </ScrollView>
-    </View>
-  );
-}
-
-function AppHeader() {
-  const theme = useAppTheme();
-
-  return (
-    <View style={styles.topHeader}>
-      <View style={styles.headerLeft}>
-        <View style={styles.headerIconButton}>
-          <Ionicons name="menu" size={21} color={theme.colors.text} />
-        </View>
-        <Text style={[styles.screenTitle, { color: theme.colors.primary }]}>Riwayat</Text>
-      </View>
-      <Pressable style={styles.headerIconButton} onPress={theme.toggleTheme}>
-        <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={18} color={theme.colors.text} />
-      </Pressable>
     </View>
   );
 }
@@ -153,14 +151,14 @@ function SegmentButton({ active, label, onPress }: { active: boolean; label: str
       style={[
         styles.segmentButton,
         active && {
-          backgroundColor: theme.colors.surface,
+          backgroundColor: theme.colors.surfaceContainerLowest,
           borderColor: theme.colors.primary,
-          shadowColor: "#0F172A",
+          ...theme.elevation.level1,
         },
       ]}
       onPress={onPress}
     >
-      <Text style={[styles.segmentText, { color: active ? theme.colors.primary : theme.colors.text }]}>{label}</Text>
+      <Text style={[styles.segmentText, { color: active ? theme.colors.primary : theme.colors.muted }]}>{label}</Text>
     </Pressable>
   );
 }
@@ -168,28 +166,28 @@ function SegmentButton({ active, label, onPress }: { active: boolean; label: str
 function HistoryCard({ item }: { item: NagagoldRecentTransaction }) {
   const theme = useAppTheme();
   const isSale = item.type === "sale";
-  const accent = isSale ? theme.colors.primaryContainer : theme.colors.secondaryContainer;
+  const accent = isSale ? theme.colors.primary : theme.colors.secondary;
   const amountPrefix = isSale ? "+" : "-";
   const icon: IconName = isSale ? "pricetag-outline" : "cart-outline";
 
   return (
-    <View style={[styles.card, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-      <View style={[styles.cardIcon, { backgroundColor: isSale ? "rgba(16,185,129,0.12)" : "rgba(245,158,11,0.14)" }]}>
+    <View style={[styles.card, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }, theme.elevation.level1]}>
+      <View style={[styles.cardIcon, { backgroundColor: isSale ? theme.colors.successContainer : theme.colors.warningContainer }]}>
         <Ionicons name={icon} size={22} color={accent} />
       </View>
       <View style={styles.cardBody}>
-        <Text style={[styles.code, { color: theme.colors.muted }]} numberOfLines={1}>{item.id}</Text>
+        <Text style={[styles.code, { color: theme.colors.subtleText }]} numberOfLines={1}>{item.id}</Text>
         <Text style={[styles.note, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
         <Text style={[styles.date, { color: theme.colors.muted }]} numberOfLines={1}>
           {item.subtitle}{item.gram ? ` • ${formatGram(item.gram)}` : ""}
         </Text>
       </View>
       <View style={styles.cardRight}>
-        <Text style={[styles.amount, { color: isSale ? theme.colors.primaryContainer : theme.colors.text }]} numberOfLines={1}>
+        <Text style={[styles.amount, { color: isSale ? theme.colors.primary : theme.colors.text }]} numberOfLines={1}>
           {amountPrefix}{formatRupiah(item.amount)}
         </Text>
-        <View style={[styles.badge, { backgroundColor: isSale ? "rgba(16,185,129,0.12)" : theme.isDark ? "#2A2F3A" : "#FEF3C7" }]}>
-          <Text style={[styles.badgeText, { color: isSale ? theme.colors.primaryContainer : theme.colors.secondary }]}>SELESAI</Text>
+        <View style={[styles.badge, { backgroundColor: isSale ? theme.colors.successContainer : theme.colors.warningContainer }]}>
+          <Text style={[styles.badgeText, { color: accent }]}>SELESAI</Text>
         </View>
       </View>
     </View>
@@ -204,30 +202,25 @@ const styles = StyleSheet.create({
   screen: { flex: 1 },
   container: {
     flexGrow: 1,
-    gap: 14,
+    gap: 16,
     paddingBottom: 32,
-    paddingHorizontal: 18,
-    paddingTop: Platform.OS === "ios" ? 66 : 46,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "ios" ? 58 : 42,
   },
-  topHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  headerLeft: { alignItems: "center", flexDirection: "row", gap: 13 },
-  headerIconButton: { alignItems: "center", height: 34, justifyContent: "center", width: 34 },
-  screenTitle: { fontSize: 20, fontWeight: "700" },
   summaryHeader: {
-    borderRadius: 18,
-    borderWidth: 1,
+    alignItems: "center",
+    borderRadius: 20,
+    flexDirection: "row",
+    gap: 14,
+    minHeight: 96,
     padding: 16,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.04,
-    shadowRadius: 12,
-    elevation: 1,
   },
-  summaryNumber: { fontSize: 34, fontWeight: "900" },
-  summarySubtitle: { fontSize: 13, fontWeight: "700", marginTop: 2, textTransform: "capitalize" },
-  segmentLabel: { fontSize: 12, fontWeight: "800", letterSpacing: 2, marginBottom: 9, marginLeft: 2 },
+  summaryIcon: { alignItems: "center", borderRadius: 14, height: 46, justifyContent: "center", width: 46 },
+  summaryNumber: { fontSize: 34, fontWeight: "800", lineHeight: 38 },
+  summarySubtitle: { fontSize: 12, fontWeight: "800", letterSpacing: 1.2, marginTop: 2, textTransform: "uppercase" },
+  segmentLabel: { fontSize: 12, fontWeight: "800", letterSpacing: 1.4, marginBottom: 8, marginLeft: 2 },
   segmentWrap: {
-    borderRadius: 18,
+    borderRadius: 20,
     borderWidth: 1,
     flexDirection: "row",
     padding: 5,
@@ -239,9 +232,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     justifyContent: "center",
-    minHeight: 48,
+    minHeight: 46,
   },
-  segmentText: { fontSize: 13, fontWeight: "800", letterSpacing: 0.4 },
+  segmentText: { fontSize: 13, fontWeight: "800", letterSpacing: 0.3 },
   notice: {
     alignItems: "center",
     borderRadius: 14,
@@ -254,18 +247,13 @@ const styles = StyleSheet.create({
   list: { gap: 12 },
   card: {
     alignItems: "center",
-    borderRadius: 20,
+    borderRadius: 18,
     borderWidth: 1,
     flexDirection: "row",
     gap: 12,
     padding: 14,
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 13,
-    elevation: 2,
   },
-  cardIcon: { alignItems: "center", borderRadius: 16, height: 46, justifyContent: "center", width: 46 },
+  cardIcon: { alignItems: "center", borderRadius: 14, height: 48, justifyContent: "center", width: 48 },
   cardBody: { flex: 1, gap: 4 },
   cardRight: { alignItems: "flex-end", gap: 8, maxWidth: 136 },
   code: { fontSize: 11, fontWeight: "700" },
@@ -283,6 +271,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     padding: 24,
   },
-  emptyTitle: { fontSize: 15, fontWeight: "800", textAlign: "center" },
-  emptyText: { fontSize: 13, fontWeight: "600", lineHeight: 19, textAlign: "center" },
 });

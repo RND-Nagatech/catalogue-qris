@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState, type ComponentProps } from "react";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { router, useFocusEffect } from "expo-router";
+import { AppHeader, CardContainer, EmptyState, LoadingState, PrimaryButton, StatusBadge } from "../components/ui";
 import {
   loadNagagoldDashboard,
   loadNagagoldSettings,
@@ -83,6 +83,11 @@ export default function Home() {
     () => dashboard.sales.count + dashboard.purchases.count,
     [dashboard.purchases.count, dashboard.sales.count],
   );
+  const connectionText = domain
+    ? connected
+      ? "Terhubung ke Server"
+      : "Domain tersimpan, koneksi belum dites"
+    : "Domain Program belum diatur";
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
@@ -96,29 +101,46 @@ export default function Home() {
           />
         }
       >
-        <AppHeader />
+        <AppHeader title="Beranda" />
 
         <View style={styles.titleBlock}>
-          <Text style={[styles.eyebrow, { color: theme.colors.primaryContainer }]}>RINGKASAN HARI INI</Text>
-          <Text style={[styles.welcomeTitle, { color: theme.colors.text }]}>Selamat datang kembali👋</Text>
-          <Text style={[styles.welcomeSub, { color: theme.colors.muted }]}>
-            {domain ? (connected ? "Terhubung ke NAGAGOLD" : "Domain tersimpan, koneksi belum dites") : "Domain NAGAGOLD belum diatur"}
-          </Text>
+          <Text style={[theme.typography.body, { color: theme.colors.muted }]}>Selamat datang kembali👋</Text>
+          <View style={styles.connectionRow}>
+            <Text style={[theme.typography.title, { color: theme.colors.text }]}>
+              {connectionText.includes("Terhubung") ? "Terhubung ke " : connectionText}
+            </Text>
+            {connectionText.includes("Terhubung") ? (
+              <>
+                <Text style={[theme.typography.title, { color: theme.colors.primary }]}>Server</Text>
+                <View style={[styles.pulseDot, { backgroundColor: theme.colors.primary }]} />
+              </>
+            ) : null}
+          </View>
         </View>
 
         {errorMessage ? (
           <Pressable
-            style={[styles.notice, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}
+            style={[
+              styles.notice,
+              {
+                backgroundColor: theme.colors.surfaceContainerLowest,
+                borderColor: theme.colors.outlineVariant,
+                borderRadius: theme.radius.lg,
+              },
+            ]}
             onPress={() => router.push("/settings")}
           >
             <Ionicons name="information-circle-outline" size={18} color={theme.colors.secondary} />
-            <Text style={[styles.noticeText, { color: theme.colors.muted }]}>{errorMessage}</Text>
+            <Text style={[theme.typography.bodySmall, styles.noticeText, { color: theme.colors.muted }]}>{errorMessage}</Text>
           </Pressable>
         ) : null}
 
         <View style={styles.summaryGrid}>
           <SummaryCard
-            color="#059669"
+            backgroundColor={theme.colors.primary}
+            buttonBackground={theme.colors.surfaceContainerLowest}
+            buttonTextColor={theme.colors.primary}
+            foregroundColor={theme.colors.onPrimary}
             icon="cart-outline"
             label="TOTAL PENJUALAN"
             count={dashboard.sales.count}
@@ -127,7 +149,10 @@ export default function Home() {
             onPress={() => router.push("/sales")}
           />
           <SummaryCard
-            color="#F59E0B"
+            backgroundColor={theme.colors.secondaryContainer}
+            buttonBackground={theme.colors.onSecondaryContainer}
+            buttonTextColor={theme.isDark ? theme.colors.secondaryFixed : theme.colors.onSecondary}
+            foregroundColor={theme.colors.onSecondaryContainer}
             icon="bag-check-outline"
             label="TOTAL PEMBELIAN"
             count={dashboard.purchases.count}
@@ -139,96 +164,104 @@ export default function Home() {
 
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Histori Transaksi</Text>
-            <Text style={[styles.sectionSubtitle, { color: theme.colors.muted }]}>
+            <Text style={[theme.typography.title, { color: theme.colors.text }]}>Transaksi Terbaru</Text>
+            {/* <Text style={[theme.typography.bodySmall, { color: theme.colors.muted }]}>
               {totalTransactions} transaksi tercatat hari ini
-            </Text>
+            </Text> */}
           </View>
           <Pressable onPress={() => router.push("/history")}>
-            <Text style={[styles.seeAll, { color: theme.colors.primaryContainer }]}>Lihat Semua</Text>
+            <Text style={[theme.typography.label, { color: theme.colors.primary }]}>Lihat Semua</Text>
           </Pressable>
         </View>
 
-        <View style={[styles.historyCard, { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-          {isLoading ? (
-            <View style={styles.loadingState}>
-              <ActivityIndicator color={theme.colors.primaryContainer} />
-              <Text style={[styles.emptyText, { color: theme.colors.muted }]}>Mengambil data dashboard...</Text>
-            </View>
-          ) : dashboard.recent.length ? (
-            dashboard.recent.map((item, index) => (
+        {isLoading ? (
+          <LoadingState title="Mengambil data dashboard..." />
+        ) : dashboard.recent.length ? (
+          <CardContainer padded={false} style={styles.historyCard}>
+            {dashboard.recent.map((item, index) => (
               <RecentRow
                 item={item}
                 key={`${item.type}-${item.id}-${index}`}
                 isLast={index === dashboard.recent.length - 1}
               />
-            ))
-          ) : (
-            <View style={styles.emptyState}>
-              <Ionicons name="receipt-outline" size={34} color={theme.colors.muted} />
-              <Text style={[styles.emptyTitle, { color: theme.colors.text }]}>Belum ada transaksi terbaru</Text>
-              <Text style={[styles.emptyText, { color: theme.colors.muted }]}>
-                Transaksi penjualan dan pembelian hari ini akan muncul di sini.
-              </Text>
-            </View>
-          )}
-        </View>
+            ))}
+          </CardContainer>
+        ) : (
+          <EmptyState
+            icon="receipt-outline"
+            title="Belum ada transaksi terbaru"
+            description="Transaksi penjualan dan pembelian hari ini akan muncul di sini."
+          />
+        )}
       </ScrollView>
-    </View>
-  );
-}
-
-function AppHeader() {
-  const theme = useAppTheme();
-
-  return (
-    <View style={styles.topHeader}>
-      <View style={styles.headerLeft}>
-        <Pressable style={styles.headerIconButton}>
-          <Ionicons name="menu" size={21} color={theme.colors.text} />
-        </Pressable>
-        <Text style={[styles.screenTitle, { color: theme.colors.primary }]}>Dashboard</Text>
-      </View>
-      <View style={styles.headerActions}>
-        <Pressable style={styles.headerIconButton} onPress={theme.toggleTheme}>
-          <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={19} color={theme.colors.text} />
-        </Pressable>
-        <Pressable style={styles.headerIconButton}>
-          <Ionicons name="notifications-outline" size={20} color={theme.colors.text} />
-          <View style={styles.notificationDot} />
-        </Pressable>
-      </View>
     </View>
   );
 }
 
 function SummaryCard({
   amount,
-  color,
+  backgroundColor,
+  buttonBackground,
+  buttonTextColor,
   count,
+  foregroundColor,
   gram,
   icon,
   label,
   onPress,
 }: {
   amount: number;
-  color: string;
+  backgroundColor: string;
+  buttonBackground: string;
+  buttonTextColor: string;
   count: number;
+  foregroundColor: string;
   gram: number;
   icon: IconName;
   label: string;
   onPress: () => void;
 }) {
+  const theme = useAppTheme();
+
   return (
-    <Pressable style={[styles.summaryCard, { backgroundColor: color }]} onPress={onPress}>
-      <Ionicons name={icon} size={92} color="rgba(255,255,255,0.14)" style={styles.summaryGhostIcon} />
-      <Text style={styles.summaryLabel}>{label}</Text>
-      <Text style={styles.summaryCount}>{formatNumber(count)}</Text>
-      <Text style={styles.summaryGram}>{formatGram(gram)}</Text>
-      <Text style={styles.summaryAmount}>{formatRupiah(amount)}</Text>
-      <View style={styles.summaryLink}>
-        <Text style={styles.summaryLinkText}>Transaksi Baru</Text>
-        <Ionicons name="arrow-forward" size={16} color="#FFFFFF" />
+    <Pressable
+      style={[
+        styles.summaryCard,
+        {
+          backgroundColor,
+          borderRadius: theme.radius.xl,
+          shadowColor: backgroundColor,
+        },
+      ]}
+      onPress={onPress}
+    >
+      <Ionicons name={icon} size={84} color="rgba(255,255,255,0.16)" style={styles.summaryGhostIcon} />
+      <View>
+        <Text style={[theme.typography.labelCaps, styles.summaryLabel, { color: foregroundColor }]}>{label}</Text>
+        <Text style={[theme.typography.displayMobile, styles.summaryAmount, { color: foregroundColor }]} numberOfLines={1} adjustsFontSizeToFit>
+          {formatRupiah(amount)}
+        </Text>
+      </View>
+      <View style={styles.summaryFooter}>
+        <View style={styles.summaryMetrics}>
+          <View>
+            <Text style={[styles.metricLabel, { color: foregroundColor }]}>Gramasi</Text>
+            <Text style={[theme.typography.label, { color: foregroundColor }]}>{formatGram(gram)}</Text>
+          </View>
+          <View style={[styles.metricDivider, { backgroundColor: foregroundColor }]} />
+          <View>
+            <Text style={[styles.metricLabel, { color: foregroundColor }]}>History</Text>
+            <Text style={[theme.typography.label, { color: foregroundColor }]}>{formatNumber(count)} Transaksi</Text>
+          </View>
+        </View>
+        <PrimaryButton
+          title="Transaksi Baru"
+          icon="add"
+          iconColor={buttonTextColor}
+          style={[styles.summaryButton, { backgroundColor: buttonBackground, borderColor: buttonBackground }]}
+          textStyle={{ color: buttonTextColor, fontSize: 12 }}
+          onPress={onPress}
+        />
       </View>
     </Pressable>
   );
@@ -237,24 +270,22 @@ function SummaryCard({
 function RecentRow({ isLast, item }: { isLast: boolean; item: NagagoldRecentTransaction }) {
   const theme = useAppTheme();
   const isSale = item.type === "sale";
-  const accent = isSale ? theme.colors.primaryContainer : theme.colors.danger;
+  const accent = isSale ? theme.colors.primary : theme.colors.secondary;
 
   return (
-    <View style={[styles.recentRow, !isLast && { borderBottomColor: theme.colors.outline, borderBottomWidth: StyleSheet.hairlineWidth }]}>
-      <View style={[styles.recentIcon, { backgroundColor: isSale ? "rgba(16,185,129,0.12)" : "rgba(239,68,68,0.10)" }]}>
+    <View style={[styles.recentRow, !isLast && { borderBottomColor: theme.colors.divider, borderBottomWidth: StyleSheet.hairlineWidth }]}>
+      <View style={[styles.recentIcon, { backgroundColor: isSale ? theme.colors.successContainer : theme.colors.warningContainer }]}>
         <Ionicons name={isSale ? "pricetag-outline" : "cart-outline"} size={22} color={accent} />
       </View>
       <View style={styles.recentBody}>
-        <Text style={[styles.recentTitle, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
-        <Text style={[styles.recentMeta, { color: theme.colors.muted }]} numberOfLines={1}>{item.subtitle}</Text>
+        <Text style={[theme.typography.label, { color: theme.colors.text }]} numberOfLines={1}>{item.title}</Text>
+        <Text style={[theme.typography.bodySmall, { color: theme.colors.muted }]} numberOfLines={1}>{item.subtitle}</Text>
       </View>
       <View style={styles.recentRight}>
-        <Text style={[styles.recentAmount, { color: isSale ? theme.colors.primaryContainer : theme.colors.text }]} numberOfLines={1}>
+        <Text style={[theme.typography.label, styles.recentAmount, { color: isSale ? theme.colors.primary : theme.colors.text }]} numberOfLines={1}>
           {isSale ? "+" : "-"}{formatRupiah(item.amount)}
         </Text>
-        <View style={[styles.statusBadge, { backgroundColor: isSale ? "rgba(16,185,129,0.12)" : theme.isDark ? "#2A2F3A" : "#E5E7EB" }]}>
-          <Text style={[styles.statusBadgeText, { color: isSale ? theme.colors.primaryContainer : theme.colors.muted }]}>SELESAI</Text>
-        </View>
+        <StatusBadge label="SELESAI" variant={isSale ? "success" : "neutral"} />
       </View>
     </View>
   );
@@ -273,89 +304,41 @@ function formatGram(value: number): string {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  content: { gap: 16, paddingBottom: 28, paddingHorizontal: 18, paddingTop: 62 },
-  topHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: 4 },
-  headerLeft: { alignItems: "center", flexDirection: "row", gap: 13 },
-  headerActions: { alignItems: "center", flexDirection: "row", gap: 8 },
-  headerIconButton: { alignItems: "center", height: 34, justifyContent: "center", width: 34 },
-  notificationDot: {
-    backgroundColor: "#EF4444",
-    borderRadius: 999,
-    height: 7,
-    position: "absolute",
-    right: 8,
-    top: 7,
-    width: 7,
-  },
-  screenTitle: { fontSize: 20, fontWeight: "700" },
-  titleBlock: { gap: 5, marginTop: 4 },
-  eyebrow: { fontSize: 12, fontWeight: "800", letterSpacing: 4 },
-  welcomeTitle: { fontSize: 22, fontWeight: "800", lineHeight: 29 },
-  welcomeSub: { fontSize: 13, fontWeight: "600" },
+  content: { gap: 16, paddingBottom: 28, paddingHorizontal: 16, paddingTop: 54 },
+  connectionRow: { alignItems: "center", flexDirection: "row", flexWrap: "wrap", gap: 5 },
+  pulseDot: { borderRadius: 999, height: 8, marginLeft: 2, width: 8 },
+  titleBlock: { gap: 2, marginBottom: 2 },
   notice: {
     alignItems: "center",
-    borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     gap: 8,
     padding: 12,
   },
-  noticeText: { flex: 1, fontSize: 12, fontWeight: "600", lineHeight: 17 },
-  summaryGrid: { flexDirection: "row", gap: 14 },
+  noticeText: { flex: 1 },
+  summaryGrid: { gap: 16 },
   summaryCard: {
-    borderRadius: 24,
     elevation: 4,
-    flex: 1,
-    minHeight: 206,
+    minHeight: 180,
     overflow: "hidden",
-    padding: 18,
-    shadowColor: "#0F172A",
+    padding: 16,
     shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
   },
-  summaryGhostIcon: { position: "absolute", right: -10, top: 5 },
-  summaryLabel: { color: "rgba(255,255,255,0.86)", fontSize: 11, fontWeight: "800", letterSpacing: 1.2 },
-  summaryCount: { color: "#FFFFFF", fontSize: 38, fontWeight: "900", marginTop: 14 },
-  summaryGram: { color: "#FFFFFF", fontSize: 18, fontWeight: "800", marginTop: 1 },
-  summaryAmount: { color: "rgba(255,255,255,0.92)", fontSize: 14, fontWeight: "700", marginTop: 8 },
-  summaryLink: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderRadius: 14,
-    flexDirection: "row",
-    gap: 8,
-    marginTop: "auto",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-  },
-  summaryLinkText: { color: "#FFFFFF", fontSize: 12, fontWeight: "900" },
-  sectionHeader: { alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between", marginTop: 10 },
-  sectionTitle: { fontSize: 19, fontWeight: "800" },
-  sectionSubtitle: { fontSize: 13, fontWeight: "600", marginTop: 3 },
-  seeAll: { fontSize: 14, fontWeight: "800" },
-  historyCard: {
-    borderRadius: 22,
-    borderWidth: 1,
-    overflow: "hidden",
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 16,
-    elevation: 2,
-  },
+  summaryButton: { minHeight: 40, paddingHorizontal: 12 },
+  summaryFooter: { gap: 14, marginTop: "auto" },
+  summaryGhostIcon: { position: "absolute", right: -8, top: 6 },
+  summaryLabel: { opacity: 0.78, textTransform: "uppercase" },
+  summaryAmount: { marginTop: 4 },
+  summaryMetrics: { alignItems: "center", flexDirection: "row", gap: 12 },
+  metricDivider: { height: 28, opacity: 0.22, width: 1 },
+  metricLabel: { fontSize: 10, fontWeight: "800", opacity: 0.68, textTransform: "uppercase" },
+  sectionHeader: { alignItems: "flex-end", flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
+  historyCard: { overflow: "hidden" },
   recentRow: { alignItems: "center", flexDirection: "row", gap: 12, minHeight: 82, padding: 14 },
-  recentIcon: { alignItems: "center", borderRadius: 18, height: 48, justifyContent: "center", width: 48 },
-  recentBody: { flex: 1, gap: 4 },
-  recentTitle: { fontSize: 15, fontWeight: "800" },
-  recentMeta: { fontSize: 12, fontWeight: "600" },
-  recentRight: { alignItems: "flex-end", gap: 7, maxWidth: 142 },
-  recentAmount: { fontSize: 14, fontWeight: "900" },
-  statusBadge: { borderRadius: 8, paddingHorizontal: 9, paddingVertical: 6 },
-  statusBadgeText: { fontSize: 10, fontWeight: "900" },
-  loadingState: { alignItems: "center", gap: 10, minHeight: 180, justifyContent: "center", padding: 22 },
-  emptyState: { alignItems: "center", gap: 9, minHeight: 190, justifyContent: "center", padding: 22 },
-  emptyTitle: { fontSize: 16, fontWeight: "800" },
-  emptyText: { fontSize: 13, fontWeight: "600", lineHeight: 18, textAlign: "center" },
+  recentIcon: { alignItems: "center", borderRadius: 14, height: 48, justifyContent: "center", width: 48 },
+  recentBody: { flex: 1, gap: 4, minWidth: 0 },
+  recentRight: { alignItems: "flex-end", gap: 7, maxWidth: 148 },
+  recentAmount: { textAlign: "right" },
 });

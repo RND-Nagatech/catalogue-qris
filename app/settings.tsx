@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { AppHeader } from "../components/ui";
 import {
   clearQrisString,
   loadNagagoldSettings,
@@ -14,13 +15,13 @@ import { getMerchantInfo, normalizeQris, validateQris } from "../lib/qris";
 import { useAppTheme } from "../lib/theme";
 
 const colors = {
-  background: "#F7F9FB",
+  background: "#F8F9FA",
   surface: "#FFFFFF",
   text: "#191C1E",
-  muted: "#3F4944",
-  outline: "#BEC9C2",
-  primary: "#004532",
-  primaryContainer: "#065F46",
+  muted: "#3D4A3F",
+  outline: "#BCCABC",
+  primary: "#006A37",
+  primaryContainer: "#008648",
 };
 
 export default function Settings() {
@@ -159,48 +160,48 @@ export default function Settings() {
   return (
     <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]} keyboardShouldPersistTaps="handled">
       <AppHeader title="Pengaturan" />
-      <View style={[styles.summaryHeader, theme.isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-        <Text style={[styles.summaryTitle, theme.isDark && { color: theme.colors.text }]}>Koneksi dan QRIS</Text>
-        <Text style={[styles.summarySubtitle, theme.isDark && { color: theme.colors.muted }]}>Atur QRIS merchant dan koneksi NAGAGOLD</Text>
+      <View style={[styles.summaryHeader, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, theme.elevation.level1]}>
+        <Text style={[styles.summaryTitle, { color: theme.colors.primary }]}>Koneksi dan QRIS</Text>
+        <Text style={[styles.summarySubtitle, { color: theme.colors.muted }]}>Atur QRIS merchant dan koneksi Program</Text>
       </View>
 
-      <View style={[styles.panel, theme.isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-        <View style={styles.titleRow}>
+      <View style={[styles.panel, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }, theme.elevation.level1]}>
+        <View style={[styles.titleRow, { borderBottomColor: theme.colors.divider }]}>
           <Ionicons name="globe-outline" size={18} color={theme.colors.primary} />
-          <Text style={[styles.title, theme.isDark && { color: theme.colors.text }]}>Koneksi NAGAGOLD</Text>
+          <Text style={[styles.title, { color: theme.colors.text }]}>Koneksi Program</Text>
         </View>
         <View style={styles.settingBody}>
-          <Text style={[styles.fieldLabelInline, theme.isDark && { color: theme.colors.muted }]}>Domain Program</Text>
+          <Text style={[styles.fieldLabelInline, { color: theme.colors.subtleText }]}>Domain Program</Text>
           <TextInput
             value={nagagoldDomain}
             onChangeText={setNagagoldDomain}
             placeholder="https://toko.com"
-            placeholderTextColor="#94A3B8"
-            style={[styles.inputInline, theme.isDark && { borderColor: theme.colors.outline, color: theme.colors.text }]}
+            placeholderTextColor={theme.colors.subtleText}
+            style={[styles.inputInline, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
             autoCapitalize="none"
             autoCorrect={false}
           />
           {nagagoldConnection?.ok && savedNagagoldDomain && nagagoldDomain === savedNagagoldDomain ? (
-            <View style={styles.connectionBadge}>
-              <Ionicons name="checkmark-circle-outline" size={16} color="#047857" />
-              <Text style={styles.connectionText}>
+            <View style={[styles.connectionBadge, { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary }]}>
+              <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.primary} />
+              <Text style={[styles.connectionText, { color: theme.colors.primary }]}>
                 Terhubung ke {savedNagagoldDomain} lewat {nagagoldConnection.endpoint}
               </Text>
             </View>
           ) : savedNagagoldDomain && nagagoldDomain === savedNagagoldDomain ? (
-            <Text style={[styles.helperText, theme.isDark && { color: theme.colors.muted }]}>Domain tersimpan. Tekan Test Koneksi untuk validasi ke NAGAGOLD.</Text>
+            <Text style={[styles.helperText, { color: theme.colors.muted }]}>Domain tersimpan. Tekan Test Koneksi untuk validasi ke Server.</Text>
           ) : savedNagagoldDomain ? (
-            <Text style={[styles.helperText, theme.isDark && { color: theme.colors.muted }]}>Domain berubah. Simpan domain dulu sebelum test koneksi.</Text>
+            <Text style={[styles.helperText, { color: theme.colors.muted }]}>Domain berubah. Simpan domain dulu sebelum test koneksi.</Text>
           ) : (
-            <Text style={[styles.helperText, theme.isDark && { color: theme.colors.muted }]}>Simpan domain program NAGAGOLD terlebih dahulu sebelum test koneksi.</Text>
+            <Text style={[styles.helperText, { color: theme.colors.muted }]}>Simpan domain program terlebih dahulu sebelum test koneksi.</Text>
           )}
-          <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.primaryContainer, shadowColor: theme.colors.primaryContainer }]} onPress={saveDomain}>
+          <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={saveDomain}>
             <Ionicons name="save-outline" size={16} color="#FFFFFF" />
             <Text style={styles.primaryButtonText}>Simpan Domain</Text>
           </Pressable>
           <Pressable
             disabled={isTestingConnection}
-            style={[styles.secondaryButton, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.outline }, isTestingConnection && styles.disabledButton]}
+            style={[styles.secondaryButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, isTestingConnection && styles.disabledButton]}
             onPress={testConnection}
           >
             <Ionicons name="pulse-outline" size={16} color={theme.colors.text} />
@@ -210,20 +211,20 @@ export default function Settings() {
       </View>
 
       {hasSavedQris && !isEditing ? (
-        <View style={styles.savedBanner}>
-          <Ionicons name="checkmark-circle-outline" size={20} color="#047857" />
+        <View style={[styles.savedBanner, { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary }]}>
+          <Ionicons name="checkmark-circle-outline" size={20} color={theme.colors.primary} />
           <View style={styles.savedBannerText}>
-            <Text style={styles.savedTitle}>QRIS Merchant Tersimpan</Text>
-            <Text style={styles.savedSubtitle}>App akan memakai QRIS ini untuk generate nominal pembayaran.</Text>
+            <Text style={[styles.savedTitle, { color: theme.colors.primary }]}>QRIS Merchant Tersimpan</Text>
+            <Text style={[styles.savedSubtitle, { color: theme.colors.muted }]}>App akan memakai QRIS ini untuk generate nominal pembayaran.</Text>
           </View>
         </View>
       ) : null}
 
       {preview ? (
-        <View style={[styles.panel, theme.isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-          <View style={styles.titleRow}>
+        <View style={[styles.panel, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }, theme.elevation.level1]}>
+          <View style={[styles.titleRow, { borderBottomColor: theme.colors.divider }]}>
             <Ionicons name="information-circle-outline" size={18} color={theme.colors.primary} />
-            <Text style={[styles.title, theme.isDark && { color: theme.colors.text }]}>Preview Merchant</Text>
+            <Text style={[styles.title, { color: theme.colors.text }]}>Preview Merchant</Text>
           </View>
           <InfoRow label="Merchant" value={preview.merchant || "-"} />
           <InfoRow label="City" value={preview.city || "-"} />
@@ -237,31 +238,31 @@ export default function Settings() {
 
       {isEditing ? (
         <>
-          <View style={[styles.panel, theme.isDark && { backgroundColor: theme.colors.surface, borderColor: theme.colors.outline }]}>
-            <View style={styles.titleRow}>
+          <View style={[styles.panel, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }, theme.elevation.level1]}>
+            <View style={[styles.titleRow, { borderBottomColor: theme.colors.divider }]}>
               <Ionicons name="qr-code-outline" size={18} color={theme.colors.primary} />
-              <Text style={[styles.title, theme.isDark && { color: theme.colors.text }]}>{hasSavedQris ? "Edit QRIS String" : "QRIS String Statis"}</Text>
+              <Text style={[styles.title, { color: theme.colors.text }]}>{hasSavedQris ? "Edit QRIS String" : "QRIS String Statis"}</Text>
             </View>
             <TextInput
               value={value}
               onChangeText={setValue}
               multiline
               placeholder="00020101021126..."
-              placeholderTextColor="#94A3B8"
-              style={[styles.textarea, theme.isDark && { color: theme.colors.text }]}
+              placeholderTextColor={theme.colors.subtleText}
+              style={[styles.textarea, { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }]}
               autoCapitalize="characters"
               autoCorrect={false}
             />
           </View>
 
-          <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.primaryContainer, shadowColor: theme.colors.primaryContainer }]} onPress={save}>
+          <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={save}>
             <Ionicons name="save-outline" size={16} color="#FFFFFF" />
             <Text style={styles.primaryButtonText}>{hasSavedQris ? "Simpan Perubahan" : "Simpan QRIS"}</Text>
           </Pressable>
 
           {hasSavedQris ? (
             <Pressable
-              style={[styles.secondaryButton, { backgroundColor: theme.colors.surfaceLow, borderColor: theme.colors.outline }]}
+              style={[styles.secondaryButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]}
               onPress={() => {
                 setValue(savedValue);
                 setIsEditing(false);
@@ -273,35 +274,17 @@ export default function Settings() {
           ) : null}
         </>
       ) : (
-        <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.primaryContainer, shadowColor: theme.colors.primaryContainer }]} onPress={() => setIsEditing(true)}>
+        <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={() => setIsEditing(true)}>
           <Ionicons name="create-outline" size={16} color="#FFFFFF" />
           <Text style={styles.primaryButtonText}>Edit QRIS Merchant</Text>
         </Pressable>
       )}
 
-      <Pressable style={styles.dangerButton} onPress={clearSavedQris}>
-        <Ionicons name="trash-outline" size={16} color="#B91C1C" />
-        <Text style={styles.dangerButtonText}>Kosongkan QRIS Tersimpan</Text>
+      <Pressable style={[styles.dangerButton, { backgroundColor: theme.colors.errorContainer, borderColor: theme.colors.error }]} onPress={clearSavedQris}>
+        <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+        <Text style={[styles.dangerButtonText, { color: theme.colors.error }]}>Kosongkan QRIS Tersimpan</Text>
       </Pressable>
     </ScrollView>
-  );
-}
-
-function AppHeader({ title }: { title: string }) {
-  const theme = useAppTheme();
-
-  return (
-    <View style={styles.topHeader}>
-      <View style={styles.headerLeft}>
-        <Pressable style={styles.headerIconButton}>
-          <Ionicons name="menu" size={21} color={theme.colors.text} />
-        </Pressable>
-        <Text style={[styles.screenTitle, { color: theme.colors.primary }]}>{title}</Text>
-      </View>
-      <Pressable style={styles.headerIconButton} onPress={theme.toggleTheme}>
-        <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={18} color={theme.colors.text} />
-      </Pressable>
-    </View>
   );
 }
 
@@ -309,9 +292,9 @@ function InfoRow({ label, value, last }: { label: string; value: string; last?: 
   const theme = useAppTheme();
 
   return (
-    <View style={[styles.infoRow, last && styles.infoRowLast]}>
-      <Text style={[styles.infoLabel, theme.isDark && { color: theme.colors.muted }]}>{label}</Text>
-      <Text style={[styles.infoValue, theme.isDark && { color: theme.colors.text }]}>{value}</Text>
+    <View style={[styles.infoRow, { borderBottomColor: theme.colors.divider }, last && styles.infoRowLast]}>
+      <Text style={[styles.infoLabel, { color: theme.colors.muted }]}>{label}</Text>
+      <Text style={[styles.infoValue, { color: theme.colors.text }]}>{value}</Text>
     </View>
   );
 }
@@ -319,30 +302,22 @@ function InfoRow({ label, value, last }: { label: string; value: string; last?: 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
-    gap: 14,
-    paddingHorizontal: 12,
-    paddingTop: Platform.OS === "ios" ? 66 : 46,
+    gap: 16,
+    paddingHorizontal: 16,
+    paddingTop: Platform.OS === "ios" ? 58 : 42,
     paddingBottom: 32,
-  },
-  topHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  headerLeft: { alignItems: "center", flexDirection: "row", gap: 10 },
-  headerIconButton: { alignItems: "center", height: 34, justifyContent: "center", width: 34 },
-  screenTitle: {
-    color: colors.primary,
-    fontSize: 20,
-    fontWeight: "700",
   },
   summaryHeader: {
     backgroundColor: colors.surface,
     borderColor: colors.outline,
-    borderRadius: 14,
+    borderRadius: 16,
     borderWidth: 1,
-    padding: 14,
+    padding: 18,
   },
-  summaryTitle: { color: colors.text, fontSize: 14, fontWeight: "700" },
+  summaryTitle: { color: colors.text, fontSize: 20, fontWeight: "700" },
   summarySubtitle: {
     color: colors.muted,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "500",
     marginTop: 4,
   },
@@ -352,11 +327,6 @@ const styles = StyleSheet.create({
     borderRadius: 18,
     borderWidth: 1,
     overflow: "hidden",
-    shadowColor: "#0F172A",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 13,
-    elevation: 2,
   },
   savedBanner: {
     alignItems: "flex-start",
@@ -388,16 +358,18 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: "row",
     gap: 8,
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
   title: {
     color: "#0F172A",
-    fontSize: 14,
-    fontWeight: "700",
+    fontSize: 16,
+    fontWeight: "800",
+    letterSpacing: 0.2,
   },
   settingBody: {
-    gap: 10,
-    padding: 12,
+    gap: 12,
+    padding: 16,
   },
   fieldLabelInline: {
     color: "#334155",
@@ -409,9 +381,9 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     color: "#0F172A",
-    fontSize: 13,
-    minHeight: 44,
-    paddingHorizontal: 12,
+    fontSize: 14,
+    minHeight: 48,
+    paddingHorizontal: 14,
   },
   helperText: {
     color: "#64748B",
@@ -441,7 +413,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 18,
     minHeight: 180,
-    padding: 12,
+    padding: 14,
     textAlignVertical: "top",
   },
   infoRow: {
@@ -450,8 +422,8 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     flexDirection: "row",
     justifyContent: "space-between",
-    minHeight: 42,
-    paddingHorizontal: 12,
+    minHeight: 46,
+    paddingHorizontal: 16,
   },
   infoRowLast: {
     borderBottomWidth: 0,
@@ -470,16 +442,11 @@ const styles = StyleSheet.create({
   primaryButton: {
     alignItems: "center",
     backgroundColor: "#059669",
-    borderRadius: 16,
+    borderRadius: 14,
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
-    minHeight: 52,
-    shadowColor: "#059669",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.18,
-    shadowRadius: 14,
-    elevation: 2,
+    minHeight: 50,
   },
   primaryButtonText: {
     color: "#FFFFFF",
@@ -490,12 +457,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FFFFFF",
     borderColor: "#CBD5E1",
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
-    minHeight: 52,
+    minHeight: 50,
   },
   secondaryButtonText: {
     color: "#0F172A",
@@ -509,12 +476,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#FEF2F2",
     borderColor: "#FECACA",
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     gap: 8,
     justifyContent: "center",
-    minHeight: 52,
+    minHeight: 50,
   },
   dangerButtonText: {
     color: "#B91C1C",

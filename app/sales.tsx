@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   Image,
@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
@@ -35,7 +36,7 @@ import {
   type NagagoldSalesPerson,
 } from "../lib/dataStore";
 import { generateDynamicQris } from "../contohqris";
-import { formatRupiah, normalizeQris } from "../lib/qris";
+import { formatRupiah, getMerchantInfo, normalizeQris } from "../lib/qris";
 import { useNagagoldConfig } from "../lib/nagagoldConfig";
 import { useAppTheme } from "../lib/theme";
 
@@ -87,6 +88,14 @@ type PendingSaleAuthorization = {
   };
 };
 
+type PendingDiscountAuthorization = {
+  key: string;
+  type: SaleItem["typeDiskon"];
+  value: string;
+  amount: number;
+  total: number;
+};
+
 type PaymentLine = {
   id: string;
   method: "CASH" | "TRANSFER" | "DEBET" | "CREDIT";
@@ -99,9 +108,11 @@ type PaymentLine = {
   feePercent?: number;
   feeAmount?: number;
   rekeningLabel?: string;
+  isQris?: boolean;
 };
 
 const paymentMethods: PaymentLine["method"][] = ["CASH", "TRANSFER", "DEBET", "CREDIT"];
+const DISCOUNT_AUTHORIZATION_DELAY_MS = 1500;
 const defaultSalesCapabilities: NagagoldSalesCapabilities = {
   requireSales: true,
   allowNonMember: true,
@@ -179,6 +190,7 @@ export default function Sales() {
   const [paymentNoCard, setPaymentNoCard] = useState("");
   const [paymentMarketplace, setPaymentMarketplace] = useState("");
   const [paymentFeePercent, setPaymentFeePercent] = useState("");
+  const [paymentUsesQris, setPaymentUsesQris] = useState(false);
   const [isLookingUpMember, setIsLookingUpMember] = useState(false);
   const [isLookingUpItem, setIsLookingUpItem] = useState(false);
   const [exchangeOpen, setExchangeOpen] = useState(false);
@@ -191,7 +203,12 @@ export default function Sales() {
   const [exchangeItems, setExchangeItems] = useState<ExchangeItem[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
+  const [isAuthorizingDiscount, setIsAuthorizingDiscount] = useState(false);
   const [pendingAuthorization, setPendingAuthorization] = useState<PendingSaleAuthorization | null>(null);
+  const [pendingDiscountAuthorization, setPendingDiscountAuthorization] = useState<PendingDiscountAuthorization | null>(null);
+  const [authorizedDiscountKey, setAuthorizedDiscountKey] = useState("");
+  const [discountAuthorizationId, setDiscountAuthorizationId] = useState("");
+  const discountAuthorizationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [items, setItems] = useState<SaleItem[]>([]);
 
   const applyRuntimeConfig = useCallback((config: typeof nagagoldConfig.config) => {
@@ -236,6 +253,14 @@ export default function Sales() {
   useEffect(() => {
     applyRuntimeConfig(nagagoldConfig.config);
   }, [applyRuntimeConfig, nagagoldConfig.config?.version]);
+
+  useEffect(() => {
+    return () => {
+      if (discountAuthorizationTimerRef.current) {
+        clearTimeout(discountAuthorizationTimerRef.current);
+      }
+    };
+  }, []);
 
   const total = useMemo(() => items.reduce((sum, item) => sum + item.total, 0), [items]);
   const exchangeTotal = useMemo(() => exchangeItems.reduce((sum, item) => sum + item.hargaBeli, 0), [exchangeItems]);
@@ -343,6 +368,7 @@ export default function Sales() {
       setHargaJual(String(nextHargaJual || ""));
       setHargaGram(String(nextHargaGram || ""));
       setOngkos(String(nextOngkos || ""));
+      resetDiscount();
       setItemImageUrl(buildProductImageUrl(nextBarcode, domain));
       setSaleItemRaw(item);
       await Haptics.selectionAsync();
@@ -355,6 +381,72 @@ export default function Sales() {
     }
   };
 
+  const resetDiscount = useCallback(() => {
+    if (discountAuthorizationTimerRef.current) {
+      clearTimeout(discountAuthorizationTimerRef.current);
+      discountAuthorizationTimerRef.current = null;
+    }
+    setDiscountValue("");
+    setAuthorizedDiscountKey("");
+    setDiscountAuthorizationId("");
+    setPendingDiscountAuthorization(null);
+  }, []);
+
+  const evaluateDiscountAuthorization = useCallback((nextType: SaleItem["typeDiskon"], nextValue: string) => {
+    if (!nextType || !saleItemRaw) return;
+    const nextHargaJual = parseCurrency(hargaJual);
+    const nextOngkos = parseCurrency(ongkos);
+    const baseTotal = nextHargaJual + nextOngkos + Number(saleItemRaw.harga_atribut ?? 0);
+    const nextDiscount = calculateSaleDiscount(baseTotal, nextType, nextValue);
+    if (nextDiscount <= 0) return;
+    if (nextType === "DISKON_RP" && nextDiscount > nextHargaJual) {
+      Alert.alert("Diskon belum valid", "Total kurang dari diskon. Nilai diskon tidak boleh melebihi harga jual barang.");
+      resetDiscount();
+      return;
+    }
+
+    const nextTotal = Math.max(0, baseTotal - nextDiscount);
+    const key = buildDiscountAuthorizationKey(kodeBarcode, nextType, nextValue, nextDiscount);
+
+    if (authorizedDiscountKey === key || pendingDiscountAuthorization?.key === key) return;
+    setItemOpen(false);
+    setPendingDiscountAuthorization({
+      key,
+      type: nextType,
+      value: nextValue,
+      amount: nextDiscount,
+      total: nextTotal,
+    });
+  }, [authorizedDiscountKey, hargaJual, kodeBarcode, nagagoldConfig, ongkos, pendingDiscountAuthorization?.key, resetDiscount, saleItemRaw]);
+
+  const scheduleDiscountAuthorization = useCallback((nextType: SaleItem["typeDiskon"], nextValue: string) => {
+    setDiscountValue(nextValue);
+    setAuthorizedDiscountKey("");
+    if (discountAuthorizationTimerRef.current) {
+      clearTimeout(discountAuthorizationTimerRef.current);
+    }
+    const numericValue = nextType === "DISKON_RP" ? parseCurrency(nextValue) : parseDecimal(nextValue);
+    if (!nextType || numericValue <= 0) {
+      setPendingDiscountAuthorization(null);
+      return;
+    }
+    discountAuthorizationTimerRef.current = setTimeout(() => {
+      evaluateDiscountAuthorization(nextType, nextValue);
+    }, DISCOUNT_AUTHORIZATION_DELAY_MS);
+  }, [evaluateDiscountAuthorization]);
+
+  const setDiscountTypeAndReset = useCallback((nextType: SaleItem["typeDiskon"]) => {
+    if (discountAuthorizationTimerRef.current) {
+      clearTimeout(discountAuthorizationTimerRef.current);
+      discountAuthorizationTimerRef.current = null;
+    }
+    setDiscountType(nextType);
+    setDiscountValue("");
+    setAuthorizedDiscountKey("");
+    setDiscountAuthorizationId("");
+    setPendingDiscountAuthorization(null);
+  }, []);
+
   const addItem = async (authorizationId?: string) => {
     const nextBerat = parseDecimal(berat);
     const nextHargaJual = parseCurrency(hargaJual);
@@ -365,6 +457,11 @@ export default function Sales() {
     const nextTotal = Math.max(0, baseTotal - nextDiscount);
     if (!kodeBarcode.trim() || !namaBarang.trim() || nextBerat <= 0 || nextHargaJual <= 0) {
       Alert.alert("Data barang belum lengkap", "Barcode, nama barang, berat, dan harga jual wajib diisi.");
+      return;
+    }
+    const discountKey = buildDiscountAuthorizationKey(kodeBarcode, discountType, discountValue, nextDiscount);
+    if (nextDiscount > 0 && saleItemRaw && authorizedDiscountKey !== discountKey) {
+      evaluateDiscountAuthorization(discountType, discountValue);
       return;
     }
     const authReasons = getSaleAuthorizationReasons(saleItemRaw, nextBerat, nextHargaJual, salesCapabilities);
@@ -382,6 +479,7 @@ export default function Sales() {
       return;
     }
 
+    const authorizationIds = [authorizationId, discountAuthorizationId].filter(Boolean) as string[];
     setItems([
       ...items,
       {
@@ -399,7 +497,7 @@ export default function Sales() {
         total: nextTotal,
         keterangan: itemNote.trim(),
         imageUrl: itemImageUrl,
-        authorizationIds: authorizationId ? [authorizationId] : undefined,
+        authorizationIds: authorizationIds.length ? authorizationIds : undefined,
         raw: saleItemRaw ?? undefined,
       },
     ]);
@@ -411,6 +509,8 @@ export default function Sales() {
     setOngkos("");
     setDiscountType("");
     setDiscountValue("");
+    setAuthorizedDiscountKey("");
+    setDiscountAuthorizationId("");
     setItemNote("");
     setItemImageUrl("");
     setSaleItemRaw(null);
@@ -439,6 +539,35 @@ export default function Sales() {
       Alert.alert("Otorisasi gagal", error instanceof Error ? error.message : "Username/password otorisasi belum valid.");
     } finally {
       setIsAuthorizing(false);
+    }
+  };
+
+  const submitDiscountAuthorization = async (data: { username: string; password: string; keterangan: string }) => {
+    if (!pendingDiscountAuthorization) return;
+    setIsAuthorizingDiscount(true);
+    try {
+      const result = await authorizeNagagoldTransaction({
+        username: data.username,
+        password: data.password,
+        kategori: "OTORISASI",
+        description: "OTORISASI DISKON PERSEN",
+        keterangan: data.keterangan,
+        kodeBarcode: kodeBarcode.trim(),
+        berat: parseDecimal(berat),
+        beratAwal: getRawNumber(saleItemRaw, "berat_awal", getRawNumber(saleItemRaw, "berat", parseDecimal(berat))),
+        kodeIntern: getRawText(saleItemRaw, "kode_intern", "-"),
+      });
+      setAuthorizedDiscountKey(pendingDiscountAuthorization.key);
+      setDiscountAuthorizationId(result.authorizationId);
+      setPendingDiscountAuthorization(null);
+      setItemOpen(true);
+      await Haptics.selectionAsync();
+    } catch (error) {
+      resetDiscount();
+      setItemOpen(true);
+      Alert.alert("Otorisasi gagal", error instanceof Error ? error.message : "Username/password otorisasi belum valid.");
+    } finally {
+      setIsAuthorizingDiscount(false);
     }
   };
 
@@ -475,13 +604,21 @@ export default function Sales() {
         marketplace: paymentMarketplace.trim(),
         feePercent,
         feeAmount,
+        isQris: paymentMethod === "TRANSFER" && paymentUsesQris,
       },
     ]);
     setPaymentAmount("");
     setPaymentNoCard("");
     setPaymentMarketplace("");
     setPaymentFeePercent("");
+    setPaymentUsesQris(false);
     await Haptics.selectionAsync();
+    Alert.alert(
+      "Pembayaran ditambahkan",
+      paymentMethod === "TRANSFER" && paymentUsesQris
+        ? "Pembayaran QRIS berhasil ditambahkan ke transaksi."
+        : "Pembayaran berhasil ditambahkan.",
+    );
   };
 
   const submit = () => {
@@ -889,21 +1026,28 @@ export default function Sales() {
           setItemImageUrl("");
           setHargaJual("");
           setHargaGram("");
+          resetDiscount();
         }}
         namaBarang={namaBarang}
         setNamaBarang={setNamaBarang}
         berat={berat}
         setBerat={setBerat}
         hargaJual={hargaJual}
-        setHargaJual={setHargaJual}
+        setHargaJual={(value) => {
+          setHargaJual(value);
+          resetDiscount();
+        }}
         hargaGram={hargaGram}
         setHargaGram={setHargaGram}
         ongkos={ongkos}
-        setOngkos={setOngkos}
+        setOngkos={(value) => {
+          setOngkos(value);
+          resetDiscount();
+        }}
         discountType={discountType}
-        setDiscountType={setDiscountType}
+        setDiscountType={setDiscountTypeAndReset}
         discountValue={discountValue}
-        setDiscountValue={setDiscountValue}
+        setDiscountValue={(value) => scheduleDiscountAuthorization(discountType, value)}
         itemNote={itemNote}
         setItemNote={setItemNote}
         imageUrl={itemImageUrl}
@@ -934,6 +1078,8 @@ export default function Sales() {
         setFeePercent={setPaymentFeePercent}
         qrisString={savedQris}
         allowQrisOnTransfer={salesCapabilities.allowQrisOnTransfer}
+        paymentUsesQris={paymentUsesQris}
+        setPaymentUsesQris={setPaymentUsesQris}
         payments={payments}
         exchangeItems={exchangeItems}
         setPayments={setPayments}
@@ -976,6 +1122,20 @@ export default function Sales() {
         isSubmitting={isAuthorizing}
         onClose={() => setPendingAuthorization(null)}
         onSubmit={submitItemAuthorization}
+      />
+      <AuthorizationModal
+        visible={Boolean(pendingDiscountAuthorization)}
+        title="Otorisasi Diskon"
+        reasons={pendingDiscountAuthorization ? [
+          `Diskon ${formatRupiah(pendingDiscountAuthorization.amount)} perlu otorisasi.`,
+          `Total setelah diskon menjadi ${formatRupiah(pendingDiscountAuthorization.total)}.`,
+        ] : []}
+        isSubmitting={isAuthorizingDiscount}
+        onClose={() => {
+          resetDiscount();
+          setItemOpen(true);
+        }}
+        onSubmit={submitDiscountAuthorization}
       />
     </>
   );
@@ -1305,6 +1465,8 @@ function PaymentModal(props: {
   setFeePercent: (value: string) => void;
   qrisString: string;
   allowQrisOnTransfer: boolean;
+  paymentUsesQris: boolean;
+  setPaymentUsesQris: (value: boolean) => void;
   payments: PaymentLine[];
   exchangeItems: ExchangeItem[];
   setPayments: (value: PaymentLine[]) => void;
@@ -1319,6 +1481,7 @@ function PaymentModal(props: {
   const [rekeningPickerOpen, setRekeningPickerOpen] = useState(false);
   const [marketplacePickerOpen, setMarketplacePickerOpen] = useState(false);
   const [showTransferQris, setShowTransferQris] = useState(false);
+  const [qrisFullscreenOpen, setQrisFullscreenOpen] = useState(false);
   const amount = parseCurrency(props.amount);
   const qrisAmount = amount > 0 ? amount : props.remaining;
   const feePercent = parseDecimal(props.feePercent);
@@ -1341,6 +1504,7 @@ function PaymentModal(props: {
     if (amount <= 0) {
       props.setAmount(String(qrisAmount));
     }
+    props.setPaymentUsesQris(true);
     setShowTransferQris(true);
   };
 
@@ -1405,6 +1569,13 @@ function PaymentModal(props: {
                   <Text style={[styles.qrisCaption, { color: theme.colors.muted }]}>
                     QRIS untuk pembayaran transfer {formatRupiah(qrisAmount)}
                   </Text>
+                  <Pressable
+                    style={[styles.qrisShowButton, { backgroundColor: theme.colors.buttonPrimary }]}
+                    onPress={() => setQrisFullscreenOpen(true)}
+                  >
+                    <Ionicons name="scan-outline" size={18} color={theme.colors.onPrimary} />
+                    <Text style={[styles.qrisShowButtonText, { color: theme.colors.onPrimary }]}>Tampilkan QR</Text>
+                  </Pressable>
                 </>
               ) : (
                 <Text style={[styles.qrisCaption, { color: theme.colors.muted }]}>Isi nominal dan pastikan QRIS merchant sudah tersimpan di Pengaturan.</Text>
@@ -1493,6 +1664,8 @@ function PaymentModal(props: {
           props.setMarketplace("");
           props.setFeePercent("");
           setShowTransferQris(false);
+          setQrisFullscreenOpen(false);
+          props.setPaymentUsesQris(false);
           setMethodPickerOpen(false);
         }}
       />
@@ -1505,6 +1678,7 @@ function PaymentModal(props: {
         selectedKey={props.rekening}
         onSelect={(key) => {
           props.setRekening(key);
+          props.setPaymentUsesQris(false);
           setRekeningPickerOpen(false);
         }}
       />
@@ -1520,7 +1694,81 @@ function PaymentModal(props: {
           setMarketplacePickerOpen(false);
         }}
       />
+      <QrisFullscreenModal
+        visible={qrisFullscreenOpen}
+        qrisString={generatedQris}
+        fallbackQrisString={props.qrisString}
+        amount={qrisAmount}
+        feeAmount={0}
+        onClose={() => setQrisFullscreenOpen(false)}
+      />
     </Sheet>
+  );
+}
+
+function QrisFullscreenModal(props: {
+  visible: boolean;
+  qrisString: string;
+  fallbackQrisString: string;
+  amount: number;
+  feeAmount: number;
+  onClose: () => void;
+}) {
+  const theme = useAppTheme();
+  const { width } = useWindowDimensions();
+  const merchantInfo = useMemo(() => getSafeMerchantInfo(props.qrisString, props.fallbackQrisString), [props.fallbackQrisString, props.qrisString]);
+  const total = props.amount + props.feeAmount;
+  const qrSize = Math.min(320, Math.max(240, width - 92));
+
+  return (
+    <Modal visible={props.visible} animationType="slide" presentationStyle="fullScreen" onRequestClose={props.onClose}>
+      <View style={[styles.qrisFullScreen, { backgroundColor: theme.colors.background }]}>
+        <View style={styles.qrisFullHeader}>
+          <Pressable style={[styles.qrisFullClose, { backgroundColor: theme.colors.surfaceContainer }]} onPress={props.onClose}>
+            <Ionicons name="chevron-back" size={22} color={theme.colors.primary} />
+            <Text style={[styles.qrisFullCloseText, { color: theme.colors.primary }]}>Kembali</Text>
+          </Pressable>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.qrisFullContent} showsVerticalScrollIndicator={false}>
+          <View style={[styles.qrisFullStatus, { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}>
+            <Ionicons name="time-outline" size={20} color={theme.colors.secondary} />
+            <Text style={[styles.qrisFullStatusText, { color: theme.colors.secondary }]}>Menunggu pembayaran</Text>
+          </View>
+
+          <Text style={[styles.qrisFullInstruction, { color: theme.colors.text }]}>Silakan scan QRIS untuk melakukan pembayaran</Text>
+          <Text style={[styles.qrisFullMerchant, { color: theme.colors.text }]}>{merchantInfo.merchant || "Merchant QRIS"}</Text>
+          {merchantInfo.city || merchantInfo.postalCode || merchantInfo.issuer ? (
+            <Text style={[styles.qrisFullMerchantSub, { color: theme.colors.muted }]}>
+              {[merchantInfo.city, merchantInfo.postalCode, merchantInfo.issuer].filter(Boolean).join(" • ")}
+            </Text>
+          ) : null}
+
+          <View style={[styles.qrisFullQrCard, { backgroundColor: "#FFFFFF", borderColor: theme.colors.outlineVariant }]}>
+            {props.qrisString ? (
+              <QRCode value={props.qrisString} size={qrSize} backgroundColor="#FFFFFF" color="#050B18" />
+            ) : (
+              <Text style={[styles.qrisCaption, { color: theme.colors.muted }]}>QRIS belum tersedia.</Text>
+            )}
+          </View>
+
+          <View style={styles.qrisFullAmountBlock}>
+            <Text style={[styles.qrisFullTotal, { color: theme.colors.primary }]}>{formatRupiah(total)}</Text>
+            {props.feeAmount > 0 ? (
+              <Text style={[styles.qrisFullBreakdown, { color: theme.colors.muted }]}>
+                Nominal {formatRupiah(props.amount)} + Fee {formatRupiah(props.feeAmount)}
+              </Text>
+            ) : (
+              <Text style={[styles.qrisFullBreakdown, { color: theme.colors.muted }]}>Nominal {formatRupiah(props.amount)}</Text>
+            )}
+          </View>
+
+          <Pressable style={[styles.qrisFullPrimaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={props.onClose}>
+            <Text style={[styles.qrisFullPrimaryText, { color: theme.colors.onPrimary }]}>Tutup</Text>
+          </Pressable>
+        </ScrollView>
+      </View>
+    </Modal>
   );
 }
 
@@ -1925,6 +2173,21 @@ function buildPaymentQris(qrisString: string, amount: number): string {
   }
 }
 
+function getSafeMerchantInfo(qrisString: string, fallbackQrisString: string) {
+  const empty = { merchant: "Merchant QRIS", city: "", postalCode: "", issuer: "", category: "", currency: "", method: "Dynamic" as const };
+  try {
+    if (qrisString) return getMerchantInfo(normalizeQris(qrisString));
+  } catch {
+    // Fall through to saved static QRIS from settings.
+  }
+  try {
+    if (fallbackQrisString) return getMerchantInfo(normalizeQris(fallbackQrisString));
+  } catch {
+    return empty;
+  }
+  return empty;
+}
+
 function buildProductImageUrl(barcode: string, domain: string): string {
   const firebaseFolder = getFirebaseFolder(domain);
   const objectPath = encodeURIComponent(`NSIPIC/${firebaseFolder}/foto_produk/${barcode}.jpg`);
@@ -2011,6 +2274,15 @@ function calculateSaleDiscount(baseTotal: number, type: SaleItem["typeDiskon"], 
   const percent = parseDecimal(value);
   if (!Number.isFinite(percent) || percent <= 0) return 0;
   return Math.min(baseTotal, Math.floor((baseTotal * percent) / 100));
+}
+
+function buildDiscountAuthorizationKey(
+  barcode: string,
+  type: SaleItem["typeDiskon"],
+  value: string,
+  amount: number,
+): string {
+  return `${barcode.trim().toUpperCase()}|${type}|${value.trim()}|${Math.round(amount)}`;
 }
 
 const styles = StyleSheet.create({
@@ -2497,6 +2769,17 @@ const styles = StyleSheet.create({
     gap: 10,
     padding: 14,
   },
+  qrisShowButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    marginTop: 4,
+    minHeight: 44,
+    paddingHorizontal: 18,
+  },
+  qrisShowButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
   qrisGenerateButton: {
     alignItems: "center",
     backgroundColor: colors.surface,
@@ -2510,6 +2793,103 @@ const styles = StyleSheet.create({
   },
   qrisGenerateText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
   qrisCaption: { color: colors.muted, fontSize: 12, fontWeight: "700", textAlign: "center" },
+  qrisFullScreen: {
+    flex: 1,
+    paddingTop: Platform.OS === "ios" ? 58 : 34,
+  },
+  qrisFullHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 22,
+    paddingBottom: 14,
+  },
+  qrisFullClose: {
+    alignItems: "center",
+    borderRadius: 999,
+    flexDirection: "row",
+    gap: 4,
+    minHeight: 42,
+    paddingHorizontal: 12,
+  },
+  qrisFullCloseText: { color: colors.primary, fontSize: 15, fontWeight: "800" },
+  qrisFullContent: {
+    alignItems: "center",
+    gap: 16,
+    paddingHorizontal: 24,
+    paddingBottom: 42,
+  },
+  qrisFullStatus: {
+    alignItems: "center",
+    alignSelf: "stretch",
+    borderRadius: 18,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    minHeight: 54,
+    paddingHorizontal: 16,
+  },
+  qrisFullStatusText: { color: colors.secondary, fontSize: 16, fontWeight: "800" },
+  qrisFullInstruction: {
+    color: colors.text,
+    fontSize: 17,
+    fontWeight: "800",
+    lineHeight: 24,
+    marginTop: 8,
+    textAlign: "center",
+  },
+  qrisFullMerchant: {
+    color: colors.text,
+    fontSize: 22,
+    fontWeight: "900",
+    letterSpacing: 0,
+    textAlign: "center",
+  },
+  qrisFullMerchantSub: {
+    color: colors.muted,
+    fontSize: 13,
+    fontWeight: "700",
+    lineHeight: 18,
+    marginTop: -10,
+    textAlign: "center",
+  },
+  qrisFullQrCard: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: colors.outline,
+    borderRadius: 24,
+    borderWidth: 1,
+    justifyContent: "center",
+    marginTop: 6,
+    padding: 18,
+  },
+  qrisFullAmountBlock: {
+    alignItems: "center",
+    gap: 4,
+  },
+  qrisFullTotal: {
+    color: colors.primary,
+    fontSize: 40,
+    fontWeight: "900",
+    letterSpacing: 0,
+    textAlign: "center",
+  },
+  qrisFullBreakdown: {
+    color: colors.muted,
+    fontSize: 14,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  qrisFullPrimaryButton: {
+    alignItems: "center",
+    alignSelf: "stretch",
+    borderRadius: 999,
+    justifyContent: "center",
+    marginTop: 8,
+    minHeight: 58,
+  },
+  qrisFullPrimaryText: { color: "#FFFFFF", fontSize: 17, fontWeight: "900" },
   exchangeLookupBox: {
     borderRadius: 14,
     borderWidth: 1,

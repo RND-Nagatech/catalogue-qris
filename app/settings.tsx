@@ -23,6 +23,7 @@ export default function Settings() {
   const [value, setValue] = useState("");
   const [savedValue, setSavedValue] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+  const [isDomainEditing, setIsDomainEditing] = useState(false);
   const [nagagoldDomain, setNagagoldDomain] = useState("");
   const [savedNagagoldDomain, setSavedNagagoldDomain] = useState("");
   const [nagagoldConnection, setNagagoldConnection] = useState<NagagoldConnectionStatus | null>(null);
@@ -69,6 +70,7 @@ export default function Settings() {
         }
         setNagagoldDomain(nagagoldSettings.domain);
         setSavedNagagoldDomain(nagagoldSettings.domain);
+        setIsDomainEditing(!nagagoldSettings.domain);
         setNagagoldConnection(nagagoldSettings.connection);
       })
       .catch(() => {
@@ -136,6 +138,7 @@ export default function Settings() {
       await saveNagagoldDomain(domain);
       setNagagoldDomain(domain);
       setSavedNagagoldDomain(domain);
+      setIsDomainEditing(false);
       setNagagoldConnection(null);
       await nagagoldConfig.reloadConfig();
       Alert.alert("Tersimpan", "Domain NAGAGOLD berhasil disimpan. Tekan Test Koneksi untuk memastikan domain aktif.");
@@ -206,18 +209,36 @@ export default function Settings() {
         <View style={[styles.titleRow, { borderBottomColor: theme.colors.divider }]}>
           <Ionicons name="globe-outline" size={18} color={theme.colors.primary} />
           <Text style={[styles.title, { color: theme.colors.text }]}>Koneksi Program</Text>
+          {savedNagagoldDomain && !isDomainEditing ? (
+            <Pressable
+              accessibilityLabel="Edit domain program"
+              style={[styles.iconEditButton, { backgroundColor: theme.colors.surfaceContainerLow }]}
+              onPress={() => setIsDomainEditing(true)}
+            >
+              <Ionicons name="create-outline" size={17} color={theme.colors.primary} />
+            </Pressable>
+          ) : null}
         </View>
         <View style={styles.settingBody}>
-          <Text style={[styles.fieldLabelInline, { color: theme.colors.subtleText }]}>Domain Program</Text>
-          <TextInput
-            value={nagagoldDomain}
-            onChangeText={setNagagoldDomain}
-            placeholder="https://toko.com"
-            placeholderTextColor={theme.colors.subtleText}
-            style={[styles.inputInline, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
+          {isDomainEditing || !savedNagagoldDomain ? (
+            <>
+              <Text style={[styles.fieldLabelInline, { color: theme.colors.subtleText }]}>Domain Program</Text>
+              <TextInput
+                value={nagagoldDomain}
+                onChangeText={setNagagoldDomain}
+                placeholder="https://toko.com"
+                placeholderTextColor={theme.colors.subtleText}
+                style={[styles.inputInline, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </>
+          ) : (
+            <View style={[styles.readOnlyBox, { backgroundColor: theme.colors.surfaceContainerLow, borderColor: theme.colors.outlineVariant }]}>
+              <Text style={[styles.fieldLabelInline, { color: theme.colors.subtleText }]}>Domain Program</Text>
+              <Text style={[styles.readOnlyValue, { color: theme.colors.text }]}>{savedNagagoldDomain}</Text>
+            </View>
+          )}
           {isConnected ? (
             <View style={[styles.connectionBadge, { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary }]}>
               <View style={styles.connectionDotWrap}>
@@ -252,36 +273,37 @@ export default function Settings() {
               <Text style={[styles.helperText, { color: theme.colors.muted }]}>Konfigurasi server sudah dimuat.</Text>
             </View>
           ) : null}
-          <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={saveDomain}>
-            <Ionicons name="save-outline" size={16} color="#FFFFFF" />
-            <Text style={styles.primaryButtonText}>Simpan Domain</Text>
-          </Pressable>
+          {isDomainEditing || !savedNagagoldDomain ? (
+            <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={saveDomain}>
+              <Ionicons name="save-outline" size={16} color="#FFFFFF" />
+              <Text style={styles.primaryButtonText}>Simpan Domain</Text>
+            </Pressable>
+          ) : null}
           <Pressable
             disabled={isTestingConnection}
-            style={[styles.secondaryButton, { backgroundColor: theme.colors.buttonPrimary, borderColor: theme.colors.buttonPrimary }, isTestingConnection && styles.disabledButton]}
+            style={[styles.secondaryButton, { backgroundColor: "transparent", borderColor: theme.colors.primary }, isTestingConnection && styles.disabledButton]}
             onPress={testConnection}
           >
-            <Ionicons name="pulse-outline" size={16} color={theme.colors.onPrimary} />
-            <Text style={[styles.secondaryButtonText, { color: theme.colors.onPrimary }]}>{isTestingConnection ? "Menguji Koneksi..." : "Test Koneksi"}</Text>
+            <Ionicons name="pulse-outline" size={16} color={theme.colors.primary} />
+            <Text style={[styles.secondaryButtonText, { color: theme.colors.primary }]}>{isTestingConnection ? "Menguji Koneksi..." : "Test Koneksi"}</Text>
           </Pressable>
         </View>
       </View>
-
-      {hasSavedQris && !isEditing ? (
-        <View style={[styles.savedBanner, { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary }]}>
-          <Ionicons name="checkmark-circle-outline" size={20} color={theme.colors.primary} />
-          <View style={styles.savedBannerText}>
-            <Text style={[styles.savedTitle, { color: theme.colors.primary }]}>QRIS Merchant Tersimpan</Text>
-            <Text style={[styles.savedSubtitle, { color: theme.colors.muted }]}>App akan memakai QRIS ini untuk generate nominal pembayaran.</Text>
-          </View>
-        </View>
-      ) : null}
 
       {preview ? (
         <View style={[styles.panel, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }, theme.elevation.level1]}>
           <View style={[styles.titleRow, { borderBottomColor: theme.colors.divider }]}>
             <Ionicons name="information-circle-outline" size={18} color={theme.colors.primary} />
             <Text style={[styles.title, { color: theme.colors.text }]}>Preview Merchant</Text>
+            {hasSavedQris && !isEditing ? (
+              <Pressable
+                accessibilityLabel="Edit QRIS merchant"
+                style={[styles.iconEditButton, { backgroundColor: theme.colors.surfaceContainerLow }]}
+                onPress={() => setIsEditing(true)}
+              >
+                <Ionicons name="create-outline" size={17} color={theme.colors.primary} />
+              </Pressable>
+            ) : null}
           </View>
           <InfoRow label="Merchant" value={preview.merchant || "-"} />
           <InfoRow label="City" value={preview.city || "-"} />
@@ -330,17 +352,14 @@ export default function Settings() {
             </Pressable>
           ) : null}
         </>
-      ) : (
-        <Pressable style={[styles.primaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={() => setIsEditing(true)}>
-          <Ionicons name="create-outline" size={16} color="#FFFFFF" />
-          <Text style={styles.primaryButtonText}>Edit QRIS Merchant</Text>
-        </Pressable>
-      )}
+      ) : null}
 
-      <Pressable style={[styles.dangerButton, { backgroundColor: theme.colors.errorContainer, borderColor: theme.colors.error }]} onPress={clearSavedQris}>
-        <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
-        <Text style={[styles.dangerButtonText, { color: theme.colors.error }]}>Kosongkan QRIS Tersimpan</Text>
-      </Pressable>
+      {hasSavedQris && isEditing ? (
+        <Pressable style={[styles.dangerButton, { backgroundColor: theme.colors.errorContainer, borderColor: theme.colors.error }]} onPress={clearSavedQris}>
+          <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
+          <Text style={[styles.dangerButtonText, { color: theme.colors.error }]}>Kosongkan QRIS Tersimpan</Text>
+        </Pressable>
+      ) : null}
       </ScrollView>
     </View>
   );
@@ -417,13 +436,32 @@ const styles = StyleSheet.create({
   },
   title: {
     color: "#0F172A",
+    flex: 1,
     fontSize: 16,
     fontWeight: "800",
     letterSpacing: 0.2,
   },
+  iconEditButton: {
+    alignItems: "center",
+    borderRadius: 999,
+    height: 34,
+    justifyContent: "center",
+    width: 34,
+  },
   settingBody: {
     gap: 12,
     padding: 16,
+  },
+  readOnlyBox: {
+    borderRadius: 12,
+    borderWidth: 1,
+    gap: 6,
+    padding: 12,
+  },
+  readOnlyValue: {
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 20,
   },
   fieldLabelInline: {
     color: "#334155",

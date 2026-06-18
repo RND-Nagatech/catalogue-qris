@@ -159,11 +159,11 @@ export default function Home() {
 
         <View style={styles.sectionHeader}>
           <View>
-            <Text style={[theme.typography.title, { color: theme.colors.text }]}>Transaksi Terbaru</Text>
+            <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Transaksi Terbaru</Text>
             {/* <Text style={[theme.typography.bodySmall, { color: theme.colors.subtleText }]}>Aktivitas keuangan terakhir Anda</Text> */}
           </View>
           <Pressable onPress={() => router.push("/history")}>
-            <Text style={[theme.typography.label, { color: theme.colors.primary }]}>Lihat Semua</Text>
+            <Text style={[styles.sectionAction, { color: theme.colors.primary }]}>Lihat Semua</Text>
           </Pressable>
         </View>
 
@@ -236,7 +236,7 @@ function SummaryCard({
       <View style={styles.summaryGlowTop} />
       <View style={styles.summaryGlowBottom} />
       <View style={styles.summaryIconBubble}>
-        <Ionicons name={icon} size={22} color="rgba(255,255,255,0.6)" />
+        <Ionicons name={icon} size={19} color="rgba(255,255,255,0.6)" />
       </View>
       <View>
         <Text style={[theme.typography.labelCaps, styles.summaryLabel, { color: foregroundColor }]}>{label}</Text>
@@ -268,7 +268,7 @@ function SummaryCard({
           onPress={onPress}
         >
           <View style={styles.summaryButtonIcon}>
-            <Ionicons name="add-circle-outline" size={22} color={buttonTextColor} />
+            <Ionicons name="add-circle-outline" size={19} color={buttonTextColor} />
           </View>
           <Text style={[styles.summaryButtonText, { color: buttonTextColor }]}>Transaksi Baru</Text>
         </Pressable>
@@ -283,6 +283,11 @@ function RecentRow({ item }: { item: NagagoldRecentTransaction }) {
   const accent = isSale ? theme.colors.primary : theme.colors.tertiary;
   const amountColor = isSale ? theme.colors.primary : theme.colors.error;
   const statusLabel = item.status || (isSale ? "SELESAI" : "PROSES");
+  const metaParts = [
+    item.type === "sale" ? "Penjualan" : "Pembelian",
+    item.time || item.subtitle,
+    item.gram ? formatGram(item.gram) : "",
+  ].filter(Boolean);
 
   return (
     <View
@@ -296,12 +301,12 @@ function RecentRow({ item }: { item: NagagoldRecentTransaction }) {
       ]}
     >
       <View style={[styles.recentIcon, { backgroundColor: isSale ? theme.colors.successContainer : theme.colors.warningContainer }]}>
-        <Ionicons name={isSale ? "cash-outline" : "bag-handle-outline"} size={24} color={accent} />
+        <Ionicons name={isSale ? "cash-outline" : "bag-handle-outline"} size={21} color={accent} />
       </View>
       <View style={styles.recentBody}>
-        <Text style={[styles.recentTitle, { color: theme.colors.text }]} numberOfLines={2}>{item.title}</Text>
-        <Text style={[theme.typography.bodySmall, { color: theme.colors.muted }]} numberOfLines={1}>
-          {item.type === "sale" ? "Penjualan" : "Pembelian"}  •  {item.time || item.subtitle}
+        <Text style={[styles.recentTitle, { color: theme.colors.text }]} numberOfLines={1} ellipsizeMode="tail">{item.title}</Text>
+        <Text style={[styles.recentMeta, { color: theme.colors.muted }]} numberOfLines={1}>
+          {metaParts.join("  •  ")}
         </Text>
       </View>
       <View style={styles.recentRight}>
@@ -344,8 +349,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 40,
   },
-  homeHeaderTitle: { flex: 1, fontSize: 22, lineHeight: 30 },
-  content: { paddingHorizontal: 20, paddingTop: 24 },
+  homeHeaderTitle: { flex: 1, fontSize: 21, lineHeight: 28 },
+  content: { paddingHorizontal: 18, paddingTop: 18 },
   notice: {
     alignItems: "center",
     borderWidth: 1,
@@ -354,15 +359,15 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   noticeText: { flex: 1 },
-  summaryGrid: { gap: 16, marginBottom: 28 },
+  summaryGrid: { gap: 14, marginBottom: 24 },
   summaryCard: {
     elevation: 8,
-    minHeight: 204,
+    minHeight: 174,
     overflow: "hidden",
-    padding: 20,
-    shadowOffset: { width: 0, height: 18 },
-    shadowOpacity: 0.18,
-    shadowRadius: 32,
+    padding: 16,
+    shadowOffset: { width: 0, height: 14 },
+    shadowOpacity: 0.14,
+    shadowRadius: 24,
   },
   summaryCardShade: {
     bottom: 0,
@@ -375,83 +380,86 @@ const styles = StyleSheet.create({
   summaryGlowTop: {
     backgroundColor: "rgba(255,255,255,0.11)",
     borderRadius: 100,
-    height: 160,
+    height: 132,
     position: "absolute",
-    right: -60,
-    top: -70,
-    width: 160,
+    right: -50,
+    top: -58,
+    width: 132,
   },
   summaryGlowBottom: {
     backgroundColor: "rgba(0,0,0,0.08)",
     borderRadius: 120,
     bottom: -80,
-    height: 180,
+    height: 150,
     left: -50,
     position: "absolute",
-    width: 180,
+    width: 150,
   },
   summaryIconBubble: {
     alignItems: "center",
     backgroundColor: "rgba(255,255,255,0.12)",
     borderRadius: 999,
-    height: 38,
+    height: 34,
     justifyContent: "center",
     position: "absolute",
-    right: 18,
-    top: 18,
-    width: 38,
+    right: 16,
+    top: 16,
+    width: 34,
   },
   summaryButton: {
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: 14,
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     justifyContent: "center",
-    minHeight: 48,
+    minHeight: 42,
     shadowColor: "#000000",
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.16,
-    shadowRadius: 14,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
   },
   summaryButtonIcon: { alignItems: "center", justifyContent: "center" },
-  summaryButtonText: { fontSize: 17, fontWeight: "800", lineHeight: 22 },
-  summaryFooter: { gap: 14, marginTop: "auto" },
+  summaryButtonText: { fontSize: 15, fontWeight: "800", lineHeight: 20 },
+  summaryFooter: { gap: 11, marginTop: "auto" },
   summaryLabel: { opacity: 0.68, textTransform: "uppercase" },
-  summaryAmount: { fontSize: 31, fontWeight: "800", lineHeight: 38, marginTop: 10 },
-  summaryAccentLine: { borderRadius: 999, height: 4, marginTop: 6, width: 52 },
-  summaryMetrics: { flexDirection: "row", gap: 12 },
+  summaryAmount: { fontSize: 26, fontWeight: "800", lineHeight: 32, marginTop: 7 },
+  summaryAccentLine: { borderRadius: 999, height: 3, marginTop: 5, width: 44 },
+  summaryMetrics: { flexDirection: "row", gap: 10 },
   metricBox: {
     borderColor: "rgba(255,255,255,0.12)",
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: StyleSheet.hairlineWidth,
     flex: 1,
-    gap: 4,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    gap: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 7,
   },
-  metricLabel: { fontSize: 11, fontWeight: "800", opacity: 0.62, textTransform: "uppercase" },
-  metricValue: { fontSize: 18, fontWeight: "800", lineHeight: 23 },
+  metricLabel: { fontSize: 10, fontWeight: "800", opacity: 0.62, textTransform: "uppercase" },
+  metricValue: { fontSize: 15, fontWeight: "800", lineHeight: 19 },
   sectionHeader: {
     alignItems: "flex-end",
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 16,
+    marginBottom: 12,
   },
-  recentList: { gap: 16 },
+  sectionTitle: { fontSize: 19, fontWeight: "800", lineHeight: 24 },
+  sectionAction: { fontSize: 13, fontWeight: "800", lineHeight: 18 },
+  recentList: { gap: 12 },
   recentRow: {
     alignItems: "center",
-    borderRadius: 16,
+    borderRadius: 14,
     borderWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    gap: 16,
-    minHeight: 106,
-    padding: 16,
+    gap: 12,
+    minHeight: 86,
+    padding: 12,
   },
-  recentIcon: { alignItems: "center", borderRadius: 14, height: 56, justifyContent: "center", width: 56 },
-  recentBody: { flex: 1, gap: 4, minWidth: 0 },
-  recentTitle: { fontSize: 17, fontWeight: "800", lineHeight: 22 },
-  recentRight: { alignItems: "flex-end", gap: 8, maxWidth: 128 },
-  recentAmount: { fontSize: 16, fontWeight: "800", lineHeight: 22, textAlign: "right" },
-  statusChip: { borderRadius: 6, paddingHorizontal: 9, paddingVertical: 5 },
-  statusChipText: { fontSize: 10, fontWeight: "800", lineHeight: 12 },
+  recentIcon: { alignItems: "center", borderRadius: 12, height: 46, justifyContent: "center", width: 46 },
+  recentBody: { flex: 1, gap: 3, minWidth: 0 },
+  recentTitle: { fontSize: 14, fontWeight: "800", lineHeight: 18 },
+  recentMeta: { fontSize: 12, fontWeight: "500", lineHeight: 16 },
+  recentRight: { alignItems: "flex-end", gap: 6, maxWidth: 112 },
+  recentAmount: { fontSize: 13, fontWeight: "800", lineHeight: 18, textAlign: "right" },
+  statusChip: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4 },
+  statusChipText: { fontSize: 9, fontWeight: "800", lineHeight: 11 },
 });

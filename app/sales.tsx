@@ -2508,7 +2508,7 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
     borderRadius: 9,
     borderWidth: 1,
-    gap: 11,
+    gap: 10,
     paddingHorizontal: 19,
     paddingVertical: 16,
     position: "relative",
@@ -2531,7 +2531,7 @@ const styles = StyleSheet.create({
   infoIconNeutral: { backgroundColor: colors.surfaceContainer },
   infoTextStack: { flex: 1 },
   infoLabel: { color: colors.outlineStrong, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
-  infoValue: { color: colors.text, fontSize: 18, fontWeight: "800", marginTop: 2 },
+  infoValue: { color: colors.text, fontSize: 14, fontWeight: "800", lineHeight: 18, marginTop: 1 },
   editMiniButton: {
     alignItems: "center",
     backgroundColor: colors.surfaceLow,

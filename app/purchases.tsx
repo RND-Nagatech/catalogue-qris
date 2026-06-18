@@ -899,17 +899,22 @@ function Stepper({ step }: { step: 1 | 2 | 3 }) {
       {(["Input Barang", "Lihat Data Barang", "Data Customer"] as const).map((label, index) => {
         const current = index + 1;
         const active = step >= current;
+        const circleBackground = active
+          ? theme.colors.primaryContainer
+          : theme.isDark
+            ? theme.colors.surfaceContainer
+            : theme.colors.surfaceContainerHigh;
+        const numberColor = active ? theme.colors.onPrimary : theme.colors.text;
+        const labelColor = active ? theme.colors.primary : theme.colors.muted;
         return (
           <View key={label} style={styles.stepItem}>
             <View style={[
               styles.stepCircle,
-              { backgroundColor: theme.colors.surfaceContainerHigh },
-              active && styles.stepCircleActive,
-              active && { backgroundColor: theme.colors.primaryContainer },
+              { backgroundColor: circleBackground },
             ]}>
-              <Text style={[styles.stepNumber, { color: active ? theme.colors.onPrimaryContainer : theme.colors.outlineStrong }, active && styles.stepNumberActive]}>{step > current ? "✓" : current}</Text>
+              <Text style={[styles.stepNumber, { color: numberColor }]}>{step > current ? "✓" : current}</Text>
             </View>
-            <Text style={[styles.stepLabel, { color: theme.colors.subtleText }, active && styles.stepLabelActive, active && { color: theme.colors.primary }]}>{label}</Text>
+            <Text style={[styles.stepLabel, { color: labelColor }]}>{label}</Text>
           </View>
         );
       })}

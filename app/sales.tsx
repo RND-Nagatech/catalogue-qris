@@ -148,7 +148,7 @@ const colors = {
   primarySoft: "#89F5E7",
   secondary: "#825100",
   secondaryContainer: "#FFB95F",
-  tertiary: "#4648D4",
+  tertiary: "#00685F",
   danger: "#BA1A1A",
 };
 
@@ -902,7 +902,7 @@ export default function Sales() {
           </Text>
         </View>
 
-        <View style={[styles.customerCard, theme.elevation.level1, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderLeftColor: theme.colors.tertiaryFixedDim }]}>
+        <View style={[styles.customerCard, theme.elevation.level1, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderLeftColor: theme.colors.tertiaryContainer }]}>
           <InfoLine icon="person" label="Nama Customer" value={namaCustomer || "-"} tone="primary" />
           <InfoLine icon="pricetag" label="Jenis" value={jenisCustomer} tone="secondary" />
           <InfoLine icon="id-card" label="Kode Sales" value={kodeSales || "-"} tone="neutral" />
@@ -912,13 +912,13 @@ export default function Sales() {
         </View>
 
         <View style={styles.actionRow}>
-          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.tertiaryFixedDim }]} onPress={() => setCustomerOpen(true)}>
-            <Ionicons name="person-add-outline" size={17} color={theme.colors.tertiary} />
+          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.tertiaryContainer }]} onPress={() => setCustomerOpen(true)}>
+            <Ionicons name="person-add-outline" size={17} color={theme.colors.onPrimary} />
             <View>
-              <Text style={[styles.actionButtonText, { color: theme.colors.tertiary }]}>Data Customer</Text>
+              <Text style={[styles.actionButtonText, { color: theme.colors.onPrimary }]}>Data Customer</Text>
             </View>
           </Pressable>
-          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={() => setItemOpen(true)}>
+          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.primaryContainer }]} onPress={() => setItemOpen(true)}>
             <Ionicons name="add-circle-outline" size={17} color={theme.colors.onPrimary} />
             <View>
               <Text style={[styles.actionButtonText, { color: theme.colors.onPrimary }]}>Data Barang</Text>

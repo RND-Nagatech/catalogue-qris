@@ -88,7 +88,7 @@ export default function History() {
           style={[
             styles.summaryHeader,
             {
-              backgroundColor: mode === "sale" ? theme.colors.primary : theme.colors.purchaseCard,
+              backgroundColor: mode === "sale" ? theme.colors.salesCard : theme.colors.purchaseCard,
             },
             theme.elevation.level2,
           ]}

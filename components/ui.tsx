@@ -117,13 +117,13 @@ export function createBottomTabScreenOptions(theme: AppTheme, bottomInset = 0): 
     sceneStyle: { backgroundColor: theme.colors.background },
     tabBarActiveTintColor: theme.colors.bottomNavActive,
     tabBarInactiveTintColor: theme.colors.bottomNavInactive,
-    tabBarActiveBackgroundColor: theme.colors.navActiveSurface,
+    tabBarActiveBackgroundColor: "transparent",
     tabBarHideOnKeyboard: true,
     tabBarItemStyle: {
-      borderRadius: theme.radius.lg,
+      borderRadius: theme.radius.md,
       marginHorizontal: 4,
-      marginVertical: 7,
-      paddingTop: 3,
+      marginVertical: 4,
+      paddingTop: 0,
     },
     tabBarLabelStyle: { fontSize: 10, fontWeight: "700", lineHeight: 14 },
     tabBarStyle: {
@@ -182,7 +182,6 @@ export function AppBottomNavigation({
             accessibilityRole="button"
             style={({ pressed }) => [
               styles.bottomNavItem,
-              item.active && { backgroundColor: theme.colors.successContainer },
               pressed && { opacity: 0.76 },
             ]}
             onPress={item.onPress}

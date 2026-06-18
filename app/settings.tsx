@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Alert, Animated, Easing, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader } from "../components/ui";
@@ -27,6 +27,35 @@ export default function Settings() {
   const [savedNagagoldDomain, setSavedNagagoldDomain] = useState("");
   const [nagagoldConnection, setNagagoldConnection] = useState<NagagoldConnectionStatus | null>(null);
   const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const pulse = useRef(new Animated.Value(1)).current;
+  const isConnected = Boolean(nagagoldConnection?.ok && savedNagagoldDomain && nagagoldDomain === savedNagagoldDomain);
+
+  useEffect(() => {
+    if (!isConnected) {
+      pulse.stopAnimation();
+      pulse.setValue(1);
+      return;
+    }
+
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, {
+          toValue: 1.32,
+          duration: 760,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulse, {
+          toValue: 1,
+          duration: 760,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    animation.start();
+    return () => animation.stop();
+  }, [isConnected, pulse]);
 
   useEffect(() => {
     Promise.all([loadQrisString(), loadNagagoldSettings()])
@@ -143,7 +172,7 @@ export default function Settings() {
       });
       Alert.alert(
         "Koneksi Berhasil",
-        `Berhasil akses ${result.endpoint} dari domain tersimpan. Status: ${result.status}.`,
+        `Terhubung ke Server ${savedNagagoldDomain}.`,
       );
       await nagagoldConfig.reloadConfig();
     } catch (error) {
@@ -189,15 +218,29 @@ export default function Settings() {
             autoCapitalize="none"
             autoCorrect={false}
           />
-          {nagagoldConnection?.ok && savedNagagoldDomain && nagagoldDomain === savedNagagoldDomain ? (
+          {isConnected ? (
             <View style={[styles.connectionBadge, { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary }]}>
-              <Ionicons name="checkmark-circle-outline" size={16} color={theme.colors.primary} />
+              <View style={styles.connectionDotWrap}>
+                <Animated.View
+                  style={[
+                    styles.connectionPulse,
+                    {
+                      backgroundColor: theme.colors.primary,
+                      transform: [{ scale: pulse }],
+                    },
+                  ]}
+                />
+                <View style={[styles.connectionDot, { backgroundColor: theme.colors.primary }]} />
+              </View>
               <Text style={[styles.connectionText, { color: theme.colors.primary }]}>
-                Terhubung ke {savedNagagoldDomain} lewat {nagagoldConnection.endpoint}
+                Terhubung ke Server {savedNagagoldDomain}
               </Text>
             </View>
           ) : savedNagagoldDomain && nagagoldDomain === savedNagagoldDomain ? (
-            <Text style={[styles.helperText, { color: theme.colors.muted }]}>Domain tersimpan. Tekan Test Koneksi untuk validasi ke Server.</Text>
+            <View style={[styles.connectionBadge, { backgroundColor: theme.colors.surfaceContainerLow, borderColor: theme.colors.outlineVariant }]}>
+              <View style={[styles.connectionDot, { backgroundColor: theme.colors.error }]} />
+              <Text style={[styles.connectionText, { color: theme.colors.muted }]}>Belum terhubung ke Server {savedNagagoldDomain}</Text>
+            </View>
           ) : savedNagagoldDomain ? (
             <Text style={[styles.helperText, { color: theme.colors.muted }]}>Domain berubah. Simpan domain dulu sebelum test koneksi.</Text>
           ) : (
@@ -215,11 +258,11 @@ export default function Settings() {
           </Pressable>
           <Pressable
             disabled={isTestingConnection}
-            style={[styles.secondaryButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, isTestingConnection && styles.disabledButton]}
+            style={[styles.secondaryButton, { backgroundColor: theme.colors.buttonPrimary, borderColor: theme.colors.buttonPrimary }, isTestingConnection && styles.disabledButton]}
             onPress={testConnection}
           >
-            <Ionicons name="pulse-outline" size={16} color={theme.colors.text} />
-            <Text style={[styles.secondaryButtonText, { color: theme.colors.text }]}>{isTestingConnection ? "Menguji Koneksi..." : "Test Koneksi"}</Text>
+            <Ionicons name="pulse-outline" size={16} color={theme.colors.onPrimary} />
+            <Text style={[styles.secondaryButtonText, { color: theme.colors.onPrimary }]}>{isTestingConnection ? "Menguji Koneksi..." : "Test Koneksi"}</Text>
           </Pressable>
         </View>
       </View>
@@ -402,7 +445,7 @@ const styles = StyleSheet.create({
     lineHeight: 17,
   },
   connectionBadge: {
-    alignItems: "flex-start",
+    alignItems: "center",
     backgroundColor: "#ECFDF5",
     borderColor: "#A7F3D0",
     borderRadius: 12,
@@ -410,6 +453,24 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 8,
     padding: 10,
+  },
+  connectionDotWrap: {
+    alignItems: "center",
+    height: 16,
+    justifyContent: "center",
+    width: 16,
+  },
+  connectionPulse: {
+    borderRadius: 999,
+    height: 14,
+    opacity: 0.24,
+    position: "absolute",
+    width: 14,
+  },
+  connectionDot: {
+    borderRadius: 999,
+    height: 9,
+    width: 9,
   },
   connectionText: {
     color: "#047857",

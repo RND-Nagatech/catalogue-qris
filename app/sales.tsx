@@ -245,7 +245,6 @@ export default function Sales() {
         .finally(() => {
           if (active) setIsLoadingMaster(false);
         });
-      nagagoldConfig.checkForChanges();
       return () => {
         active = false;
       };
@@ -894,14 +893,6 @@ export default function Sales() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={[styles.domainNotice, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]}>
-          <Text style={[styles.domainNoticeText, { color: theme.colors.muted }]}>
-            {domain ? (isLoadingMaster ? "Memuat master " : "Terhubung ke ") : "Atur domain "}
-            <Text style={[styles.domainNoticeStrong, { color: theme.colors.primary }]}>Server</Text>
-            {domain ? "" : " di Pengaturan"}
-          </Text>
-        </View>
-
         <View style={[styles.customerCard, theme.elevation.level1, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderLeftColor: theme.colors.tertiaryContainer }]}>
           <InfoLine icon="person" label="Nama Customer" value={namaCustomer || "-"} tone="primary" />
           <InfoLine icon="pricetag" label="Jenis" value={jenisCustomer} tone="secondary" />
@@ -2467,18 +2458,6 @@ const styles = StyleSheet.create({
   },
   screenTitle: { color: colors.primary, fontSize: 20, fontWeight: "700" },
   screenSubtitle: { color: colors.muted, fontSize: 12, fontWeight: "500", marginTop: 4 },
-  domainNotice: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.outline,
-    borderRadius: 7,
-    borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 35,
-    paddingHorizontal: 10,
-  },
-  domainNoticeText: { color: colors.muted, fontSize: 12, fontWeight: "500", textAlign: "center" },
-  domainNoticeStrong: { color: colors.primary, fontWeight: "800" },
   cartButton: {
     alignItems: "center",
     backgroundColor: colors.surface,

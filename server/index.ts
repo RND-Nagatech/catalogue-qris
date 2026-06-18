@@ -444,8 +444,36 @@ function normalizeNagagoldSystemParameters(data: unknown): NagagoldSystemParamet
 function createConfigVersion(input: unknown): string {
   return crypto
     .createHash("sha256")
-    .update(JSON.stringify(input))
+    .update(JSON.stringify(stabilizeConfigValue(input)))
     .digest("hex");
+}
+
+function stabilizeConfigValue(input: unknown): unknown {
+  if (Array.isArray(input)) {
+    return input
+      .map(stabilizeConfigValue)
+      .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)));
+  }
+  if (!input || typeof input !== "object") return input;
+
+  const volatileKeys = new Set([
+    "createdAt",
+    "created_at",
+    "updatedAt",
+    "updated_at",
+    "loadedAt",
+    "timestamp",
+    "time",
+    "jam",
+    "__v",
+  ]);
+  return Object.keys(input as Record<string, unknown>)
+    .filter((key) => !volatileKeys.has(key))
+    .sort()
+    .reduce<Record<string, unknown>>((acc, key) => {
+      acc[key] = stabilizeConfigValue((input as Record<string, unknown>)[key]);
+      return acc;
+    }, {});
 }
 
 function classifyFeatureGroup(key: string): string {

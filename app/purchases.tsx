@@ -53,6 +53,7 @@ type PurchaseItem = {
 
 type PendingPurchaseAuthorization = {
   reasons: string[];
+  goToStep2?: boolean;
   payload: {
     beratNota: number;
     berat: number;
@@ -202,7 +203,6 @@ export default function Purchases() {
         .finally(() => {
           if (active) setIsLoadingMaster(false);
         });
-      nagagoldConfig.checkForChanges();
       return () => {
         active = false;
       };
@@ -224,6 +224,14 @@ export default function Purchases() {
   const selectedKondisi = kondisiList.find((item) => item.kondisi_barang === kondisi);
   const unsupportedPurchaseModules = purchaseCapabilities.unsupportedModules ?? [];
   const purchasePaymentTypes = purchaseCapabilities.allowTransferPayment ? paymentTypes : ["CASH"];
+  const canSavePurchaseItem = (
+    !unsupportedPurchaseModules.length
+    && kodeJenis.trim().length > 0
+    && namaBarang.trim().length > 0
+    && kondisi.trim().length > 0
+    && parseDecimal(berat) > 0
+    && parseCurrency(hargaBeli) > 0
+  );
   const calculateHargaBeli = (overrides?: {
     berat?: string;
     hargaNota?: string;
@@ -380,7 +388,7 @@ export default function Purchases() {
     setMemberResults([]);
   };
 
-  const addItem = async (authorizationId?: string) => {
+  const addItem = async (authorizationId?: string, options: { goToStep2?: boolean } = {}) => {
     if (unsupportedPurchaseModules.length) {
       Alert.alert(
         "Konfigurasi belum didukung",
@@ -405,6 +413,7 @@ export default function Purchases() {
     if (authReasons.length && !authorizationId) {
       setPendingAuthorization({
         reasons: authReasons,
+        goToStep2: options.goToStep2,
         payload: {
           beratNota: nextBeratNota,
           berat: nextBerat,
@@ -441,6 +450,9 @@ export default function Purchases() {
       raw: purchaseRaw ?? undefined,
     }]);
     resetItemForm();
+    if (options.goToStep2) {
+      setStep(2);
+    }
     await Haptics.selectionAsync();
   };
 
@@ -460,7 +472,7 @@ export default function Purchases() {
         kodeIntern: getRawText(purchaseRaw, "kode_intern", getRawText(purchaseRaw, "no_generate", "-")),
       });
       setPendingAuthorization(null);
-      await addItem(result.authorizationId);
+      await addItem(result.authorizationId, { goToStep2: pendingAuthorization.goToStep2 });
     } catch (error) {
       Alert.alert("Otorisasi gagal", error instanceof Error ? error.message : "Username/password otorisasi belum valid.");
     } finally {
@@ -557,11 +569,13 @@ export default function Purchases() {
 
   const resetItemForm = () => {
     setKodeBarcode("");
+    setTypeKondisi("PERSENTASE");
+    setKondisi("");
     setKodeJenis("");
     setNamaBarang("");
-    setKadar("100");
-    setKadarModal("0");
-    setKadarCetak("100");
+    setKadar("");
+    setKadarModal("");
+    setKadarCetak("");
     setBeratNota("");
     setBerat("");
     setHargaNota("");
@@ -598,13 +612,6 @@ export default function Purchases() {
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={[styles.domainNotice, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, theme.elevation.level1]}>
-        <Text style={[styles.domainNoticeText, { color: theme.colors.muted }]}>
-          {domain ? (isLoadingMaster ? "Memuat master " : "Terhubung ke ") : "Atur domain "}
-          <Text style={[styles.domainNoticeStrong, { color: theme.colors.primary }]}>Server</Text>
-          {domain ? "" : " di Pengaturan"}
-        </Text>
-      </View>
       <Stepper step={step} />
       {step === 1 ? (
         <View style={styles.formStack}>
@@ -694,19 +701,44 @@ export default function Purchases() {
             <ReadOnly label="Harga Rata" value={formatRupiah(hargaRata)} />
             <ReadOnly label="Potongan Kondisi" value={formatPurchaseConditionDiscount(selectedKondisi, typeKondisi, parseDecimal(berat), parseCurrency(hargaNota))} />
           </View>
-          <View style={styles.footerRow}>
-            <Pressable style={[styles.resetButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.secondary }]} onPress={resetItemForm}>
-              <Ionicons name="refresh" size={17} color={theme.colors.secondary} />
-              <Text style={[styles.resetButtonText, { color: theme.colors.secondary }]}>Reset</Text>
+          <View style={styles.purchaseActionStack}>
+            <Pressable
+              accessibilityState={{ disabled: !canSavePurchaseItem }}
+              disabled={!canSavePurchaseItem}
+              style={[
+                styles.saveItemButton,
+                {
+                  backgroundColor: canSavePurchaseItem ? theme.colors.primaryFixedDim : theme.colors.surfaceContainer,
+                  borderColor: canSavePurchaseItem ? "transparent" : theme.colors.outlineVariant,
+                },
+                !canSavePurchaseItem && styles.saveItemButtonDisabled,
+              ]}
+              onPress={() => addItem(undefined, { goToStep2: true })}
+            >
+              <Ionicons
+                name="save"
+                size={18}
+                color={canSavePurchaseItem ? (theme.isDark ? theme.colors.primaryText : theme.colors.primary) : theme.colors.subtleText}
+              />
+              <Text
+                style={[
+                  styles.saveItemButtonText,
+                  { color: canSavePurchaseItem ? (theme.isDark ? theme.colors.primaryText : theme.colors.primary) : theme.colors.subtleText },
+                ]}
+              >
+                Simpan Barang
+              </Text>
             </Pressable>
-            <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={() => addItem()}>
-              <Ionicons name="save-outline" size={17} color={theme.colors.primary} />
-              <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>Simpan Barang</Text>
-            </Pressable>
-            <Pressable style={[styles.primaryButtonSmall, { backgroundColor: theme.colors.buttonPrimary }]} onPress={() => setStep(2)}>
-              <Text style={styles.primaryButtonText}>Next</Text>
-              <Ionicons name="chevron-forward" size={17} color="#FFFFFF" />
-            </Pressable>
+            <View style={styles.purchaseActionRow}>
+              <Pressable style={[styles.resetButton, { backgroundColor: "transparent", borderColor: theme.colors.danger }]} onPress={resetItemForm}>
+                <Ionicons name="refresh" size={17} color={theme.colors.danger} />
+                <Text style={[styles.resetButtonText, { color: theme.colors.danger }]}>Reset</Text>
+              </Pressable>
+              <Pressable style={[styles.nextButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={() => setStep(2)}>
+                <Text style={[styles.nextButtonText, { color: theme.colors.onPrimary }]}>Next</Text>
+                <Ionicons name="chevron-forward" size={17} color={theme.colors.onPrimary} />
+              </Pressable>
+            </View>
           </View>
         </View>
       ) : null}
@@ -1230,18 +1262,6 @@ const styles = StyleSheet.create({
   headerLeft: { alignItems: "center", flex: 1, flexDirection: "row", gap: 16 },
   headerIconButton: { alignItems: "center", height: 40, justifyContent: "center", width: 40 },
   screenTitle: { color: colors.primary, flex: 1, fontSize: 22, fontWeight: "600", lineHeight: 30 },
-  domainNotice: {
-    alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.outline,
-    borderRadius: 8,
-    borderWidth: 1,
-    minHeight: 32,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-  domainNoticeText: { color: colors.muted, fontSize: 12, fontWeight: "500", textAlign: "center" },
-  domainNoticeStrong: { color: colors.primary, fontWeight: "800" },
   stepper: { flexDirection: "row", justifyContent: "space-between", marginVertical: 4 },
   stepItem: { alignItems: "center", flex: 1, gap: 7 },
   stepCircle: { alignItems: "center", backgroundColor: colors.surfaceContainer, borderRadius: 999, height: 38, justifyContent: "center", width: 38 },
@@ -1264,6 +1284,25 @@ const styles = StyleSheet.create({
   twoColumn: { flexDirection: "row", gap: 10 },
   threeColumn: { flexDirection: "row", gap: 8 },
   footerRow: { flexDirection: "row", gap: 10, marginTop: 4 },
+  purchaseActionStack: { gap: 12, marginTop: 10 },
+  purchaseActionRow: { flexDirection: "row", gap: 12 },
+  saveItemButton: {
+    alignItems: "center",
+    borderWidth: 1,
+    borderRadius: 14,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    minHeight: 58,
+    shadowColor: "#000000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.14,
+    shadowRadius: 14,
+  },
+  saveItemButtonDisabled: {
+    shadowOpacity: 0,
+  },
+  saveItemButtonText: { fontSize: 16, fontWeight: "800" },
   moduleNotice: {
     alignItems: "flex-start",
     borderRadius: 12,
@@ -1277,6 +1316,8 @@ const styles = StyleSheet.create({
   resetButtonText: { color: colors.secondary, fontSize: 13, fontWeight: "700" },
   outlineButton: { alignItems: "center", borderColor: colors.primary, borderRadius: 12, borderWidth: 1, flex: 1.25, flexDirection: "row", gap: 7, justifyContent: "center", minHeight: 50 },
   outlineButtonText: { color: colors.primary, fontSize: 13, fontWeight: "700" },
+  nextButton: { alignItems: "center", borderRadius: 12, flex: 1, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 52 },
+  nextButtonText: { fontSize: 14, fontWeight: "800" },
   selectField: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.outline, borderRadius: 12, borderWidth: 1, flexDirection: "row", gap: 10, minHeight: 48, paddingHorizontal: 14 },
   selectValue: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "700" },
   selectPlaceholder: { color: colors.outlineStrong, fontWeight: "600" },

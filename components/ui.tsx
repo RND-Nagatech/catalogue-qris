@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -29,6 +30,7 @@ export type AppHeaderProps = {
   onLeftPress?: () => void;
   onRightPress?: () => void;
   showThemeToggle?: boolean;
+  topInset?: number;
   style?: StyleProp<ViewStyle>;
 };
 
@@ -41,12 +43,24 @@ export function AppHeader({
   onLeftPress,
   onRightPress,
   showThemeToggle = true,
+  topInset = 0,
   style,
 }: AppHeaderProps) {
   const theme = useAppTheme();
 
   return (
-    <View style={[styles.header, { minHeight: theme.components.headerHeight }, style]}>
+    <View
+      style={[
+        styles.header,
+        {
+          backgroundColor: theme.colors.surface,
+          borderBottomColor: theme.colors.divider,
+          minHeight: theme.components.headerHeight + topInset,
+          paddingTop: topInset,
+        },
+        style,
+      ]}
+    >
       <Pressable
         accessibilityRole="button"
         style={({ pressed }) => [
@@ -55,7 +69,7 @@ export function AppHeader({
         ]}
         onPress={onLeftPress}
       >
-        <Ionicons name={leftIcon} size={22} color={theme.colors.text} />
+        <Ionicons name={leftIcon} size={24} color={theme.colors.primary} />
       </Pressable>
 
       <View style={styles.headerTitleWrap}>
@@ -72,7 +86,7 @@ export function AppHeader({
       <View style={styles.headerActions}>
         {showThemeToggle ? (
           <Pressable accessibilityRole="button" style={styles.headerIconButton} onPress={theme.toggleTheme}>
-            <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={21} color={theme.colors.text} />
+            <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={23} color={theme.colors.primary} />
           </Pressable>
         ) : null}
         {rightIcon ? (
@@ -90,7 +104,11 @@ export function AppHeader({
   );
 }
 
-export function createBottomTabScreenOptions(theme: AppTheme): BottomTabNavigationOptions {
+export function createBottomTabScreenOptions(theme: AppTheme, bottomInset = 0): BottomTabNavigationOptions {
+  const fallbackBottom = Platform.OS === "android" ? 18 : 10;
+  const safeBottom = Math.max(bottomInset, fallbackBottom);
+  const tabHeight = 64 + safeBottom;
+
   return {
     headerShown: false,
     headerStyle: { backgroundColor: theme.colors.background },
@@ -99,16 +117,24 @@ export function createBottomTabScreenOptions(theme: AppTheme): BottomTabNavigati
     sceneStyle: { backgroundColor: theme.colors.background },
     tabBarActiveTintColor: theme.colors.bottomNavActive,
     tabBarInactiveTintColor: theme.colors.bottomNavInactive,
-    tabBarLabelStyle: { fontSize: 11, fontWeight: "700", lineHeight: 14 },
+    tabBarActiveBackgroundColor: theme.colors.navActiveSurface,
+    tabBarHideOnKeyboard: true,
+    tabBarItemStyle: {
+      borderRadius: theme.radius.lg,
+      marginHorizontal: 4,
+      marginVertical: 7,
+      paddingTop: 3,
+    },
+    tabBarLabelStyle: { fontSize: 10, fontWeight: "700", lineHeight: 14 },
     tabBarStyle: {
       backgroundColor: theme.colors.bottomNavBackground,
       borderTopColor: theme.colors.divider,
-      height: theme.components.bottomTabHeight,
-      paddingBottom: 10,
+      height: tabHeight,
+      paddingBottom: safeBottom,
       paddingTop: 8,
       shadowColor: theme.colors.shadow,
       shadowOffset: { width: 0, height: -4 },
-      shadowOpacity: theme.isDark ? 0.2 : 0.04,
+      shadowOpacity: theme.isDark ? 0.18 : 0.06,
       shadowRadius: 18,
       elevation: 8,
     },
@@ -645,9 +671,12 @@ export function BottomSheet({
 const styles = StyleSheet.create({
   header: {
     alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
-    gap: 8,
+    gap: 16,
     justifyContent: "space-between",
+    paddingBottom: 12,
+    paddingHorizontal: 20,
   },
   headerActions: {
     alignItems: "center",
@@ -677,7 +706,9 @@ const styles = StyleSheet.create({
     width: 44,
   },
   headerTitle: {
+    fontSize: 22,
     flexShrink: 1,
+    lineHeight: 30,
   },
   headerTitleWrap: {
     flex: 1,

@@ -1,5 +1,5 @@
 import { Tabs } from "expo-router";
-import { SafeAreaProvider } from "react-native-safe-area-context";
+import { SafeAreaProvider, useSafeAreaInsets } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { Ionicons } from "@expo/vector-icons";
 import { ThemeProvider, useAppTheme } from "../lib/theme";
@@ -20,12 +20,13 @@ export default function RootLayout() {
 
 function RootTabs() {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
 
   return (
     <>
       <StatusBar style={theme.isDark ? "light" : "dark"} />
       <Tabs
-        screenOptions={createBottomTabScreenOptions(theme)}
+        screenOptions={createBottomTabScreenOptions(theme, insets.bottom)}
       >
         <Tabs.Screen
           name="index"

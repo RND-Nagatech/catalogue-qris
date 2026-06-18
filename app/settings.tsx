@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader } from "../components/ui";
 import {
   clearQrisString,
@@ -15,18 +16,9 @@ import { getMerchantInfo, normalizeQris, validateQris } from "../lib/qris";
 import { useNagagoldConfig } from "../lib/nagagoldConfig";
 import { useAppTheme } from "../lib/theme";
 
-const colors = {
-  background: "#F8F9FA",
-  surface: "#FFFFFF",
-  text: "#191C1E",
-  muted: "#3D4A3F",
-  outline: "#BCCABC",
-  primary: "#006A37",
-  primaryContainer: "#008648",
-};
-
 export default function Settings() {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const nagagoldConfig = useNagagoldConfig();
   const [value, setValue] = useState("");
   const [savedValue, setSavedValue] = useState("");
@@ -162,8 +154,20 @@ export default function Settings() {
   };
 
   return (
-    <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]} keyboardShouldPersistTaps="handled">
-      <AppHeader title="Pengaturan" />
+    <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      <AppHeader title="Pengaturan" topInset={insets.top} />
+      <ScrollView
+        automaticallyAdjustKeyboardInsets
+        contentContainerStyle={[
+          styles.container,
+          {
+            backgroundColor: theme.colors.background,
+            paddingBottom: 64 + Math.max(insets.bottom, 18) + 32,
+          },
+        ]}
+        keyboardDismissMode="on-drag"
+        keyboardShouldPersistTaps="handled"
+      >
       <View style={[styles.summaryHeader, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, theme.elevation.level1]}>
         <Text style={[styles.summaryTitle, { color: theme.colors.primary }]}>Koneksi dan QRIS</Text>
         <Text style={[styles.summarySubtitle, { color: theme.colors.muted }]}>Atur QRIS merchant dan koneksi Program</Text>
@@ -294,7 +298,8 @@ export default function Settings() {
         <Ionicons name="trash-outline" size={16} color={theme.colors.error} />
         <Text style={[styles.dangerButtonText, { color: theme.colors.error }]}>Kosongkan QRIS Tersimpan</Text>
       </Pressable>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
@@ -310,23 +315,19 @@ function InfoRow({ label, value, last }: { label: string; value: string; last?: 
 }
 
 const styles = StyleSheet.create({
+  screen: { flex: 1 },
   container: {
-    backgroundColor: colors.background,
     gap: 16,
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === "ios" ? 58 : 42,
-    paddingBottom: 32,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
   summaryHeader: {
-    backgroundColor: colors.surface,
-    borderColor: colors.outline,
     borderRadius: 16,
     borderWidth: 1,
     padding: 18,
   },
-  summaryTitle: { color: colors.text, fontSize: 20, fontWeight: "700" },
+  summaryTitle: { fontSize: 20, fontWeight: "700" },
   summarySubtitle: {
-    color: colors.muted,
     fontSize: 14,
     fontWeight: "500",
     marginTop: 4,

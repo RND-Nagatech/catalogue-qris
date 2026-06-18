@@ -1,8 +1,9 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   authorizeNagagoldTransaction,
   lookupNagagoldMemberByCode,
@@ -20,7 +21,7 @@ import {
   type NagagoldSalesPerson,
   type NagagoldToko,
 } from "../lib/dataStore";
-import { AppHeader as SharedAppHeader, EmptyState } from "../components/ui";
+import { EmptyState } from "../components/ui";
 import { formatRupiah } from "../lib/qris";
 import { useNagagoldConfig } from "../lib/nagagoldConfig";
 import { useAppTheme } from "../lib/theme";
@@ -85,19 +86,19 @@ const defaultPurchaseCapabilities: NagagoldPurchaseCapabilities = {
   unsupportedModules: [],
 };
 const colors = {
-  background: "#F8F9FA",
+  background: "#F8F9FF",
   surface: "#FFFFFF",
-  surfaceLow: "#F3F4F5",
-  surfaceContainer: "#EDEEEF",
-  text: "#191C1E",
-  muted: "#3D4A3F",
-  outline: "#BEC9C2",
-  outlineStrong: "#6D7A6E",
-  primary: "#006A37",
-  primaryContainer: "#008648",
-  primarySoft: "#D8F8DE",
-  secondary: "#865300",
-  secondaryContainer: "#FEA520",
+  surfaceLow: "#EFF4FF",
+  surfaceContainer: "#E5EEFF",
+  text: "#0B1C30",
+  muted: "#3D4947",
+  outline: "#BCC9C6",
+  outlineStrong: "#6D7A77",
+  primary: "#00685F",
+  primaryContainer: "#008378",
+  primarySoft: "#DDF7F2",
+  secondary: "#825100",
+  secondaryContainer: "#FFB95F",
   danger: "#BA1A1A",
 };
 
@@ -115,6 +116,7 @@ function jenisValue(item: NagagoldJenis): string {
 
 export default function Purchases() {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const nagagoldConfig = useNagagoldConfig();
   const [domain, setDomain] = useState("");
   const [purchaseCapabilities, setPurchaseCapabilities] = useState<NagagoldPurchaseCapabilities>(defaultPurchaseCapabilities);
@@ -582,14 +584,20 @@ export default function Purchases() {
 
   return (
     <>
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.keyboardScreen, { backgroundColor: theme.colors.background }]}>
+    <View style={[styles.keyboardScreen, { backgroundColor: theme.colors.background }]}>
+    <AppHeader title="Transaksi Pembelian" topInset={insets.top} />
     <ScrollView
       automaticallyAdjustKeyboardInsets
-      contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]}
+      contentContainerStyle={[
+        styles.container,
+        {
+          backgroundColor: theme.colors.background,
+          paddingBottom: 64 + Math.max(insets.bottom, 18) + 32,
+        },
+      ]}
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       keyboardShouldPersistTaps="handled"
     >
-      <SharedAppHeader title="Transaksi Pembelian" />
       <View style={[styles.domainNotice, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, theme.elevation.level1]}>
         <Text style={[styles.domainNoticeText, { color: theme.colors.muted }]}>
           {domain ? (isLoadingMaster ? "Memuat master " : "Terhubung ke ") : "Atur domain "}
@@ -843,7 +851,7 @@ export default function Purchases() {
         </View>
       ) : null}
     </ScrollView>
-    </KeyboardAvoidingView>
+    </View>
     <AuthorizationModal
       visible={Boolean(pendingAuthorization)}
       title="Otorisasi Pembelian"
@@ -856,19 +864,28 @@ export default function Purchases() {
   );
 }
 
-function AppHeader({ title }: { title: string }) {
+function AppHeader({ title, topInset }: { title: string; topInset: number }) {
   const theme = useAppTheme();
 
   return (
-    <View style={styles.topHeader}>
+    <View
+      style={[
+        styles.topHeader,
+        {
+          backgroundColor: theme.colors.surface,
+          borderBottomColor: theme.colors.divider,
+          paddingTop: topInset,
+        },
+      ]}
+    >
       <View style={styles.headerLeft}>
         <Pressable style={styles.headerIconButton}>
-          <Ionicons name="menu" size={21} color={theme.colors.text} />
+          <Ionicons name="menu-outline" size={24} color={theme.colors.primary} />
         </Pressable>
         <Text style={[styles.screenTitle, { color: theme.colors.primary }]}>{title}</Text>
       </View>
       <Pressable style={styles.headerIconButton} onPress={theme.toggleTheme}>
-        <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={18} color={theme.colors.text} />
+        <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={23} color={theme.colors.primary} />
       </Pressable>
     </View>
   );
@@ -951,7 +968,7 @@ function OptionSheet({ visible, title, options, selectedValue, onSelect, onClose
 
   return (
     <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.optionBackdrop, { backgroundColor: theme.colors.scrim }]}>
+      <View style={[styles.optionBackdrop, { backgroundColor: theme.colors.scrim }]}>
         <View style={[styles.optionSheet, { backgroundColor: theme.colors.surfaceContainerLowest }]}>
           <View style={[styles.sheetHandle, { backgroundColor: theme.colors.outlineVariant }]} />
           <View style={[styles.sheetHeader, { borderBottomColor: theme.colors.divider }]}>
@@ -976,7 +993,7 @@ function OptionSheet({ visible, title, options, selectedValue, onSelect, onClose
             )}
           </ScrollView>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -1004,7 +1021,7 @@ function AuthorizationModal(props: {
 
   return (
     <Modal animationType="slide" transparent visible={props.visible} onRequestClose={props.onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.optionBackdrop, { backgroundColor: theme.colors.scrim }]}>
+      <View style={[styles.optionBackdrop, { backgroundColor: theme.colors.scrim }]}>
         <View style={[styles.optionSheet, { backgroundColor: theme.colors.surfaceContainerLowest }]}>
           <View style={[styles.sheetHandle, { backgroundColor: theme.colors.outlineVariant }]} />
           <View style={[styles.sheetHeader, { borderBottomColor: theme.colors.divider }]}>
@@ -1041,7 +1058,7 @@ function AuthorizationModal(props: {
             </View>
           </ScrollView>
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -1195,11 +1212,19 @@ function getPurchaseAuthorizationReasons(
 
 const styles = StyleSheet.create({
   keyboardScreen: { flex: 1 },
-  container: { backgroundColor: colors.background, gap: 14, paddingHorizontal: 12, paddingTop: Platform.OS === "ios" ? 66 : 46, paddingBottom: 190 },
-  topHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between" },
-  headerLeft: { alignItems: "center", flexDirection: "row", gap: 10, flex: 1 },
-  headerIconButton: { alignItems: "center", height: 34, justifyContent: "center", width: 34 },
-  screenTitle: { color: colors.primary, flex: 1, fontSize: 20, fontWeight: "700" },
+  container: { backgroundColor: colors.background, gap: 14, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 190 },
+  topHeader: {
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 16,
+    minHeight: 64,
+    paddingBottom: 12,
+    paddingHorizontal: 20,
+  },
+  headerLeft: { alignItems: "center", flex: 1, flexDirection: "row", gap: 16 },
+  headerIconButton: { alignItems: "center", height: 40, justifyContent: "center", width: 40 },
+  screenTitle: { color: colors.primary, flex: 1, fontSize: 22, fontWeight: "600", lineHeight: 30 },
   domainNotice: {
     alignItems: "center",
     backgroundColor: colors.surface,

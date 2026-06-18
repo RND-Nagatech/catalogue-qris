@@ -1,6 +1,5 @@
 import { useCallback, useState, type ComponentProps } from "react";
 import {
-  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { AppHeader, EmptyState, LoadingState } from "../components/ui";
 import { loadNagagoldTodayHistory, type NagagoldRecentTransaction } from "../lib/dataStore";
 import { formatRupiah } from "../lib/qris";
@@ -20,6 +20,7 @@ type IconName = ComponentProps<typeof Ionicons>["name"];
 
 export default function History() {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const [mode, setMode] = useState<HistoryMode>("sale");
   const [items, setItems] = useState<NagagoldRecentTransaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -67,8 +68,14 @@ export default function History() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
+      <AppHeader title="Riwayat" topInset={insets.top} />
       <ScrollView
-        contentContainerStyle={styles.container}
+        contentContainerStyle={[
+          styles.container,
+          {
+            paddingBottom: 64 + Math.max(insets.bottom, 18) + 32,
+          },
+        ]}
         refreshControl={
           <RefreshControl
             refreshing={isRefreshing}
@@ -77,13 +84,11 @@ export default function History() {
           />
         }
       >
-        <AppHeader title="Riwayat Transaksi" />
-
         <View
           style={[
             styles.summaryHeader,
             {
-              backgroundColor: mode === "sale" ? theme.colors.primary : theme.colors.secondaryContainer,
+              backgroundColor: mode === "sale" ? theme.colors.primary : theme.colors.purchaseCard,
             },
             theme.elevation.level2,
           ]}
@@ -92,14 +97,14 @@ export default function History() {
             <Ionicons
               name={mode === "sale" ? "trending-up-outline" : "bag-check-outline"}
               size={22}
-              color={mode === "sale" ? theme.colors.onPrimary : theme.colors.onSecondaryContainer}
+              color={theme.colors.onPrimary}
             />
           </View>
           <View>
-            <Text style={[styles.summaryNumber, { color: mode === "sale" ? theme.colors.onPrimary : theme.colors.onSecondaryContainer }]}>
+            <Text style={[styles.summaryNumber, { color: theme.colors.onPrimary }]}>
               {items.length}
             </Text>
-            <Text style={[styles.summarySubtitle, { color: mode === "sale" ? theme.colors.onPrimary : theme.colors.onSecondaryContainer }]}>
+            <Text style={[styles.summarySubtitle, { color: theme.colors.onPrimary }]}>
               {mode === "sale" ? "Penjualan Hari Ini" : "Pembelian Hari Ini"}
             </Text>
           </View>
@@ -166,7 +171,7 @@ function SegmentButton({ active, label, onPress }: { active: boolean; label: str
 function HistoryCard({ item }: { item: NagagoldRecentTransaction }) {
   const theme = useAppTheme();
   const isSale = item.type === "sale";
-  const accent = isSale ? theme.colors.primary : theme.colors.secondary;
+  const accent = isSale ? theme.colors.primary : theme.colors.tertiary;
   const amountPrefix = isSale ? "+" : "-";
   const icon: IconName = isSale ? "pricetag-outline" : "cart-outline";
 
@@ -183,7 +188,7 @@ function HistoryCard({ item }: { item: NagagoldRecentTransaction }) {
         </Text>
       </View>
       <View style={styles.cardRight}>
-        <Text style={[styles.amount, { color: isSale ? theme.colors.primary : theme.colors.text }]} numberOfLines={1}>
+        <Text style={[styles.amount, { color: isSale ? theme.colors.primary : theme.colors.tertiary }]} numberOfLines={1}>
           {amountPrefix}{formatRupiah(item.amount)}
         </Text>
         <View style={[styles.badge, { backgroundColor: isSale ? theme.colors.successContainer : theme.colors.warningContainer }]}>
@@ -203,9 +208,8 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     gap: 16,
-    paddingBottom: 32,
-    paddingHorizontal: 16,
-    paddingTop: Platform.OS === "ios" ? 58 : 42,
+    paddingHorizontal: 20,
+    paddingTop: 24,
   },
   summaryHeader: {
     alignItems: "center",

@@ -17,7 +17,8 @@ import QRCode from "react-native-qrcode-svg";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
-import { AppHeader, EmptyState } from "../components/ui";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { EmptyState } from "../components/ui";
 import {
   authorizeNagagoldTransaction,
   loadQrisString,
@@ -134,25 +135,26 @@ const defaultSalesCapabilities: NagagoldSalesCapabilities = {
   allowQrisOnTransfer: true,
 };
 const colors = {
-  background: "#F8F9FA",
+  background: "#F8F9FF",
   surface: "#FFFFFF",
-  surfaceLow: "#F3F4F5",
-  surfaceContainer: "#EDEEEF",
-  text: "#191C1D",
-  muted: "#3D4A3F",
-  outline: "#BCCABC",
-  outlineStrong: "#6D7A6E",
-  primary: "#006A37",
-  primaryContainer: "#008648",
-  primarySoft: "#79FCA5",
-  secondary: "#865300",
-  secondaryContainer: "#FEA520",
-  tertiary: "#4C5E71",
+  surfaceLow: "#EFF4FF",
+  surfaceContainer: "#E5EEFF",
+  text: "#0B1C30",
+  muted: "#3D4947",
+  outline: "#BCC9C6",
+  outlineStrong: "#6D7A77",
+  primary: "#00685F",
+  primaryContainer: "#008378",
+  primarySoft: "#89F5E7",
+  secondary: "#825100",
+  secondaryContainer: "#FFB95F",
+  tertiary: "#4648D4",
   danger: "#BA1A1A",
 };
 
 export default function Sales() {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
   const nagagoldConfig = useNagagoldConfig();
   const [domain, setDomain] = useState("");
   const [savedQris, setSavedQris] = useState("");
@@ -409,7 +411,6 @@ export default function Sales() {
     const key = buildDiscountAuthorizationKey(kodeBarcode, nextType, nextValue, nextDiscount);
 
     if (authorizedDiscountKey === key || pendingDiscountAuthorization?.key === key) return;
-    setItemOpen(false);
     setPendingDiscountAuthorization({
       key,
       type: nextType,
@@ -560,11 +561,9 @@ export default function Sales() {
       setAuthorizedDiscountKey(pendingDiscountAuthorization.key);
       setDiscountAuthorizationId(result.authorizationId);
       setPendingDiscountAuthorization(null);
-      setItemOpen(true);
       await Haptics.selectionAsync();
     } catch (error) {
       resetDiscount();
-      setItemOpen(true);
       Alert.alert("Otorisasi gagal", error instanceof Error ? error.message : "Username/password otorisasi belum valid.");
     } finally {
       setIsAuthorizingDiscount(false);
@@ -858,11 +857,43 @@ export default function Sales() {
     setPaymentOpen(false);
   };
 
+  const itemAuthorizationOverlay = pendingAuthorization ? (
+    <AuthorizationOverlay
+      title="Otorisasi Penjualan"
+      reasons={pendingAuthorization.reasons}
+      isSubmitting={isAuthorizing}
+      onClose={() => setPendingAuthorization(null)}
+      onSubmit={submitItemAuthorization}
+    />
+  ) : pendingDiscountAuthorization ? (
+    <AuthorizationOverlay
+      title="Otorisasi Diskon"
+      reasons={[
+        `Diskon ${formatRupiah(pendingDiscountAuthorization.amount)} perlu otorisasi.`,
+        `Total setelah diskon menjadi ${formatRupiah(pendingDiscountAuthorization.total)}.`,
+      ]}
+      isSubmitting={isAuthorizingDiscount}
+      onClose={() => {
+        resetDiscount();
+      }}
+      onSubmit={submitDiscountAuthorization}
+    />
+  ) : null;
+
   return (
     <>
-      <ScrollView contentContainerStyle={[styles.container, { backgroundColor: theme.colors.background }]} keyboardShouldPersistTaps="handled">
-        <AppHeader title="Transaksi Penjualan" rightIcon="cart-outline" rightBadge={items.length} />
-
+      <SalesHeader topInset={insets.top} />
+      <ScrollView
+        contentContainerStyle={[
+          styles.container,
+          {
+            backgroundColor: theme.colors.background,
+            paddingBottom: 64 + Math.max(insets.bottom, 18) + 32,
+            paddingTop: 24,
+          },
+        ]}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={[styles.domainNotice, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }]}>
           <Text style={[styles.domainNoticeText, { color: theme.colors.muted }]}>
             {domain ? (isLoadingMaster ? "Memuat master " : "Terhubung ke ") : "Atur domain "}
@@ -871,7 +902,7 @@ export default function Sales() {
           </Text>
         </View>
 
-        <View style={[styles.customerCard, theme.elevation.level1, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderLeftColor: theme.colors.secondaryContainer }]}>
+        <View style={[styles.customerCard, theme.elevation.level1, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderLeftColor: theme.colors.tertiaryFixedDim }]}>
           <InfoLine icon="person" label="Nama Customer" value={namaCustomer || "-"} tone="primary" />
           <InfoLine icon="pricetag" label="Jenis" value={jenisCustomer} tone="secondary" />
           <InfoLine icon="id-card" label="Kode Sales" value={kodeSales || "-"} tone="neutral" />
@@ -881,10 +912,10 @@ export default function Sales() {
         </View>
 
         <View style={styles.actionRow}>
-          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.secondaryContainer }]} onPress={() => setCustomerOpen(true)}>
-            <Ionicons name="person-add-outline" size={17} color={theme.colors.onSecondaryContainer} />
+          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.tertiaryFixedDim }]} onPress={() => setCustomerOpen(true)}>
+            <Ionicons name="person-add-outline" size={17} color={theme.colors.tertiary} />
             <View>
-              <Text style={[styles.actionButtonText, { color: theme.colors.onSecondaryContainer }]}>Data Customer</Text>
+              <Text style={[styles.actionButtonText, { color: theme.colors.tertiary }]}>Data Customer</Text>
             </View>
           </Pressable>
           <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={() => setItemOpen(true)}>
@@ -1055,6 +1086,7 @@ export default function Sales() {
         onLookupBarcode={lookupBarcode}
         onClose={() => setItemOpen(false)}
         onSave={addItem}
+        authorizationOverlay={itemAuthorizationOverlay}
       />
       <PaymentModal
         visible={paymentOpen}
@@ -1116,7 +1148,7 @@ export default function Sales() {
         onClose={() => setExchangeOpen(false)}
       />
       <AuthorizationModal
-        visible={Boolean(pendingAuthorization)}
+        visible={!itemOpen && Boolean(pendingAuthorization)}
         title="Otorisasi Penjualan"
         reasons={pendingAuthorization?.reasons ?? []}
         isSubmitting={isAuthorizing}
@@ -1124,7 +1156,7 @@ export default function Sales() {
         onSubmit={submitItemAuthorization}
       />
       <AuthorizationModal
-        visible={Boolean(pendingDiscountAuthorization)}
+        visible={!itemOpen && Boolean(pendingDiscountAuthorization)}
         title="Otorisasi Diskon"
         reasons={pendingDiscountAuthorization ? [
           `Diskon ${formatRupiah(pendingDiscountAuthorization.amount)} perlu otorisasi.`,
@@ -1133,11 +1165,35 @@ export default function Sales() {
         isSubmitting={isAuthorizingDiscount}
         onClose={() => {
           resetDiscount();
-          setItemOpen(true);
         }}
         onSubmit={submitDiscountAuthorization}
       />
     </>
+  );
+}
+
+function SalesHeader({ topInset }: { topInset: number }) {
+  const theme = useAppTheme();
+
+  return (
+    <View
+      style={[
+        styles.salesHeader,
+        {
+          backgroundColor: theme.colors.surface,
+          borderBottomColor: theme.colors.divider,
+          paddingTop: topInset,
+        },
+      ]}
+    >
+      <Pressable accessibilityRole="button" style={styles.salesHeaderIconButton}>
+        <Ionicons name="menu-outline" size={24} color={theme.colors.primary} />
+      </Pressable>
+      <Text style={[theme.typography.title, styles.salesHeaderTitle, { color: theme.colors.primary }]}>Transaksi Penjualan</Text>
+      <Pressable accessibilityRole="button" style={styles.salesHeaderIconButton} onPress={theme.toggleTheme}>
+        <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={23} color={theme.colors.primary} />
+      </Pressable>
+    </View>
   );
 }
 
@@ -1153,7 +1209,7 @@ function InfoLine({
   tone?: "primary" | "secondary" | "neutral";
 }) {
   const theme = useAppTheme();
-  const iconColor = tone === "secondary" ? theme.colors.secondary : tone === "neutral" ? theme.colors.info : theme.colors.primary;
+  const iconColor = tone === "secondary" ? theme.colors.tertiary : tone === "neutral" ? theme.colors.info : theme.colors.primary;
   const iconBg = tone === "secondary" ? theme.colors.warningContainer : tone === "neutral" ? theme.colors.infoContainer : theme.colors.successContainer;
   return (
     <View style={styles.infoLine}>
@@ -1209,7 +1265,7 @@ function CustomerModal(props: {
   const customerOptions = props.capabilities.allowNonMember ? ["NONMEMBER", "MEMBER"] : ["MEMBER"];
 
   return (
-    <Sheet visible={props.visible} title="Form Data Customer" onClose={props.onClose}>
+    <Sheet visible={props.visible} title="Form Data Customer" onClose={props.onClose} fullscreen>
       {props.capabilities.requireSales ? (
         <>
           <Text style={[styles.label, { color: theme.colors.subtleText }]}>Pilih Kode Sales</Text>
@@ -1321,6 +1377,7 @@ function ItemModal(props: {
   onLookupBarcode: () => void;
   onClose: () => void;
   onSave: () => void;
+  authorizationOverlay?: React.ReactNode;
 }) {
   const theme = useAppTheme();
   const [discountPickerOpen, setDiscountPickerOpen] = useState(false);
@@ -1339,7 +1396,7 @@ function ItemModal(props: {
   };
 
   return (
-    <Sheet visible={props.visible} title="Form Data Barang" onClose={props.onClose}>
+    <Sheet visible={props.visible} title="Form Data Barang" onClose={props.onClose} fullscreen overlay={props.authorizationOverlay}>
       <View style={[styles.photoPanel, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }]}>
         <View style={[styles.photoBox, { backgroundColor: theme.colors.surfaceContainerLow, borderColor: theme.colors.outlineVariant }]}>
           {props.imageUrl ? (
@@ -1736,13 +1793,8 @@ function QrisFullscreenModal(props: {
             <Text style={[styles.qrisFullStatusText, { color: theme.colors.secondary }]}>Menunggu pembayaran</Text>
           </View>
 
-          <Text style={[styles.qrisFullInstruction, { color: theme.colors.text }]}>Silakan scan QRIS untuk melakukan pembayaran</Text>
+          {/* <Text style={[styles.qrisFullInstruction, { color: theme.colors.text }]}>Scan QRIS untuk melakukan pembayaran</Text> */}
           <Text style={[styles.qrisFullMerchant, { color: theme.colors.text }]}>{merchantInfo.merchant || "Merchant QRIS"}</Text>
-          {merchantInfo.city || merchantInfo.postalCode || merchantInfo.issuer ? (
-            <Text style={[styles.qrisFullMerchantSub, { color: theme.colors.muted }]}>
-              {[merchantInfo.city, merchantInfo.postalCode, merchantInfo.issuer].filter(Boolean).join(" • ")}
-            </Text>
-          ) : null}
 
           <View style={[styles.qrisFullQrCard, { backgroundColor: "#FFFFFF", borderColor: theme.colors.outlineVariant }]}>
             {props.qrisString ? (
@@ -1896,6 +1948,62 @@ function AuthorizationModal(props: {
   onClose: () => void;
   onSubmit: (data: { username: string; password: string; keterangan: string }) => void;
 }) {
+  return (
+    <Sheet visible={props.visible} title={props.title} onClose={props.onClose}>
+      <AuthorizationForm
+        reasons={props.reasons}
+        isSubmitting={props.isSubmitting}
+        onClose={props.onClose}
+        onSubmit={props.onSubmit}
+      />
+    </Sheet>
+  );
+}
+
+function AuthorizationOverlay(props: {
+  title: string;
+  reasons: string[];
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (data: { username: string; password: string; keterangan: string }) => void;
+}) {
+  const theme = useAppTheme();
+
+  return (
+    <View style={[styles.inlineAuthBackdrop, { backgroundColor: theme.colors.scrim }]}>
+      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.inlineAuthKeyboard}>
+        <View style={[styles.inlineAuthCard, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.cardBorder }]}>
+          <View style={[styles.inlineAuthHeader, { borderBottomColor: theme.colors.divider }]}>
+            <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>{props.title}</Text>
+            <Pressable style={styles.fullscreenCloseButton} onPress={props.onClose}>
+              <Ionicons name="close" size={25} color={theme.colors.text} />
+            </Pressable>
+          </View>
+          <ScrollView
+            automaticallyAdjustKeyboardInsets
+            contentContainerStyle={styles.inlineAuthContent}
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            keyboardShouldPersistTaps="handled"
+          >
+            <AuthorizationForm
+              reasons={props.reasons}
+              isSubmitting={props.isSubmitting}
+              onClose={props.onClose}
+              onSubmit={props.onSubmit}
+            />
+          </ScrollView>
+        </View>
+      </KeyboardAvoidingView>
+    </View>
+  );
+}
+
+function AuthorizationForm(props: {
+  reasons: string[];
+  isSubmitting: boolean;
+  onClose: () => void;
+  onSubmit: (data: { username: string; password: string; keterangan: string }) => void;
+}) {
   const theme = useAppTheme();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -1910,7 +2018,7 @@ function AuthorizationModal(props: {
   };
 
   return (
-    <Sheet visible={props.visible} title={props.title} onClose={props.onClose}>
+    <View style={styles.authFormContent}>
       <View style={[styles.authNotice, { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}>
         <Ionicons name="shield-checkmark-outline" size={20} color={theme.colors.secondary} />
         <View style={{ flex: 1 }}>
@@ -1931,7 +2039,7 @@ function AuthorizationModal(props: {
           <Text style={styles.sheetPrimaryText}>{props.isSubmitting ? "Memproses..." : "Otorisasi"}</Text>
         </Pressable>
       </View>
-    </Sheet>
+    </View>
   );
 }
 
@@ -1999,35 +2107,68 @@ function OptionSheet(props: {
   );
 }
 
-function Sheet({ visible, title, onClose, children }: {
+function Sheet({ visible, title, onClose, children, fullscreen = false, overlay }: {
   visible: boolean;
   title: string;
   onClose: () => void;
   children: React.ReactNode;
+  fullscreen?: boolean;
+  overlay?: React.ReactNode;
 }) {
   const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
 
   return (
-    <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={[styles.modalBackdrop, { backgroundColor: theme.colors.scrim }]}>
-        <View style={[styles.sheet, { backgroundColor: theme.colors.surfaceContainerLowest }]}>
-          <View style={[styles.sheetHandle, { backgroundColor: theme.colors.outlineVariant }]} />
-          <View style={[styles.sheetHeader, { borderBottomColor: theme.colors.divider }]}>
+    <Modal
+      animationType="slide"
+      transparent={!fullscreen}
+      presentationStyle={fullscreen ? "fullScreen" : "overFullScreen"}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View
+        style={[
+          fullscreen ? styles.fullscreenBackdrop : styles.modalBackdrop,
+          { backgroundColor: fullscreen ? theme.colors.background : theme.colors.scrim },
+        ]}
+      >
+        <View
+          style={[
+            fullscreen ? styles.fullscreenSheet : styles.sheet,
+            { backgroundColor: fullscreen ? theme.colors.background : theme.colors.surfaceContainerLowest },
+          ]}
+        >
+          {fullscreen ? null : <View style={[styles.sheetHandle, { backgroundColor: theme.colors.outlineVariant }]} />}
+          <View
+            style={[
+              fullscreen ? styles.fullscreenSheetHeader : styles.sheetHeader,
+              {
+                borderBottomColor: theme.colors.divider,
+                paddingTop: fullscreen ? insets.top + 10 : undefined,
+              },
+            ]}
+          >
             <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>{title}</Text>
-            <Pressable onPress={onClose}>
+            <Pressable style={fullscreen ? styles.fullscreenCloseButton : undefined} onPress={onClose}>
               <Ionicons name="close" size={25} color={theme.colors.text} />
             </Pressable>
           </View>
           <ScrollView
             automaticallyAdjustKeyboardInsets
-            contentContainerStyle={styles.sheetContent}
+            contentContainerStyle={[
+              styles.sheetContent,
+              fullscreen && {
+                paddingBottom: Math.max(insets.bottom, 18) + 120,
+              },
+            ]}
             keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
             keyboardShouldPersistTaps="handled"
           >
             {children}
           </ScrollView>
+          {overlay}
         </View>
-      </KeyboardAvoidingView>
+      </View>
     </Modal>
   );
 }
@@ -2289,10 +2430,26 @@ const styles = StyleSheet.create({
   container: {
     backgroundColor: colors.background,
     gap: 14,
-    paddingHorizontal: 12,
-    paddingTop: Platform.OS === "ios" ? 66 : 46,
+    paddingHorizontal: 20,
+    paddingTop: Platform.OS === "ios" ? 18 : 16,
     paddingBottom: 112,
   },
+  salesHeader: {
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    gap: 16,
+    minHeight: 64,
+    paddingBottom: 12,
+    paddingHorizontal: 20,
+  },
+  salesHeaderIconButton: {
+    alignItems: "center",
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  salesHeaderTitle: { flex: 1, fontSize: 22, lineHeight: 30 },
   topHeader: {
     alignItems: "center",
     flexDirection: "row",
@@ -2389,12 +2546,12 @@ const styles = StyleSheet.create({
   actionRow: { flexDirection: "row", gap: 14 },
   actionButton: {
     alignItems: "center",
-    borderRadius: 9,
+    borderRadius: 16,
     flex: 1,
     flexDirection: "row",
     gap: 7,
     justifyContent: "center",
-    minHeight: 50,
+    minHeight: 54,
     paddingHorizontal: 10,
   },
   customerButton: { backgroundColor: colors.secondaryContainer },
@@ -2508,12 +2665,19 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
   },
+  fullscreenBackdrop: {
+    flex: 1,
+  },
   sheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    height: "92%",
     maxHeight: "92%",
     paddingTop: 10,
+  },
+  fullscreenSheet: {
+    flex: 1,
   },
   sheetHandle: {
     alignSelf: "center",
@@ -2532,8 +2696,55 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18,
     paddingBottom: 14,
   },
+  fullscreenSheetHeader: {
+    alignItems: "center",
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 72,
+    paddingBottom: 14,
+    paddingHorizontal: 20,
+  },
+  fullscreenCloseButton: {
+    alignItems: "center",
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  inlineAuthBackdrop: {
+    bottom: 0,
+    left: 0,
+    paddingHorizontal: 20,
+    paddingVertical: 18,
+    position: "absolute",
+    right: 0,
+    top: 0,
+    zIndex: 20,
+  },
+  inlineAuthKeyboard: {
+    flex: 1,
+    justifyContent: "center",
+    width: "100%",
+  },
+  inlineAuthCard: {
+    borderRadius: 24,
+    borderWidth: StyleSheet.hairlineWidth,
+    maxHeight: "82%",
+    overflow: "hidden",
+    width: "100%",
+  },
+  inlineAuthHeader: {
+    alignItems: "center",
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+  },
+  inlineAuthContent: { paddingBottom: 24 },
   sheetTitle: { color: colors.text, fontSize: 22, fontWeight: "700" },
   sheetContent: { gap: 14, padding: 20, paddingBottom: 150 },
+  authFormContent: { gap: 12, padding: 16 },
   field: { flex: 1, gap: 6 },
   label: { color: colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
   input: {

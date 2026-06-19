@@ -309,11 +309,13 @@ export type NagagoldRuntimeConfig = Required<Pick<NagagoldBootstrap, "domain" | 
 
 export type NagagoldConfigVersion = {
   domain: string;
-  version: string;
-  loadedAt: string;
-  moduleCount: number;
-  parameterCount: number;
-  dynamicFeatureCount: number;
+  status?: "OK" | "CONNECTION_ERROR" | "FETCH_FAILED" | "NO_CHANGE";
+  version?: string;
+  loadedAt?: string;
+  moduleCount?: number;
+  parameterCount?: number;
+  dynamicFeatureCount?: number;
+  message?: string;
 };
 
 export type NagagoldMember = {

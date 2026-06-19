@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
@@ -621,6 +621,9 @@ export default function Purchases() {
               value={kodeToko}
               options={tokos.map((item) => ({ value: item.kode_toko, label: `${item.kode_toko}${item.nama_toko ? ` - ${item.nama_toko}` : ""}` }))}
               onChange={setKodeToko}
+              searchable
+              searchPlaceholder="Cari kode atau nama toko"
+              searchEmptyText="Data toko tidak ditemukan"
               fallback={<Input label="" value={kodeToko} onChangeText={setKodeToko} placeholder="Pilih kode toko" uppercase />}
             />
           ) : null}
@@ -647,6 +650,9 @@ export default function Purchases() {
                 setKondisi(value);
                 recalculateHargaBeli({ kondisi: value });
               }}
+              searchable
+              searchPlaceholder="Cari kondisi"
+              searchEmptyText="Data kondisi tidak ditemukan"
               fallback={<Input label="" value={kondisi} onChangeText={(value) => {
                 setKondisi(value);
                 recalculateHargaBeli({ kondisi: value });
@@ -667,6 +673,9 @@ export default function Purchases() {
                 setKadarModal(String((group as Record<string, unknown>).kadar_modal ?? kadarModal));
               }
             }}
+            searchable
+            searchPlaceholder="Cari kode jenis"
+            searchEmptyText="Data kode jenis tidak ditemukan"
             fallback={<Input label="" value={kodeJenis} onChangeText={setKodeJenis} placeholder="Pilih kode jenis" uppercase />}
           />
           <Input label="Nama Barang" value={namaBarang} onChangeText={setNamaBarang} placeholder="Nama barang" uppercase />
@@ -954,12 +963,15 @@ function Stepper({ step }: { step: 1 | 2 | 3 }) {
   );
 }
 
-function OptionGroup({ label, value, options, onChange, fallback }: {
+function OptionGroup({ label, value, options, onChange, fallback, searchable = false, searchPlaceholder, searchEmptyText }: {
   label: string;
   value: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
   fallback?: ReactNode;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  searchEmptyText?: string;
 }) {
   const theme = useAppTheme();
   const [open, setOpen] = useState(false);
@@ -983,6 +995,9 @@ function OptionGroup({ label, value, options, onChange, fallback }: {
         title={label}
         options={options}
         selectedValue={value}
+        searchable={searchable}
+        searchPlaceholder={searchPlaceholder}
+        searchEmptyText={searchEmptyText}
         onClose={() => setOpen(false)}
         onSelect={(nextValue) => {
           onChange(nextValue);
@@ -993,43 +1008,101 @@ function OptionGroup({ label, value, options, onChange, fallback }: {
   );
 }
 
-function OptionSheet({ visible, title, options, selectedValue, onSelect, onClose }: {
+function OptionSheet({ visible, title, options, selectedValue, searchable = false, searchPlaceholder, searchEmptyText, onSelect, onClose }: {
   visible: boolean;
   title: string;
   options: { value: string; label: string }[];
   selectedValue: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  searchEmptyText?: string;
   onSelect: (value: string) => void;
   onClose: () => void;
 }) {
   const theme = useAppTheme();
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const trimmedKeyword = searchKeyword.trim().toLowerCase();
+  const filteredOptions = useMemo(() => {
+    if (!searchable || !trimmedKeyword) return options;
+    return options.filter((option) => `${option.value} ${option.label}`.toLowerCase().includes(trimmedKeyword));
+  }, [options, searchable, trimmedKeyword]);
+  const emptyText = trimmedKeyword ? searchEmptyText : "Data tidak tersedia.";
+
+  useEffect(() => {
+    if (!visible) setSearchKeyword("");
+  }, [visible]);
+
+  const handleClose = () => {
+    setSearchKeyword("");
+    onClose();
+  };
+
+  const handleSelect = (value: string) => {
+    setSearchKeyword("");
+    onSelect(value);
+  };
 
   return (
-    <Modal animationType="slide" transparent visible={visible} onRequestClose={onClose}>
+    <Modal animationType="slide" transparent visible={visible} onRequestClose={handleClose}>
       <View style={[styles.optionBackdrop, { backgroundColor: theme.colors.scrim }]}>
-        <View style={[styles.optionSheet, { backgroundColor: theme.colors.surfaceContainerLowest }]}>
-          <View style={[styles.sheetHandle, { backgroundColor: theme.colors.outlineVariant }]} />
-          <View style={[styles.sheetHeader, { borderBottomColor: theme.colors.divider }]}>
-            <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>{title}</Text>
-            <Pressable onPress={onClose}>
-              <Ionicons name="close" size={24} color={theme.colors.text} />
-            </Pressable>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          enabled={searchable}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+          style={styles.optionKeyboardAvoider}
+        >
+          <View style={[styles.optionSheet, searchable && styles.optionSheetSearchable, { backgroundColor: theme.colors.surfaceContainerLowest }]}>
+            <View style={[styles.sheetHandle, { backgroundColor: theme.colors.outlineVariant }]} />
+            <View style={[styles.sheetHeader, { borderBottomColor: theme.colors.divider }]}>
+              <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>{title}</Text>
+              <Pressable onPress={handleClose}>
+                <Ionicons name="close" size={24} color={theme.colors.text} />
+              </Pressable>
+            </View>
+            {searchable ? (
+              <View style={[styles.optionSearchWrap, { borderBottomColor: theme.colors.divider }]}>
+                <View style={[styles.optionSearchField, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
+                  <Ionicons name="search-outline" size={18} color={theme.colors.muted} />
+                  <TextInput
+                    value={searchKeyword}
+                    onChangeText={setSearchKeyword}
+                    placeholder={searchPlaceholder ?? "Cari data"}
+                    placeholderTextColor={theme.colors.subtleText}
+                    style={[styles.optionSearchInput, { color: theme.colors.text }]}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="search"
+                  />
+                  {searchKeyword ? (
+                    <Pressable onPress={() => setSearchKeyword("")} hitSlop={8}>
+                      <Ionicons name="close-circle" size={18} color={theme.colors.muted} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+            <ScrollView
+              automaticallyAdjustKeyboardInsets
+              contentContainerStyle={styles.optionContent}
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              keyboardShouldPersistTaps="handled"
+            >
+              {filteredOptions.length ? filteredOptions.map((option) => {
+                const active = selectedValue === option.value;
+                return (
+                  <Pressable key={option.value} style={[styles.optionRow, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, active && styles.optionRowActive, active && { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary }]} onPress={() => handleSelect(option.value)}>
+                    <Text style={[styles.optionRowTitle, { color: theme.colors.text }, active && styles.optionRowTitleActive, active && { color: theme.colors.primary }]} numberOfLines={2}>
+                      {option.label}
+                    </Text>
+                    {active ? <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} /> : null}
+                  </Pressable>
+                );
+              }) : (
+                <Text style={[styles.emptyText, { color: theme.colors.muted }]}>{emptyText}</Text>
+              )}
+            </ScrollView>
           </View>
-          <ScrollView contentContainerStyle={styles.optionContent} keyboardShouldPersistTaps="handled">
-            {options.length ? options.map((option) => {
-              const active = selectedValue === option.value;
-              return (
-                <Pressable key={option.value} style={[styles.optionRow, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, active && styles.optionRowActive, active && { backgroundColor: theme.colors.successContainer, borderColor: theme.colors.primary }]} onPress={() => onSelect(option.value)}>
-                  <Text style={[styles.optionRowTitle, { color: theme.colors.text }, active && styles.optionRowTitleActive, active && { color: theme.colors.primary }]} numberOfLines={2}>
-                    {option.label}
-                  </Text>
-                  {active ? <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} /> : null}
-                </Pressable>
-              );
-            }) : (
-              <Text style={styles.emptyText}>Data tidak tersedia.</Text>
-            )}
-          </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -1322,10 +1395,15 @@ const styles = StyleSheet.create({
   selectValue: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "700" },
   selectPlaceholder: { color: colors.outlineStrong, fontWeight: "600" },
   optionBackdrop: { backgroundColor: "rgba(15, 23, 42, 0.36)", flex: 1, justifyContent: "flex-end" },
+  optionKeyboardAvoider: { justifyContent: "flex-end", width: "100%" },
   optionSheet: { backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "78%", paddingBottom: 18 },
+  optionSheetSearchable: { maxHeight: "82%" },
   sheetHandle: { alignSelf: "center", backgroundColor: colors.outline, borderRadius: 999, height: 5, marginTop: 10, width: 48 },
   sheetHeader: { alignItems: "center", borderBottomColor: colors.outline, borderBottomWidth: 1, flexDirection: "row", justifyContent: "space-between", paddingHorizontal: 18, paddingVertical: 14 },
   sheetTitle: { color: colors.text, fontSize: 16, fontWeight: "800" },
+  optionSearchWrap: { borderBottomWidth: 1, paddingHorizontal: 14, paddingVertical: 12 },
+  optionSearchField: { alignItems: "center", borderRadius: 14, borderWidth: 1, flexDirection: "row", gap: 8, minHeight: 46, paddingHorizontal: 12 },
+  optionSearchInput: { flex: 1, fontSize: 13, fontWeight: "700", paddingVertical: 0 },
   optionContent: { padding: 14 },
   optionContentKeyboard: { padding: 14, paddingBottom: 140 },
   optionRow: { alignItems: "center", borderColor: colors.outline, borderRadius: 14, borderWidth: 1, flexDirection: "row", gap: 10, justifyContent: "space-between", marginBottom: 10, minHeight: 52, paddingHorizontal: 14 },

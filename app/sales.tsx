@@ -267,7 +267,9 @@ export default function Sales() {
   const exchangeTotal = useMemo(() => exchangeItems.reduce((sum, item) => sum + item.hargaBeli, 0), [exchangeItems]);
   const cashPaidTotal = payments.reduce((sum, item) => sum + item.amount, 0);
   const paidTotal = cashPaidTotal + exchangeTotal;
-  const remaining = Math.max(total - paidTotal, 0);
+  const shortageAmount = Math.max(total - paidTotal, 0);
+  const exchangeReturnAmount = Math.max(exchangeTotal + cashPaidTotal - total, 0);
+  const remaining = shortageAmount;
   const firstItem = items[0];
   const hasRequiredSales = !salesCapabilities.requireSales || Boolean(kodeSales.trim());
   const canOpenPayment = Boolean(hasRequiredSales && items.length);
@@ -1084,6 +1086,7 @@ export default function Sales() {
         total={total}
         paidTotal={paidTotal}
         remaining={remaining}
+        exchangeReturnAmount={exchangeReturnAmount}
         method={paymentMethod}
         setMethod={setPaymentMethod}
         rekening={paymentRekening}
@@ -1327,6 +1330,9 @@ function CustomerModal(props: {
         visible={salesPickerOpen}
         title="Pilih Kode Sales"
         onClose={() => setSalesPickerOpen(false)}
+        searchable
+        searchPlaceholder="Cari kode atau nama sales"
+        searchEmptyText="Data sales tidak ditemukan"
         options={props.salesPeople.map((sales) => ({
           key: sales.kode_sales,
           label: `${sales.kode_sales} - ${sales.nama_sales}`,
@@ -1496,6 +1502,7 @@ function PaymentModal(props: {
   total: number;
   paidTotal: number;
   remaining: number;
+  exchangeReturnAmount: number;
   method: PaymentLine["method"];
   setMethod: (value: PaymentLine["method"]) => void;
   rekening: string;
@@ -1651,6 +1658,15 @@ function PaymentModal(props: {
         </>
       ) : null}
       <ReadOnly label="Sisa" value={formatRupiah(props.remaining)} onPress={() => props.setAmount(String(props.remaining))} />
+      {props.exchangeReturnAmount > 0 ? (
+        <View style={[styles.exchangeReturnCard, { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}>
+          <View style={styles.exchangeReturnInfo}>
+            <Text style={[styles.exchangeReturnLabel, { color: theme.colors.secondary }]}>Kembalian ke Customer</Text>
+            <Text style={[styles.exchangeReturnHint, { color: theme.colors.muted }]}>Nilai tukar lebih besar dari total penjualan.</Text>
+          </View>
+          <Text style={[styles.exchangeReturnValue, { color: theme.colors.secondary }]}>{formatRupiah(props.exchangeReturnAmount)}</Text>
+        </View>
+      ) : null}
       <Text style={[styles.sectionTitle, { color: theme.colors.text }]}>Rincian Pembayaran</Text>
       <View style={[styles.paymentList, { borderColor: theme.colors.outlineVariant }]}>
         {props.payments.map((payment, index) => (
@@ -1877,7 +1893,7 @@ function ExchangeModal(props: {
           </View>
           <Text style={[styles.label, { color: theme.colors.subtleText }]}>Kondisi Barang</Text>
           <SelectField
-            value={selectedKondisi ? kondisiLabel(selectedKondisi) : ""}
+            value={selectedKondisi ? kondisiNameLabel(selectedKondisi) : ""}
             placeholder="Pilih kondisi"
             onPress={() => setKondisiPickerOpen(true)}
           />
@@ -1907,18 +1923,13 @@ function ExchangeModal(props: {
         </>
       ) : null}
 
-      <View style={styles.sheetFooter}>
-        <Pressable style={[styles.sheetSecondaryButton, { borderColor: theme.colors.outlineVariant, backgroundColor: theme.colors.surfaceContainerLowest }]} onPress={props.onClose}>
-          <Text style={[styles.sheetSecondaryText, { color: theme.colors.text }]}>Tutup</Text>
-        </Pressable>
-      </View>
       <OptionSheet
         visible={kondisiPickerOpen}
         title="Pilih Kondisi Barang"
         onClose={() => setKondisiPickerOpen(false)}
         options={props.kondisiList.map((kondisi) => ({
           key: kondisiKey(kondisi),
-          label: kondisiLabel(kondisi),
+          label: kondisiNameLabel(kondisi),
         }))}
         emptyText="Master kondisi pembelian kosong."
         selectedKey={props.kondisi}
@@ -2051,48 +2062,108 @@ function OptionSheet(props: {
   options: { key: string; label: string; description?: string }[];
   selectedKey?: string;
   emptyText?: string;
+  searchable?: boolean;
+  searchPlaceholder?: string;
+  searchEmptyText?: string;
   onSelect: (key: string) => void;
   onClose: () => void;
 }) {
   const theme = useAppTheme();
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const trimmedKeyword = searchKeyword.trim().toLowerCase();
+  const filteredOptions = useMemo(() => {
+    if (!props.searchable || !trimmedKeyword) return props.options;
+    return props.options.filter((option) => {
+      const searchableText = `${option.key} ${option.label} ${option.description ?? ""}`.toLowerCase();
+      return searchableText.includes(trimmedKeyword);
+    });
+  }, [props.options, props.searchable, trimmedKeyword]);
+  const emptyText = trimmedKeyword ? props.searchEmptyText : props.emptyText;
+
+  useEffect(() => {
+    if (!props.visible) setSearchKeyword("");
+  }, [props.visible]);
+
+  const handleClose = () => {
+    setSearchKeyword("");
+    props.onClose();
+  };
+
+  const handleSelect = (key: string) => {
+    setSearchKeyword("");
+    props.onSelect(key);
+  };
 
   return (
-    <Modal animationType="slide" transparent visible={props.visible} onRequestClose={props.onClose}>
+    <Modal animationType="slide" transparent visible={props.visible} onRequestClose={handleClose}>
       <View style={[styles.optionBackdrop, { backgroundColor: theme.colors.scrim }]}>
-        <View style={[styles.optionSheet, { backgroundColor: theme.colors.surfaceContainerLowest }]}>
-          <View style={[styles.sheetHandle, { backgroundColor: theme.colors.outlineVariant }]} />
-          <View style={[styles.sheetHeader, { borderBottomColor: theme.colors.divider }]}>
-            <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>{props.title}</Text>
-            <Pressable onPress={props.onClose}>
-              <Ionicons name="close" size={25} color={theme.colors.text} />
-            </Pressable>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          enabled={Boolean(props.searchable)}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 12 : 0}
+          style={styles.optionKeyboardAvoider}
+        >
+          <View style={[
+            styles.optionSheet,
+            props.searchable && styles.optionSheetSearchable,
+            { backgroundColor: theme.colors.surfaceContainerLowest },
+          ]}>
+            <View style={[styles.sheetHandle, { backgroundColor: theme.colors.outlineVariant }]} />
+            <View style={[styles.sheetHeader, { borderBottomColor: theme.colors.divider }]}>
+              <Text style={[styles.sheetTitle, { color: theme.colors.text }]}>{props.title}</Text>
+              <Pressable onPress={handleClose}>
+                <Ionicons name="close" size={25} color={theme.colors.text} />
+              </Pressable>
+            </View>
+            {props.searchable ? (
+              <View style={[styles.optionSearchWrap, { borderBottomColor: theme.colors.divider }]}>
+                <View style={[styles.optionSearchField, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
+                  <Ionicons name="search-outline" size={18} color={theme.colors.muted} />
+                  <TextInput
+                    value={searchKeyword}
+                    onChangeText={setSearchKeyword}
+                    placeholder={props.searchPlaceholder ?? "Cari data"}
+                    placeholderTextColor={theme.colors.subtleText}
+                    style={[styles.optionSearchInput, { color: theme.colors.text }]}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    returnKeyType="search"
+                  />
+                  {searchKeyword ? (
+                    <Pressable onPress={() => setSearchKeyword("")} hitSlop={8}>
+                      <Ionicons name="close-circle" size={18} color={theme.colors.muted} />
+                    </Pressable>
+                  ) : null}
+                </View>
+              </View>
+            ) : null}
+            <ScrollView
+              automaticallyAdjustKeyboardInsets
+              contentContainerStyle={styles.optionContent}
+              keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+              keyboardShouldPersistTaps="handled"
+            >
+              {filteredOptions.length ? filteredOptions.map((option) => {
+                const selected = props.selectedKey === option.key;
+                return (
+                  <Pressable
+                    key={option.key}
+                    style={[styles.optionRow, { borderColor: selected ? theme.colors.primary : theme.colors.outlineVariant, backgroundColor: selected ? theme.colors.successContainer : theme.colors.surfaceContainerLowest }, selected && styles.optionRowActive]}
+                    onPress={() => handleSelect(option.key)}
+                  >
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.optionRowTitle, { color: selected ? theme.colors.primary : theme.colors.text }, selected && styles.optionRowTitleActive]}>{option.label}</Text>
+                      {option.description ? <Text style={[styles.optionRowDescription, { color: theme.colors.muted }]}>{option.description}</Text> : null}
+                    </View>
+                    {selected ? <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} /> : null}
+                  </Pressable>
+                );
+              }) : (
+                <Text style={[styles.emptyText, { color: theme.colors.muted }]}>{emptyText ?? "Data tidak tersedia."}</Text>
+              )}
+            </ScrollView>
           </View>
-          <ScrollView
-            automaticallyAdjustKeyboardInsets
-            contentContainerStyle={styles.optionContent}
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            keyboardShouldPersistTaps="handled"
-          >
-            {props.options.length ? props.options.map((option) => {
-              const selected = props.selectedKey === option.key;
-              return (
-                <Pressable
-                  key={option.key}
-                  style={[styles.optionRow, { borderColor: selected ? theme.colors.primary : theme.colors.outlineVariant, backgroundColor: selected ? theme.colors.successContainer : theme.colors.surfaceContainerLowest }, selected && styles.optionRowActive]}
-                  onPress={() => props.onSelect(option.key)}
-                >
-                  <View style={{ flex: 1 }}>
-                    <Text style={[styles.optionRowTitle, { color: selected ? theme.colors.primary : theme.colors.text }, selected && styles.optionRowTitleActive]}>{option.label}</Text>
-                    {option.description ? <Text style={[styles.optionRowDescription, { color: theme.colors.muted }]}>{option.description}</Text> : null}
-                  </View>
-                  {selected ? <Ionicons name="checkmark-circle" size={20} color={theme.colors.primary} /> : null}
-                </Pressable>
-              );
-            }) : (
-              <Text style={styles.emptyText}>{props.emptyText ?? "Data tidak tersedia."}</Text>
-            )}
-          </ScrollView>
-        </View>
+        </KeyboardAvoidingView>
       </View>
     </Modal>
   );
@@ -2293,6 +2364,10 @@ function kondisiLabel(kondisi: NagagoldKondisiBeli): string {
   const fixed = Number(kondisi.potongan ?? 0);
   const suffix = fixed > 0 ? ` - ${formatRupiah(fixed)}` : percent > 0 ? ` - ${percent}%` : "";
   return `${key}${suffix}` || "-";
+}
+
+function kondisiNameLabel(kondisi: NagagoldKondisiBeli): string {
+  return kondisiKey(kondisi) || "-";
 }
 
 function buildPaymentQris(qrisString: string, amount: number): string {
@@ -2808,12 +2883,39 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: "flex-end",
   },
+  optionKeyboardAvoider: {
+    justifyContent: "flex-end",
+    width: "100%",
+  },
   optionSheet: {
     backgroundColor: colors.surface,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     maxHeight: "72%",
     paddingTop: 10,
+  },
+  optionSheetSearchable: {
+    maxHeight: "82%",
+  },
+  optionSearchWrap: {
+    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  optionSearchField: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 46,
+    paddingHorizontal: 12,
+  },
+  optionSearchInput: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "700",
+    paddingVertical: 0,
   },
   optionContent: { gap: 8, padding: 16, paddingBottom: 120 },
   optionRow: {
@@ -3105,6 +3207,20 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 56,
   },
+  exchangeReturnCard: {
+    alignItems: "flex-start",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    justifyContent: "space-between",
+    padding: 12,
+  },
+  exchangeReturnLabel: { fontSize: 13, fontWeight: "800" },
+  exchangeReturnHint: { fontSize: 11, fontWeight: "600", lineHeight: 16, marginTop: 2 },
+  exchangeReturnInfo: { flex: 1, minWidth: 160 },
+  exchangeReturnValue: { flexShrink: 1, fontSize: 16, fontWeight: "900", minWidth: 120, textAlign: "right" },
   paymentList: { borderColor: colors.outline, borderRadius: 14, borderWidth: 1, overflow: "hidden" },
   paymentLine: {
     alignItems: "center",

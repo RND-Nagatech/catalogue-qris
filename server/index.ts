@@ -1000,6 +1000,7 @@ function buildSalePayload(input: NagagoldSaleRequest) {
           detail_barang: Array.isArray(payment.detailBarang) ? payment.detailBarang : undefined,
           param_fee: isCard ? asText(payment.feeDropdown ?? payment.feePercent, "-") : "-",
           fee: isCard ? asNumber(payment.feePercent) : 0,
+          ...(validMethod === "TUKAR" ? { nominal: asNumber(payment.amount ?? payment.nominalWithFee) } : {}),
           jumlah_rp: asNumber(payment.amount ?? payment.nominalWithFee),
         };
       })
@@ -1200,8 +1201,8 @@ app.put("/api/settings/nagagold", async (req, res, next) => {
 });
 
 app.get("/api/nagagold/test-connection", async (_req, res, next) => {
+  const endpoint = "/api/v1/hutang/dashboard";
   try {
-    const endpoint = "/api/v1/hutang/dashboard";
     const response = await nagagoldFetch(endpoint, { method: "GET" });
     const connection = {
       ok: true,
@@ -1222,6 +1223,22 @@ app.get("/api/nagagold/test-connection", async (_req, res, next) => {
       response: response.data,
     });
   } catch (error) {
+    try {
+      const connection = {
+        ok: false,
+        endpoint,
+        status: 0,
+        checkedAt: new Date().toISOString(),
+      };
+      const db = await getDb();
+      await db.collection<SettingDocument>("settings").updateOne(
+        { _id: "nagagold" },
+        { $set: { connection, updatedAt: connection.checkedAt } },
+        { upsert: true },
+      );
+    } catch {
+      // Keep the original NAGAGOLD connection error as the response error.
+    }
     next(error);
   }
 });
@@ -1247,6 +1264,7 @@ app.get("/api/nagagold/config/version", async (_req, res, next) => {
     const config = await loadNagagoldRuntimeConfig();
     res.json({
       domain: config.domain,
+      status: "OK",
       version: config.version,
       loadedAt: config.loadedAt,
       moduleCount: config.modules.length,
@@ -1254,7 +1272,30 @@ app.get("/api/nagagold/config/version", async (_req, res, next) => {
       dynamicFeatureCount: config.dynamicFeatures.length,
     });
   } catch (error) {
-    next(error);
+    try {
+      const domain = await loadNagagoldDomain();
+      const message = error instanceof Error ? error.message : "Konfigurasi NAGAGOLD belum bisa dimuat.";
+      const connection = {
+        ok: false,
+        endpoint: "/api/nagagold/config/version",
+        status: 0,
+        checkedAt: new Date().toISOString(),
+      };
+      const db = await getDb();
+      await db.collection<SettingDocument>("settings").updateOne(
+        { _id: "nagagold" },
+        { $set: { connection, updatedAt: connection.checkedAt } },
+        { upsert: true },
+      );
+      res.json({
+        domain,
+        status: "CONNECTION_ERROR",
+        message,
+        checkedAt: connection.checkedAt,
+      });
+    } catch (fallbackError) {
+      next(fallbackError);
+    }
   }
 });
 

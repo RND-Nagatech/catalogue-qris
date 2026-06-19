@@ -83,6 +83,11 @@ export function NagagoldConfigProvider({ children }: { children: ReactNode }) {
     if (isReloadingRef.current || isAlertVisibleRef.current) return;
     try {
       const versionInfo = await loadNagagoldConfigVersion();
+      if (versionInfo.status && versionInfo.status !== "OK") {
+        setErrorMessage(versionInfo.message ?? "");
+        return;
+      }
+      if (!versionInfo.version) return;
       const storedVersion = latestVersionRef.current || await AsyncStorage.getItem(CONFIG_VERSION_STORAGE_KEY);
       if (!storedVersion) {
         latestVersionRef.current = versionInfo.version;

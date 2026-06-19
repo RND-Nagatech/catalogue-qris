@@ -179,6 +179,12 @@ export default function Settings() {
       );
       await nagagoldConfig.reloadConfig();
     } catch (error) {
+      setNagagoldConnection({
+        ok: false,
+        endpoint: "/api/v1/hutang/dashboard",
+        status: 0,
+        checkedAt: new Date().toISOString(),
+      });
       Alert.alert("Koneksi Gagal", error instanceof Error ? error.message : "Domain atau TOKEN_PUSAT belum bisa mengakses NAGAGOLD.");
     } finally {
       setIsTestingConnection(false);
@@ -260,7 +266,7 @@ export default function Settings() {
           ) : savedNagagoldDomain && nagagoldDomain === savedNagagoldDomain ? (
             <View style={[styles.connectionBadge, { backgroundColor: theme.colors.surfaceContainerLow, borderColor: theme.colors.outlineVariant }]}>
               <View style={[styles.connectionDot, { backgroundColor: theme.colors.error }]} />
-              <Text style={[styles.connectionText, { color: theme.colors.muted }]}>Belum terhubung ke Server {savedNagagoldDomain}</Text>
+              <Text style={[styles.connectionText, { color: theme.colors.muted }]}>Tidak terhubung ke Server {savedNagagoldDomain}</Text>
             </View>
           ) : savedNagagoldDomain ? (
             <Text style={[styles.helperText, { color: theme.colors.muted }]}>Domain berubah. Simpan domain dulu sebelum test koneksi.</Text>

@@ -298,7 +298,7 @@ function FilterModal({
           <ScrollView showsVerticalScrollIndicator={false}>
             <OptionGroup title="Toko" value={draft.storeId} options={stores.map((store) => ({ code: store.id, name: store.name }))} onChange={(value) => setDraft((current) => ({ ...current, storeId: value }))} />
             <OptionGroup title="Group" value={draft.group} options={groups} onChange={(value) => setDraft((current) => ({ ...current, group: value }))} />
-            <OptionGroup title="Departemen" value={draft.dept} options={depts} onChange={(value) => setDraft((current) => ({ ...current, dept: value }))} />
+            <OptionGroup title="Jenis" value={draft.dept} options={depts} onChange={(value) => setDraft((current) => ({ ...current, dept: value }))} />
             <OptionGroup title="Baki" value={draft.toko} options={baki} onChange={(value) => setDraft((current) => ({ ...current, toko: value }))} />
           </ScrollView>
           <View style={styles.sheetActions}>

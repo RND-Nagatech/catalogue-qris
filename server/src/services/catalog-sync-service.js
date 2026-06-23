@@ -6,7 +6,7 @@ const mongoManager = require('./mongo-manager');
 const Encryptor = require('../utils/encryptor');
 const { getStores } = require('../config/store-config');
 
-const encryptor = new Encryptor(process.env.ENCRYPT_KEY || 'xxx');
+const encryptor = new Encryptor(process.env.ENCRYPT_KEY || 'b3r4sput1h');
 const MASTER_COLLECTION = 'master_catalog';
 const BATCH_SIZE = 500;
 

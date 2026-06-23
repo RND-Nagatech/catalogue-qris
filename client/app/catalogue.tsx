@@ -138,7 +138,7 @@ export default function CatalogueScreen() {
             value={searchDraft}
             onChangeText={setSearchDraft}
             onSubmitEditing={submitSearch}
-            placeholder="Cari nama, barcode, group..."
+            placeholder="Cari produk..."
             placeholderTextColor={theme.colors.subtleText}
             returnKeyType="search"
             style={[theme.typography.body, styles.searchInput, { color: theme.colors.text }]}

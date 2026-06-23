@@ -42,7 +42,7 @@ async function queryMasterCatalog(filters) {
 }
 
 // Encryptor instance — key dari environment
-const encryptor = new Encryptor(process.env.ENCRYPT_KEY || 'xxx');
+const encryptor = new Encryptor(process.env.ENCRYPT_KEY || 'b3r4sput1h');
 
 // Field yang TIDAK perlu didecrypt (akan di-ignore oleh doDecrypt).
 // Hanya nama_barang dan kadar_cetak yang terenkripsi di MongoDB.

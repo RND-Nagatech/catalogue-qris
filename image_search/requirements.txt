@@ -1,0 +1,11 @@
+fastapi
+uvicorn[standard]
+torch>=2.0.0
+torchvision
+transformers
+timm
+qdrant-client
+pillow
+numpy
+python-multipart
+python-dotenv

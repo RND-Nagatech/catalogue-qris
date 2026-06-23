@@ -1,7 +1,29 @@
 const mongoManager = require('./mongo-manager');
 const Encryptor = require('../utils/encryptor');
 
-const encryptor = new Encryptor(process.env.ENCRYPT_KEY || 'xxx');
+const encryptor = new Encryptor(process.env.ENCRYPT_KEY || 'b3r4sput1h');
+
+function isHexAscii(value) {
+  return value.length > 0 && value.length % 2 === 0 && /^[0-9a-f]+$/i.test(value);
+}
+
+function cleanFilterName(value) {
+  return String(value || '')
+    .replace(/[^\x20-\x7E]/g, '')
+    .trim();
+}
+
+function looksLikeEncryptedText(value) {
+  return /^[A-F0-9]{6,}/.test(value);
+}
+
+function decryptName(value, fallback = '') {
+  const raw = String(value || '').trim();
+  if (!isHexAscii(raw)) return cleanFilterName(raw);
+
+  const decrypted = cleanFilterName(encryptor.decryptascii(raw));
+  return looksLikeEncryptedText(decrypted) ? cleanFilterName(fallback) : decrypted;
+}
 
 /**
  * Ambil semua data dari satu koleksi di semua toko,
@@ -37,9 +59,8 @@ async function fetchFilterData(stores, collectionName, nameField, codeField) {
 
     const items = result.value;
     for (const item of items) {
-      // Decrypt nama
-      const name = encryptor.decryptascii(item[nameField] || '');
       const code = item[codeField] || '';
+      const name = decryptName(item[nameField], code);
 
       if (!name) continue;
 

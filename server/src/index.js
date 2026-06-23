@@ -26,6 +26,7 @@ const { getStatus: getWaStatus } = require('./services/whatsapp-bot');
 
 const PORT = parseInt(process.env.PORT, 10) || 3750;
 const HOST = '0.0.0.0';
+const IMAGE_UPLOAD_MAX_MB = Number(process.env.IMAGE_UPLOAD_MAX_MB || 15);
 
 async function start() {
   await fastify.register(cors, { origin: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] });
@@ -34,7 +35,11 @@ async function start() {
   await fastify.register(productRoutes, { prefix: '/api/products' });
   await fastify.register(filterRoutes, { prefix: '/api/filters' });
   await fastify.register(syncRoutes, { prefix: '/api/sync' });
-  await fastify.register(require('@fastify/multipart'));
+  await fastify.register(require('@fastify/multipart'), {
+    limits: {
+      fileSize: IMAGE_UPLOAD_MAX_MB * 1024 * 1024,
+    },
+  });
   await fastify.register(imageSearchRoutes, { prefix: '/api/search' });
   await fastify.register(imageRoutes, { prefix: '/api/images' });
   await fastify.register(catalogRoutes, { prefix: '/api/catalog' });

@@ -83,6 +83,9 @@ async function imageSearchRoutes(fastify) {
       });
     } catch (err) {
       console.error('[image-search] Error:', err.message);
+      if (err.code === 'FST_REQ_FILE_TOO_LARGE' || /file too large/i.test(err.message || '')) {
+        return error(reply, 'Ukuran gambar terlalu besar. Gunakan gambar maksimal sesuai IMAGE_UPLOAD_MAX_MB atau kecilkan kualitas foto.', 413);
+      }
       if (err.response?.data) {
         return error(reply, `Python service error: ${JSON.stringify(err.response.data)}`, 502);
       }

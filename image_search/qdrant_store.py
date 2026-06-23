@@ -21,6 +21,12 @@ def barcode_to_id(barcode: str) -> int:
 
 
 def get_client() -> QdrantClient:
+    local_path = os.getenv("QDRANT_PATH")
+    if local_path:
+        path = os.path.abspath(local_path)
+        os.makedirs(path, exist_ok=True)
+        return QdrantClient(path=path)
+
     url = os.getenv("QDRANT_URL", "http://localhost:6333")
     return QdrantClient(url=url)
 
@@ -97,6 +103,7 @@ def search_similar(
     results = client.query_points(
         collection_name=name,
         query=query_vector.tolist(),
+        query_filter=qdrant_filter,
         limit=k,
         with_payload=True,
     )

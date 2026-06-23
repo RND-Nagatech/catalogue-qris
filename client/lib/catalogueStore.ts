@@ -1,3 +1,5 @@
+import { Platform } from "react-native";
+
 const API_URL = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY || process.env.EXPO_PUBLIC_CATALOGUE_API_KEY || "";
 
@@ -138,7 +140,15 @@ export async function loadCatalogueFilters(): Promise<{
 
 export async function searchCatalogueByImage(uri: string, topK = 20): Promise<CatalogueProduct[]> {
   const form = new FormData();
-  form.append("file", { uri, type: "image/jpeg", name: "search.jpg" } as unknown as Blob);
+  const fileName = uri.split("/").pop()?.split("?")[0] || "search.jpg";
+
+  if (Platform.OS === "web") {
+    const blob = await fetch(uri).then((res) => res.blob());
+    const uploadBlob = blob.type ? blob : new Blob([blob], { type: "image/jpeg" });
+    form.append("file", uploadBlob, fileName);
+  } else {
+    form.append("file", { uri, type: "image/jpeg", name: fileName } as unknown as Blob);
+  }
 
   const response = await fetch(`${requireApiUrl()}/api/search/image?top_k=${topK}`, {
     method: "POST",

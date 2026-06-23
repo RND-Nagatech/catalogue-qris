@@ -34,12 +34,14 @@ Copy `.env` dan sesuaikan:
 ```bash
 # Default values (sudah ada di .env)
 PORT=3751
-QDRANT_URL=http://localhost:6333
+QDRANT_PATH=./qdrant_data
+# atau pakai Qdrant server:
+# QDRANT_URL=http://localhost:6333
 QDRANT_COLLECTION=products
 VECTOR_SIZE=768
 MODEL_NAME=dinov2_vitb14
 TOP_K=20
-SYNC_IMAGES_DIR=../backend/sync_images
+SYNC_IMAGES_DIR=../server/sync_images
 ```
 
 ### 4. Build Index

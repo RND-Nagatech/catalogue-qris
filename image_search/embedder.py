@@ -7,6 +7,14 @@ import numpy as np
 from PIL import Image
 from torchvision import transforms
 
+try:
+    import certifi
+
+    os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+except ImportError:
+    pass
+
 
 class DINOv2Embedder:
     def __init__(self, model_name: str = "dinov2_vitb14", device: str = None):

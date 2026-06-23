@@ -1,10 +1,12 @@
 import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
   Image,
+  Modal,
+  Platform,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -29,10 +31,16 @@ export default function ImageSearchScreen() {
   const [error, setError] = useState("");
   const [searched, setSearched] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [webCameraOpen, setWebCameraOpen] = useState(false);
 
   const pickAndSearch = async (source: "camera" | "gallery") => {
     try {
       setError("");
+      if (source === "camera" && Platform.OS === "web") {
+        setWebCameraOpen(true);
+        return;
+      }
+
       const permission = source === "camera"
         ? await ImagePicker.requestCameraPermissionsAsync()
         : await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -120,7 +128,120 @@ export default function ImageSearchScreen() {
           showsVerticalScrollIndicator={false}
         />
       )}
+      <WebCameraModal
+        visible={webCameraOpen}
+        onClose={() => setWebCameraOpen(false)}
+        onCapture={(uri) => {
+          setWebCameraOpen(false);
+          runSearch(uri);
+        }}
+        onError={setError}
+      />
     </View>
+  );
+}
+
+function WebCameraModal({
+  visible,
+  onClose,
+  onCapture,
+  onError,
+}: {
+  visible: boolean;
+  onClose: () => void;
+  onCapture: (uri: string) => void;
+  onError: (message: string) => void;
+}) {
+  const theme = useAppTheme();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+
+  useEffect(() => {
+    if (!visible || Platform.OS !== "web") return;
+
+    let mounted = true;
+
+    async function startCamera() {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) {
+          onError("Kamera browser tidak tersedia. Gunakan browser yang mendukung kamera atau buka aplikasi di perangkat mobile.");
+          onClose();
+          return;
+        }
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: "environment" } },
+          audio: false,
+        });
+        if (!mounted) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
+
+        streamRef.current = stream;
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+        }
+      } catch (err) {
+        onError(err instanceof Error ? err.message : "Kamera tidak bisa dibuka.");
+        onClose();
+      }
+    }
+
+    startCamera();
+
+    return () => {
+      mounted = false;
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+      streamRef.current = null;
+    };
+  }, [onClose, onError, visible]);
+
+  const capture = () => {
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    if (!video || !canvas) return;
+
+    const width = video.videoWidth || 1280;
+    const height = video.videoHeight || 720;
+    canvas.width = width;
+    canvas.height = height;
+    canvas.getContext("2d")?.drawImage(video, 0, 0, width, height);
+    canvas.toBlob((blob) => {
+      if (!blob) {
+        onError("Gagal mengambil gambar dari kamera.");
+        return;
+      }
+      onCapture(URL.createObjectURL(blob));
+    }, "image/jpeg", 0.82);
+  };
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={[styles.cameraBackdrop, { backgroundColor: theme.colors.scrim }]}>
+        <View style={[styles.cameraPanel, { backgroundColor: theme.colors.cardBackground }]}>
+          <View style={styles.cameraHeader}>
+            <Text style={[theme.typography.titleSmall, { color: theme.colors.text }]}>Ambil Foto</Text>
+            <Pressable onPress={onClose}><Ionicons name="close" size={24} color={theme.colors.text} /></Pressable>
+          </View>
+          <View style={[styles.webCameraPreview, { backgroundColor: theme.colors.surfaceContainerLow }]}>
+            {React.createElement("video", {
+              ref: videoRef,
+              playsInline: true,
+              muted: true,
+              style: { width: "100%", height: "100%", objectFit: "cover" },
+            })}
+            {React.createElement("canvas", { ref: canvasRef, style: { display: "none" } })}
+          </View>
+          <View style={styles.cameraActions}>
+            <SecondaryButton title="Batal" onPress={onClose} style={{ flex: 1 }} />
+            <PrimaryButton title="Gunakan Foto" icon="camera-outline" onPress={capture} style={{ flex: 1 }} />
+          </View>
+        </View>
+      </View>
+    </Modal>
   );
 }
 
@@ -173,4 +294,9 @@ const styles = StyleSheet.create({
   resultThumbImage: { width: "100%", height: "100%" },
   resultInfo: { flex: 1, gap: 4 },
   resultPrice: { alignItems: "flex-end", gap: 4, maxWidth: 105 },
+  cameraBackdrop: { flex: 1, alignItems: "center", justifyContent: "center", padding: 18 },
+  cameraPanel: { width: "100%", maxWidth: 560, borderRadius: 20, padding: 14, gap: 12 },
+  cameraHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  webCameraPreview: { width: "100%", aspectRatio: 3 / 4, borderRadius: 16, overflow: "hidden" },
+  cameraActions: { flexDirection: "row", gap: 12 },
 });

@@ -8,6 +8,7 @@ expo-env.d.ts
 node_modules/
 client/node_modules/
 server/node_modules/
+image_search/qdrant_data/
 .expo/
 client/.expo/
 .env

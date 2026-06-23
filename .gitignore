@@ -6,10 +6,19 @@ expo-env.d.ts
 # @end expo-cli
 
 node_modules/
+client/node_modules/
+server/node_modules/
 .expo/
+client/.expo/
 .env
 .env.*
+client/.env
+client/.env.*
+server/.env
+server/.env.*
 !.env.example
+!client/.env.example
+!server/.env.example
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

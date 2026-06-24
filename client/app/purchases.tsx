@@ -6,6 +6,7 @@ import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   authorizeNagagoldTransaction,
+  loadNagagoldStores,
   lookupNagagoldMemberByCode,
   lookupNagagoldPurchaseItem,
   searchNagagoldMembers,
@@ -19,6 +20,7 @@ import {
   type NagagoldPurchaseLookupItem,
   type NagagoldRekening,
   type NagagoldSalesPerson,
+  type NagagoldStore,
   type NagagoldToko,
 } from "../lib/dataStore";
 import { EmptyState } from "../components/ui";
@@ -119,6 +121,10 @@ export default function Purchases() {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const nagagoldConfig = useNagagoldConfig();
+  const [stores, setStores] = useState<NagagoldStore[]>([]);
+  const [selectedStore, setSelectedStore] = useState<NagagoldStore | null>(null);
+  const [isLoadingStores, setIsLoadingStores] = useState(false);
+  const [storeError, setStoreError] = useState("");
   const [domain, setDomain] = useState("");
   const [purchaseCapabilities, setPurchaseCapabilities] = useState<NagagoldPurchaseCapabilities>(defaultPurchaseCapabilities);
   const [tokos, setTokos] = useState<NagagoldToko[]>([]);
@@ -167,6 +173,7 @@ export default function Purchases() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [pendingAuthorization, setPendingAuthorization] = useState<PendingPurchaseAuthorization | null>(null);
+  const activeStoreId = selectedStore ? branchStoreId(selectedStore) : undefined;
 
   const applyRuntimeConfig = useCallback((config: typeof nagagoldConfig.config) => {
     if (!config) return;
@@ -183,10 +190,11 @@ export default function Purchases() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!activeStoreId) return undefined;
       let active = true;
       setIsLoadingMaster(true);
       Promise.all([
-        nagagoldConfig.config ? Promise.resolve(nagagoldConfig.config) : nagagoldConfig.reloadConfig(),
+        nagagoldConfig.reloadConfig(activeStoreId),
       ])
         .then(([config]) => {
           if (!active) return;
@@ -206,12 +214,31 @@ export default function Purchases() {
       return () => {
         active = false;
       };
-    }, [applyRuntimeConfig, kodeSales, nagagoldConfig, rekening])
+    }, [activeStoreId, applyRuntimeConfig, kodeSales, nagagoldConfig.reloadConfig, rekening])
   );
 
   useEffect(() => {
-    applyRuntimeConfig(nagagoldConfig.config);
-  }, [applyRuntimeConfig, nagagoldConfig.config?.version]);
+    if (activeStoreId) applyRuntimeConfig(nagagoldConfig.config);
+  }, [activeStoreId, applyRuntimeConfig, nagagoldConfig.config?.version]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingStores(true);
+    setStoreError("");
+    loadNagagoldStores()
+      .then((items) => {
+        if (active) setStores(items);
+      })
+      .catch((error) => {
+        if (active) setStoreError(error instanceof Error ? error.message : "Data cabang belum bisa dimuat.");
+      })
+      .finally(() => {
+        if (active) setIsLoadingStores(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const totals = useMemo(() => items.reduce((acc, item) => ({
     hargaNota: acc.hargaNota + item.hargaNota,
@@ -288,7 +315,7 @@ export default function Purchases() {
 
     setIsLookingUpItem(true);
     try {
-      const item = await lookupNagagoldPurchaseItem(barcode, kodeToko);
+      const item = await lookupNagagoldPurchaseItem(barcode, kodeToko, { storeId: activeStoreId });
       applyPurchaseItem(item);
       await Haptics.selectionAsync();
     } catch (error) {
@@ -345,7 +372,7 @@ export default function Purchases() {
 
     setIsLookingUpMember(true);
     try {
-      const member = await lookupNagagoldMemberByCode(code);
+      const member = await lookupNagagoldMemberByCode(code, { storeId: activeStoreId });
       if (!member) {
         Alert.alert("Member tidak ditemukan", "Kode member tidak ada di database NAGAGOLD.");
         return;
@@ -369,7 +396,7 @@ export default function Purchases() {
 
     setIsLookingUpMember(true);
     try {
-      const results = await searchNagagoldMembers(phoneQuery && phoneQuery !== "-" ? "hp" : "nama", query);
+      const results = await searchNagagoldMembers(phoneQuery && phoneQuery !== "-" ? "hp" : "nama", query, { storeId: activeStoreId });
       setMemberResults(results);
       if (!results.length) Alert.alert("Customer tidak ditemukan", "Tidak ada member yang cocok.");
     } catch (error) {
@@ -470,6 +497,7 @@ export default function Purchases() {
         berat: pendingAuthorization.payload.berat,
         beratAwal: pendingAuthorization.payload.beratNota,
         kodeIntern: getRawText(purchaseRaw, "kode_intern", getRawText(purchaseRaw, "no_generate", "-")),
+        storeId: activeStoreId,
       });
       setPendingAuthorization(null);
       await addItem(result.authorizationId, { goToStep2: pendingAuthorization.goToStep2 });
@@ -483,7 +511,7 @@ export default function Purchases() {
   const submit = () => {
     const firstItem = items[0];
     if (!domain) {
-      Alert.alert("Domain belum diatur", "Isi domain NAGAGOLD di menu Pengaturan terlebih dahulu.");
+      Alert.alert("Cabang belum aktif", "Pilih cabang pembelian terlebih dahulu.");
       return;
     }
     if (!firstItem) {
@@ -556,6 +584,7 @@ export default function Purchases() {
         keterangan: paymentType,
         typePembayaran: paymentType,
         rekening,
+        storeId: activeStoreId,
       });
       await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       Alert.alert("Pembelian tersimpan", "Transaksi berhasil disimpan.");
@@ -596,6 +625,52 @@ export default function Purchases() {
     setNikSimPassport("");
   };
 
+  if (!selectedStore) {
+    return (
+      <View style={[styles.keyboardScreen, { backgroundColor: theme.colors.background }]}>
+        <AppHeader title="Transaksi Pembelian" topInset={insets.top} />
+        <ScrollView
+          contentContainerStyle={[
+            styles.branchContainer,
+            {
+              backgroundColor: theme.colors.background,
+              paddingBottom: 64 + Math.max(insets.bottom, 18) + 32,
+            },
+          ]}
+        >
+          <View style={[styles.branchIntro, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, theme.elevation.level1]}>
+            <Ionicons name="business-outline" size={24} color={theme.colors.primary} />
+            <View style={styles.branchIntroText}>
+              <Text style={[styles.branchTitle, { color: theme.colors.text }]}>Pilih Cabang Pembelian</Text>
+              <Text style={[styles.branchSubtitle, { color: theme.colors.muted }]}>Cabang ini menjadi tempat transaksi pembelian dicatat dan stok masuk.</Text>
+            </View>
+          </View>
+          {isLoadingStores ? (
+            <Text style={[styles.branchMessage, { color: theme.colors.muted }]}>Memuat cabang...</Text>
+          ) : null}
+          {storeError ? (
+            <Text style={[styles.branchMessage, { color: theme.colors.danger }]}>{storeError}</Text>
+          ) : null}
+          <View style={styles.branchList}>
+            {stores.map((store, index) => (
+              <Pressable
+                key={branchStoreKey(store, index)}
+                style={[styles.branchOption, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }, theme.elevation.level1]}
+                onPress={() => setSelectedStore(store)}
+              >
+                <View style={styles.branchOptionText}>
+                  <Text style={[styles.branchName, { color: theme.colors.text }]}>{store.name}</Text>
+                  <Text style={[styles.branchMeta, { color: theme.colors.muted }]}>{store.nagagoldDomain || store.domain || store.baseUrl || store.apiUrl || "-"}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={theme.colors.primary} />
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
+    );
+  }
+
   return (
     <>
     <View style={[styles.keyboardScreen, { backgroundColor: theme.colors.background }]}>
@@ -612,6 +687,20 @@ export default function Purchases() {
       keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
       keyboardShouldPersistTaps="handled"
     >
+      <View style={[styles.activeStoreBanner, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]}>
+        <Ionicons name="business-outline" size={16} color={theme.colors.primary} />
+        <Text style={[styles.activeStoreText, { color: theme.colors.text }]}>Cabang Aktif: {selectedStore.name}</Text>
+        <Pressable
+          style={[styles.activeStoreChange, { backgroundColor: theme.colors.surfaceContainer }]}
+          onPress={() => {
+            resetAll();
+            setDomain("");
+            setSelectedStore(null);
+          }}
+        >
+          <Text style={[styles.activeStoreChangeText, { color: theme.colors.primary }]}>Ganti</Text>
+        </Pressable>
+      </View>
       <Stepper step={step} />
       {step === 1 ? (
         <View style={styles.formStack}>
@@ -930,6 +1019,14 @@ function AppHeader({ title, topInset }: { title: string; topInset: number }) {
       </Pressable>
     </View>
   );
+}
+
+function branchStoreKey(store: NagagoldStore, index: number): string {
+  return `${branchStoreId(store) || store.name || store.nagagoldDomain || store.domain || store.baseUrl || store.apiUrl || "store"}-${index}`;
+}
+
+function branchStoreId(store: NagagoldStore): string {
+  return String(store.id || store._id || "");
 }
 
 function Stepper({ step }: { step: 1 | 2 | 3 }) {
@@ -1323,6 +1420,51 @@ function getPurchaseAuthorizationReasons(
 const styles = StyleSheet.create({
   keyboardScreen: { flex: 1 },
   container: { backgroundColor: colors.background, gap: 14, paddingHorizontal: 20, paddingTop: 24, paddingBottom: 190 },
+  branchContainer: { backgroundColor: colors.background, gap: 14, paddingHorizontal: 20, paddingTop: 24 },
+  branchIntro: {
+    alignItems: "flex-start",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 16,
+  },
+  branchIntroText: { flex: 1, gap: 4 },
+  branchTitle: { fontSize: 18, fontWeight: "800" },
+  branchSubtitle: { fontSize: 13, fontWeight: "600", lineHeight: 19 },
+  branchMessage: { fontSize: 13, fontWeight: "700" },
+  branchList: { gap: 10 },
+  branchOption: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    minHeight: 64,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  branchOptionText: { flex: 1, gap: 3 },
+  branchName: { fontSize: 14, fontWeight: "800" },
+  branchMeta: { fontSize: 11, fontWeight: "600" },
+  activeStoreBanner: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  activeStoreText: { flex: 1, fontSize: 13, fontWeight: "800" },
+  activeStoreChange: {
+    alignItems: "center",
+    borderRadius: 999,
+    justifyContent: "center",
+    minHeight: 30,
+    paddingHorizontal: 12,
+  },
+  activeStoreChangeText: { fontSize: 12, fontWeight: "800" },
   topHeader: {
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,

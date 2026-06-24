@@ -64,7 +64,15 @@ async function resolveNagagoldTarget(input = {}) {
   return { store, domain };
 }
 
-function nagagoldHeaders() {
+function pickApiKeyFromStore(store) {
+  return store?.nagagoldApiKey
+    || store?.openApiKey
+    || store?.apiKey
+    || store?.nagagold_api_key
+    || '';
+}
+
+function nagagoldHeaders(store) {
   if (!tokenPusat) {
     throw new Error('TOKEN_PUSAT is required.');
   }
@@ -78,11 +86,12 @@ function nagagoldHeaders() {
     'x-token-pusat': tokenPusat,
   };
 
-  if (nagagoldApiKey) {
+  const apiKey = pickApiKeyFromStore(store) || nagagoldApiKey;
+  if (apiKey) {
     const timestamp = new Date().toISOString();
-    headers['api-key'] = nagagoldApiKey;
+    headers['api-key'] = apiKey;
     headers.timestamp = timestamp;
-    headers.signature = crypto.createHash('sha256').update(`${nagagoldApiKey}${timestamp}`).digest('hex');
+    headers.signature = crypto.createHash('sha256').update(`${apiKey}${timestamp}`).digest('hex');
   }
 
   return headers;
@@ -97,7 +106,7 @@ async function nagagoldFetch(path, init = {}, context = {}) {
     response = await fetch(url, {
       ...init,
       headers: {
-        ...nagagoldHeaders(),
+        ...nagagoldHeaders(store),
         ...(init.headers || {}),
       },
     });

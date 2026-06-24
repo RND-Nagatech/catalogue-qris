@@ -3,6 +3,7 @@ import * as ImagePicker from "expo-image-picker";
 import React, { useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Image,
   Modal,
@@ -14,7 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { AppHeader, EmptyState, PrimaryButton, SecondaryButton } from "../components/ui";
+import { EmptyState, PrimaryButton, SecondaryButton } from "../components/ui";
 import { type CatalogueProduct, getCatalogueImageUrl, searchCatalogueByImage } from "../lib/catalogueStore";
 import { useAppTheme } from "../lib/theme";
 
@@ -32,6 +33,29 @@ export default function ImageSearchScreen() {
   const [searched, setSearched] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [webCameraOpen, setWebCameraOpen] = useState(false);
+  const searchRunRef = useRef(0);
+
+  const resetSearchState = () => {
+    searchRunRef.current += 1;
+    setImageUri("");
+    setResults([]);
+    setLoading(false);
+    setError("");
+    setSearched(false);
+    setRefreshing(false);
+    setWebCameraOpen(false);
+  };
+
+  const confirmResetSearch = () => {
+    Alert.alert(
+      "Reset pencarian?",
+      "Gambar dan hasil pencarian saat ini akan dihapus.",
+      [
+        { text: "Batal", style: "cancel" },
+        { text: "Reset", style: "destructive", onPress: resetSearchState },
+      ]
+    );
+  };
 
   const pickAndSearch = async (source: "camera" | "gallery") => {
     try {
@@ -63,6 +87,7 @@ export default function ImageSearchScreen() {
 
   const runSearch = async (uri = imageUri, mode: "normal" | "refresh" = "normal") => {
     if (!uri) return;
+    const searchRun = ++searchRunRef.current;
     try {
       if (mode === "refresh") setRefreshing(true);
       else setLoading(true);
@@ -70,10 +95,13 @@ export default function ImageSearchScreen() {
       setImageUri(uri);
       setSearched(true);
       const data = await searchCatalogueByImage(uri, 20);
+      if (searchRun !== searchRunRef.current) return;
       setResults(data);
     } catch (err) {
+      if (searchRun !== searchRunRef.current) return;
       setError(err instanceof Error ? err.message : "Gagal mencari produk dari gambar.");
     } finally {
+      if (searchRun !== searchRunRef.current) return;
       setLoading(false);
       setRefreshing(false);
     }
@@ -81,7 +109,7 @@ export default function ImageSearchScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      <AppHeader title="Search Image" topInset={insets.top} />
+      <ImageSearchHeader topInset={insets.top} />
 
       {!searched ? (
         <View style={styles.hero}>
@@ -119,6 +147,20 @@ export default function ImageSearchScreen() {
               <View style={styles.resultActions}>
                 <SecondaryButton title="Galeri" icon="images-outline" onPress={() => pickAndSearch("gallery")} style={{ flex: 1 }} />
                 <PrimaryButton title="Kamera" icon="camera-outline" onPress={() => pickAndSearch("camera")} style={{ flex: 1 }} />
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Reset pencarian"
+                  onPress={confirmResetSearch}
+                  style={({ pressed }) => [
+                    styles.resetIconButton,
+                    {
+                      borderColor: theme.colors.error,
+                      backgroundColor: pressed ? theme.colors.errorContainer : theme.colors.surfaceContainerLowest,
+                    },
+                  ]}
+                >
+                  <Ionicons name="refresh-outline" size={22} color={theme.colors.error} />
+                </Pressable>
               </View>
               {error ? <Text style={[theme.typography.bodySmall, styles.errorText, { color: theme.colors.error }]}>{error}</Text> : null}
             </View>
@@ -137,6 +179,31 @@ export default function ImageSearchScreen() {
         }}
         onError={setError}
       />
+    </View>
+  );
+}
+
+function ImageSearchHeader({ topInset }: { topInset: number }) {
+  const theme = useAppTheme();
+
+  return (
+    <View
+      style={[
+        styles.searchHeader,
+        {
+          backgroundColor: theme.colors.surface,
+          borderBottomColor: theme.colors.divider,
+          paddingTop: topInset,
+        },
+      ]}
+    >
+      <Pressable accessibilityRole="button" style={styles.searchHeaderIconButton}>
+        <Ionicons name="menu-outline" size={24} color={theme.colors.primary} />
+      </Pressable>
+      <Text style={[theme.typography.title, styles.searchHeaderTitle, { color: theme.colors.primary }]}>Image Search</Text>
+      <Pressable accessibilityRole="button" style={styles.searchHeaderIconButton} onPress={theme.toggleTheme}>
+        <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={23} color={theme.colors.primary} />
+      </Pressable>
     </View>
   );
 }
@@ -277,6 +344,9 @@ function SearchResultCard({ product }: { product: CatalogueProduct }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
+  searchHeader: { minHeight: 64, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", paddingHorizontal: 16 },
+  searchHeaderTitle: { flex: 1, fontSize: 22, lineHeight: 30 },
+  searchHeaderIconButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   hero: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24, paddingBottom: 90 },
   heroIcon: { width: 118, height: 118, borderRadius: 40, alignItems: "center", justifyContent: "center", marginBottom: 22 },
   heroTitle: { textAlign: "center", marginBottom: 8 },
@@ -289,6 +359,7 @@ const styles = StyleSheet.create({
   resultHeader: { alignItems: "center", gap: 12, paddingBottom: 14 },
   resultImage: { width: 116, height: 116, borderRadius: 24, borderWidth: 1 },
   resultActions: { flexDirection: "row", gap: 12, alignSelf: "stretch" },
+  resetIconButton: { width: 52, minHeight: 52, borderWidth: 1, borderRadius: 14, alignItems: "center", justifyContent: "center" },
   resultCard: { borderWidth: 1, borderRadius: 18, padding: 12, marginBottom: 12, flexDirection: "row", gap: 12, alignItems: "center" },
   resultThumb: { width: 72, height: 72, borderRadius: 16, overflow: "hidden", alignItems: "center", justifyContent: "center" },
   resultThumbImage: { width: "100%", height: "100%" },

@@ -21,7 +21,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { EmptyState } from "../components/ui";
 import {
   authorizeNagagoldTransaction,
-  loadQrisString,
+  loadActiveQrisSetting,
+  loadNagagoldStores,
   lookupNagagoldMemberByCode,
   lookupNagagoldPurchaseItem,
   lookupNagagoldSaleItem,
@@ -35,6 +36,7 @@ import {
   type NagagoldSaleLookupItem,
   type NagagoldSalesCapabilities,
   type NagagoldSalesPerson,
+  type NagagoldStore,
 } from "../lib/dataStore";
 import { generateDynamicQris } from "../contohqris";
 import { formatRupiah, getMerchantInfo, normalizeQris } from "../lib/qris";
@@ -156,8 +158,13 @@ export default function Sales() {
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const nagagoldConfig = useNagagoldConfig();
+  const [stores, setStores] = useState<NagagoldStore[]>([]);
+  const [selectedStore, setSelectedStore] = useState<NagagoldStore | null>(null);
+  const [isLoadingStores, setIsLoadingStores] = useState(false);
+  const [storeError, setStoreError] = useState("");
   const [domain, setDomain] = useState("");
   const [savedQris, setSavedQris] = useState("");
+  const [isQrisActive, setIsQrisActive] = useState(true);
   const [salesCapabilities, setSalesCapabilities] = useState<NagagoldSalesCapabilities>(defaultSalesCapabilities);
   const [salesPeople, setSalesPeople] = useState<NagagoldSalesPerson[]>([]);
   const [marketplaces, setMarketplaces] = useState<NagagoldMarketplace[]>([]);
@@ -212,6 +219,7 @@ export default function Sales() {
   const [discountAuthorizationId, setDiscountAuthorizationId] = useState("");
   const discountAuthorizationTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [items, setItems] = useState<SaleItem[]>([]);
+  const activeStoreId = selectedStore ? branchStoreId(selectedStore) : undefined;
 
   const applyRuntimeConfig = useCallback((config: typeof nagagoldConfig.config) => {
     if (!config) return;
@@ -228,15 +236,17 @@ export default function Sales() {
 
   useFocusEffect(
     useCallback(() => {
+      if (!activeStoreId) return undefined;
       let active = true;
       setIsLoadingMaster(true);
       Promise.all([
-        loadQrisString().catch(() => ""),
-        nagagoldConfig.config ? Promise.resolve(nagagoldConfig.config) : nagagoldConfig.reloadConfig(),
+        loadActiveQrisSetting(activeStoreId).catch(() => null),
+        nagagoldConfig.reloadConfig(activeStoreId),
       ])
-        .then(([nextQris, config]) => {
+        .then(([qrisSetting, config]) => {
           if (!active) return;
-          setSavedQris(nextQris);
+          setSavedQris(qrisSetting?.qris_string ?? "");
+          setIsQrisActive(qrisSetting ? qrisSetting.qris_active !== false : true);
           applyRuntimeConfig(config);
         })
         .catch(() => {
@@ -248,12 +258,30 @@ export default function Sales() {
       return () => {
         active = false;
       };
-    }, [applyRuntimeConfig, nagagoldConfig])
+    }, [activeStoreId, applyRuntimeConfig, nagagoldConfig.reloadConfig])
   );
 
   useEffect(() => {
-    applyRuntimeConfig(nagagoldConfig.config);
-  }, [applyRuntimeConfig, nagagoldConfig.config?.version]);
+    if (activeStoreId) applyRuntimeConfig(nagagoldConfig.config);
+  }, [activeStoreId, applyRuntimeConfig, nagagoldConfig.config?.version]);
+
+  useEffect(() => {
+    let active = true;
+    setIsLoadingStores(true);
+    loadNagagoldStores()
+      .then((items) => {
+        if (active) setStores(items);
+      })
+      .catch((error) => {
+        if (active) setStoreError(error instanceof Error ? error.message : "Data cabang belum bisa dimuat.");
+      })
+      .finally(() => {
+        if (active) setIsLoadingStores(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -298,7 +326,7 @@ export default function Sales() {
 
     setIsLookingUpMember(true);
     try {
-      const member = await lookupNagagoldMemberByCode(code);
+      const member = await lookupNagagoldMemberByCode(code, { storeId: activeStoreId });
       if (!member) {
         Alert.alert("Member tidak ditemukan", "Kode member tidak ada di database NAGAGOLD.");
         return;
@@ -324,7 +352,7 @@ export default function Sales() {
 
     setIsLookingUpMember(true);
     try {
-      const results = await searchNagagoldMembers(phoneQuery ? "hp" : "nama", query);
+      const results = await searchNagagoldMembers(phoneQuery ? "hp" : "nama", query, { storeId: activeStoreId });
       setMemberResults(results);
       if (!results.length) {
         Alert.alert("Customer tidak ditemukan", "Tidak ada member yang cocok dengan kata kunci tersebut.");
@@ -354,7 +382,7 @@ export default function Sales() {
 
     setIsLookingUpItem(true);
     try {
-      const item = await lookupNagagoldSaleItem(barcode);
+      const item = await lookupNagagoldSaleItem(barcode, { storeId: activeStoreId });
       if (String(item.no_pesanan ?? "-") !== "-") {
         Alert.alert("Barang pesanan", "Barang ini terdaftar sebagai barang pesanan dan tidak bisa dipakai di transaksi biasa.");
         return;
@@ -525,6 +553,7 @@ export default function Sales() {
     setIsAuthorizing(true);
     try {
       const result = await authorizeNagagoldTransaction({
+        storeId: activeStoreId,
         username: data.username,
         password: data.password,
         kategori: "EDIT HARGA / BERAT DI TRANSAKSI PENJUALAN",
@@ -549,6 +578,7 @@ export default function Sales() {
     setIsAuthorizingDiscount(true);
     try {
       const result = await authorizeNagagoldTransaction({
+        storeId: activeStoreId,
         username: data.username,
         password: data.password,
         kategori: "OTORISASI",
@@ -623,7 +653,7 @@ export default function Sales() {
 
   const submit = () => {
     if (!domain) {
-      Alert.alert("Domain belum diatur", "Isi domain NAGAGOLD di menu Pengaturan terlebih dahulu.");
+      Alert.alert("Cabang belum dipilih", "Pilih cabang aktif transaksi terlebih dahulu.");
       return;
     }
     if (salesCapabilities.requireSales && !kodeSales.trim()) {
@@ -670,7 +700,7 @@ export default function Sales() {
 
     setIsLookingUpExchange(true);
     try {
-      const item = await lookupNagagoldPurchaseItem(barcode);
+      const item = await lookupNagagoldPurchaseItem(barcode, undefined, { storeId: activeStoreId });
       const hargaNota = Number(item.harga_jual ?? 0) + Number(item.harga_atribut ?? 0);
       const hargaBeli = Number(item.harga_beli ?? item.harga_modal ?? hargaNota) || hargaNota;
       setExchangeLookup(item);
@@ -744,6 +774,7 @@ export default function Sales() {
     setIsSubmitting(true);
     try {
       await submitNagagoldSale({
+        storeId: activeStoreId,
         kodeSales: kodeSales.trim(),
         kodeMember: normalizeCustomerType(jenisCustomer) === "NONMEMBER" ? "NONMEMBER" : kodeMember.trim(),
         namaCustomer: namaCustomer.trim() || "REGULER",
@@ -881,6 +912,52 @@ export default function Sales() {
     />
   ) : null;
 
+  if (!selectedStore) {
+    return (
+      <>
+        <SalesHeader topInset={insets.top} />
+        <ScrollView
+          contentContainerStyle={[
+            styles.branchContainer,
+            {
+              backgroundColor: theme.colors.background,
+              paddingBottom: 64 + Math.max(insets.bottom, 18) + 32,
+            },
+          ]}
+        >
+          <View style={[styles.branchIntro, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, theme.elevation.level1]}>
+            <Ionicons name="business-outline" size={24} color={theme.colors.primary} />
+            <View style={styles.branchIntroText}>
+              <Text style={[styles.branchTitle, { color: theme.colors.text }]}>Pilih Cabang Penjualan</Text>
+              <Text style={[styles.branchSubtitle, { color: theme.colors.muted }]}>Cabang ini menjadi domain aktif dan tempat transaksi penjualan dicatat.</Text>
+            </View>
+          </View>
+          {isLoadingStores ? (
+            <Text style={[styles.branchMessage, { color: theme.colors.muted }]}>Memuat cabang...</Text>
+          ) : null}
+          {storeError ? (
+            <Text style={[styles.branchMessage, { color: theme.colors.danger }]}>{storeError}</Text>
+          ) : null}
+          <View style={styles.branchList}>
+            {stores.map((store, index) => (
+              <Pressable
+                key={branchStoreKey(store, index)}
+                style={[styles.branchOption, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }, theme.elevation.level1]}
+                onPress={() => setSelectedStore(store)}
+              >
+                <View style={styles.branchOptionText}>
+                  <Text style={[styles.branchName, { color: theme.colors.text }]}>{store.name}</Text>
+                  <Text style={[styles.branchMeta, { color: theme.colors.muted }]}>{store.nagagoldDomain || store.domain || store.baseUrl || store.apiUrl || "-"}</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={theme.colors.primary} />
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      </>
+    );
+  }
+
   return (
     <>
       <SalesHeader topInset={insets.top} />
@@ -895,6 +972,20 @@ export default function Sales() {
         ]}
         keyboardShouldPersistTaps="handled"
       >
+        <View style={[styles.activeStoreBanner, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]}>
+          <Ionicons name="business-outline" size={16} color={theme.colors.primary} />
+          <Text style={[styles.activeStoreText, { color: theme.colors.text }]}>Cabang Aktif: {selectedStore.name}</Text>
+          <Pressable
+            style={[styles.activeStoreChange, { backgroundColor: theme.colors.surfaceContainer }]}
+            onPress={() => {
+              resetTransaction();
+              setDomain("");
+              setSelectedStore(null);
+            }}
+          >
+            <Text style={[styles.activeStoreChangeText, { color: theme.colors.primary }]}>Ganti</Text>
+          </Pressable>
+        </View>
         <View style={[styles.customerCard, theme.elevation.level1, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder, borderLeftColor: theme.colors.tertiaryContainer }]}>
           <InfoLine icon="person" label="Nama Customer" value={namaCustomer || "-"} tone="primary" />
           <InfoLine icon="pricetag" label="Jenis" value={jenisCustomer} tone="secondary" />
@@ -1103,6 +1194,7 @@ export default function Sales() {
         feePercent={paymentFeePercent}
         setFeePercent={setPaymentFeePercent}
         qrisString={savedQris}
+        qrisActive={isQrisActive}
         allowQrisOnTransfer={salesCapabilities.allowQrisOnTransfer}
         paymentUsesQris={paymentUsesQris}
         setPaymentUsesQris={setPaymentUsesQris}
@@ -1189,6 +1281,14 @@ function SalesHeader({ topInset }: { topInset: number }) {
       </Pressable>
     </View>
   );
+}
+
+function branchStoreKey(store: NagagoldStore, index: number): string {
+  return `${branchStoreId(store) || store.name || store.nagagoldDomain || store.domain || store.baseUrl || store.apiUrl || "store"}-${index}`;
+}
+
+function branchStoreId(store: NagagoldStore): string {
+  return String(store.id || store._id || "");
 }
 
 function InfoLine({
@@ -1519,6 +1619,7 @@ function PaymentModal(props: {
   feePercent: string;
   setFeePercent: (value: string) => void;
   qrisString: string;
+  qrisActive: boolean;
   allowQrisOnTransfer: boolean;
   paymentUsesQris: boolean;
   setPaymentUsesQris: (value: boolean) => void;
@@ -1548,12 +1649,16 @@ function PaymentModal(props: {
   const exchangeTotal = props.exchangeItems.reduce((sum, item) => sum + item.hargaBeli, 0);
   const generateTransferQris = () => {
     if (props.method !== "TRANSFER") return;
+    if (!props.qrisActive) {
+      Alert.alert("QRIS nonaktif", "Pembayaran QRIS untuk cabang ini sedang dinonaktifkan.");
+      return;
+    }
     if (qrisAmount <= 0) {
       Alert.alert("Nominal belum valid", "Isi nominal transfer atau pastikan masih ada sisa pembayaran.");
       return;
     }
     if (!buildPaymentQris(props.qrisString, qrisAmount)) {
-      Alert.alert("QRIS belum siap", "Simpan QRIS merchant di Pengaturan terlebih dahulu.");
+      Alert.alert("QRIS belum siap", "QRIS untuk cabang ini belum disetting");
       return;
     }
     if (amount <= 0) {
@@ -1608,12 +1713,18 @@ function PaymentModal(props: {
       {props.method === "TRANSFER" && props.allowQrisOnTransfer ? (
         <>
           <Pressable
-            style={[styles.qrisGenerateButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]}
+            accessibilityState={{ disabled: !props.qrisActive }}
+            disabled={!props.qrisActive}
+            style={[
+              styles.qrisGenerateButton,
+              { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: props.qrisActive ? theme.colors.primary : theme.colors.outlineVariant },
+              !props.qrisActive && styles.disabledButton,
+            ]}
             onPress={generateTransferQris}
           >
-            <Ionicons name="qr-code-outline" size={18} color={theme.colors.primary} />
-            <Text style={[styles.qrisGenerateText, { color: theme.colors.primary }]}>
-              {showTransferQris ? "Update QRIS Transfer" : "Generate QRIS Transfer"}
+            <Ionicons name="qr-code-outline" size={18} color={props.qrisActive ? theme.colors.primary : theme.colors.subtleText} />
+            <Text style={[styles.qrisGenerateText, { color: props.qrisActive ? theme.colors.primary : theme.colors.subtleText }]}>
+              {!props.qrisActive ? "QRIS Cabang Nonaktif" : showTransferQris ? "Update QRIS Transfer" : "Generate QRIS Transfer"}
             </Text>
           </Pressable>
           {showTransferQris ? (
@@ -2500,6 +2611,56 @@ const styles = StyleSheet.create({
     paddingTop: Platform.OS === "ios" ? 18 : 16,
     paddingBottom: 112,
   },
+  branchContainer: {
+    backgroundColor: colors.background,
+    gap: 14,
+    paddingHorizontal: 20,
+    paddingTop: 24,
+  },
+  branchIntro: {
+    alignItems: "flex-start",
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    padding: 16,
+  },
+  branchIntroText: { flex: 1, gap: 4 },
+  branchTitle: { fontSize: 18, fontWeight: "800" },
+  branchSubtitle: { fontSize: 13, fontWeight: "600", lineHeight: 19 },
+  branchMessage: { fontSize: 13, fontWeight: "700" },
+  branchList: { gap: 10 },
+  branchOption: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    minHeight: 64,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  branchOptionText: { flex: 1, gap: 3 },
+  branchName: { fontSize: 14, fontWeight: "800" },
+  branchMeta: { fontSize: 11, fontWeight: "600" },
+  activeStoreBanner: {
+    alignItems: "center",
+    borderRadius: 14,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  activeStoreText: { flex: 1, fontSize: 13, fontWeight: "800" },
+  activeStoreChange: {
+    alignItems: "center",
+    borderRadius: 999,
+    justifyContent: "center",
+    minHeight: 30,
+    paddingHorizontal: 12,
+  },
+  activeStoreChangeText: { fontSize: 12, fontWeight: "800" },
   salesHeader: {
     alignItems: "center",
     borderBottomWidth: StyleSheet.hairlineWidth,

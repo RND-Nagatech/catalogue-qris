@@ -15,6 +15,7 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useFocusEffect } from "expo-router";
 import { AppHeader, CardContainer, EmptyState, PrimaryButton, SecondaryButton } from "../components/ui";
 import {
   type CatalogueFilterOption,
@@ -106,9 +107,11 @@ export default function CatalogueScreen() {
       .catch(() => undefined);
   }, []);
 
-  useEffect(() => {
-    fetchProducts(1, "reset");
-  }, [fetchProducts]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchProducts(1, "refresh");
+    }, [fetchProducts]),
+  );
 
   const submitSearch = () => {
     setSearch(searchDraft.trim());
@@ -323,11 +326,11 @@ function OptionGroup({ title, value, options, onChange }: { title: string; value
         >
           <Text style={[theme.typography.labelSmall, { color: !value ? theme.colors.primary : theme.colors.muted }]}>Semua</Text>
         </Pressable>
-        {options.map((option) => {
+        {options.map((option, index) => {
           const active = value === option.code;
           return (
             <Pressable
-              key={`${title}-${option.code}`}
+              key={`${title}-${option.code || option.name || "option"}-${index}`}
               onPress={() => onChange(option.code)}
               style={[styles.chip, { borderColor: active ? theme.colors.primary : theme.colors.cardBorder, backgroundColor: active ? theme.colors.successContainer : theme.colors.surfaceContainerLow }]}
             >

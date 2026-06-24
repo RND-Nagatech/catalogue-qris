@@ -1,5 +1,6 @@
 const mongoManager = require('./mongo-manager');
 const Encryptor = require('../utils/encryptor');
+const { getStores, getStoreById } = require('../config/store-config');
 
 // Master catalog — query langsung dari DB yang sudah terdecrypt
 async function queryMasterCatalog(filters) {
@@ -11,6 +12,7 @@ async function queryMasterCatalog(filters) {
     const query = {};
 
     // Filter exact
+    query.stock_on_hand = { $gt: 0 };
     if (group) query.kode_group = group;
     if (dept) query.kode_dept = dept;
     if (toko) query.kode_toko = toko;
@@ -205,13 +207,6 @@ async function fetchFromStorePaginated(store, filters) {
 async function getProducts(stores, filters = {}) {
   const { storeId, page = 1, limit = 20, search, group, dept, toko } = filters;
 
-  // === PRIORITY: Query Master Catalog (terdecrypt, cepat) ===
-  const masterResult = await queryMasterCatalog(filters);
-  if (masterResult && masterResult.meta.total > 0) {
-    return masterResult;
-  }
-
-  // === FALLBACK: Multi-store query (lama) ===
   const targetStores = storeId
     ? stores.filter((s) => s.id === storeId)
     : stores;
@@ -238,6 +233,11 @@ async function getProducts(stores, filters = {}) {
         }));
         allItems = allItems.concat(tagged);
       }
+    }
+
+    if (!allItems.length && results.every((result) => result.status === 'rejected')) {
+      const masterResult = await queryMasterCatalog(filters);
+      if (masterResult) return masterResult;
     }
 
     const decrypted = decryptItems(allItems);
@@ -271,8 +271,76 @@ async function getProducts(stores, filters = {}) {
     }
   }
 
+  if (!allItems.length && results.every((result) => result.status === 'rejected')) {
+    const masterResult = await queryMasterCatalog(filters);
+    if (masterResult) return masterResult;
+  }
+
   // Tidak double-paginate — return semua merged items dari page ini
   return { data: allItems, meta: { page, limit, total: grandTotal } };
 }
 
-module.exports = { getProducts, PRODUCT_FIELDS };
+function normalizeSaleCode(value) {
+  return String(value || '').trim().toUpperCase();
+}
+
+function saleItemCodes(item = {}) {
+  const raw = item.raw || {};
+  return Array.from(new Set([
+    item.kodeBarcode,
+    item.kodeBarang,
+    item.kode_barcode,
+    item.kode_barang,
+    raw.kode_barcode,
+    raw.kode_barang,
+  ].map(normalizeSaleCode).filter(Boolean)));
+}
+
+async function decrementByCodes(collection, queryBase, codes, qty) {
+  if (!codes.length) return 0;
+  const docs = await collection.find({
+    ...queryBase,
+    $or: [
+      { kode_barcode: { $in: codes } },
+      { kode_barang: { $in: codes } },
+    ],
+  }).project({ _id: 1, stock_on_hand: 1 }).toArray();
+
+  let updated = 0;
+  for (const doc of docs) {
+    const currentStock = Number(doc.stock_on_hand ?? 0);
+    const nextStock = Math.max(0, currentStock - qty);
+    await collection.updateOne({ _id: doc._id }, { $set: { stock_on_hand: nextStock, updatedAt: new Date().toISOString() } });
+    updated += 1;
+  }
+  return updated;
+}
+
+async function markCatalogueItemsSold(storeId, items = []) {
+  const saleItems = Array.isArray(items) ? items : [];
+  if (!saleItems.length) return { masterUpdated: 0, storeUpdated: 0 };
+
+  const stores = storeId
+    ? [await getStoreById(String(storeId))]
+    : [((await getStores())[0] || null)];
+  const store = stores[0];
+  if (!store) return { masterUpdated: 0, storeUpdated: 0 };
+
+  let masterUpdated = 0;
+  let storeUpdated = 0;
+  const configDb = await mongoManager.getConfigDb();
+  const masterCollection = configDb.collection('master_catalog');
+  const storeDb = await mongoManager.getDb(store.mongoUri, store.dbName);
+  const barangCollection = storeDb.collection('tm_barang');
+
+  for (const item of saleItems) {
+    const codes = saleItemCodes(item);
+    const qty = Math.max(1, Number(item.qty ?? item.raw?.qty ?? 1) || 1);
+    masterUpdated += await decrementByCodes(masterCollection, { storeId: store.id }, codes, qty);
+    storeUpdated += await decrementByCodes(barangCollection, {}, codes, qty);
+  }
+
+  return { masterUpdated, storeUpdated };
+}
+
+module.exports = { getProducts, markCatalogueItemsSold, PRODUCT_FIELDS };

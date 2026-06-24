@@ -19,6 +19,7 @@ const { settingsRoutes, getSettings } = require('./routes/settings');
 const whatsappRoutes = require('./routes/whatsapp');
 const imageIndexRoutes = require('./routes/image-index');
 const qrisRoutes = require('./routes/qris');
+const qrisSettingsRoutes = require('./routes/qris-settings');
 const compatRoutes = require('./routes/compat');
 const nagagoldRoutes = require('./routes/nagagold');
 const { runUnifiedSync, getStatus: getUnifiedStatus } = require('./services/unified-cron');
@@ -47,6 +48,7 @@ async function start() {
   await fastify.register(whatsappRoutes, { prefix: '/api/whatsapp' });
   await fastify.register(imageIndexRoutes, { prefix: '/api/image-index' });
   await fastify.register(qrisRoutes, { prefix: '/api/qris' });
+  await fastify.register(qrisSettingsRoutes, { prefix: '/api/qris-settings' });
   await fastify.register(nagagoldRoutes, { prefix: '/api/nagagold' });
   await fastify.register(compatRoutes);
 

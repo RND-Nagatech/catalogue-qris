@@ -17,6 +17,41 @@ const {
   unwrapNagagoldData,
 } = require('./helpers');
 
+const IMPORTANT_PARAMETER_KEYS = new Set([
+  'PEMBULATAN',
+  'PEMBULATAN_PEMBELIAN',
+  'HARGA_EMAS',
+  'HARGA_BELI',
+  'HARGA_RATA',
+  'PPN',
+  'PAJAK',
+]);
+
+function isImportantParameter(parameter) {
+  const key = String(parameter?.key || parameter?.kode || parameter?.name || '').toUpperCase();
+  if (!key) return false;
+  if (IMPORTANT_PARAMETER_KEYS.has(key)) return true;
+  return (
+    key.includes('TRANSAKSI')
+    || key.includes('PENJUALAN')
+    || key.includes('PEMBELIAN')
+    || key.includes('OTORISASI')
+    || key.includes('PEMBULATAN')
+    || key.includes('PPN')
+    || key.includes('PAJAK')
+  );
+}
+
+function buildModuleConfigPayload({ modules, parameters, transactionConfig, marketplaceSettings, purchaseRounding }) {
+  return {
+    modules,
+    importantParameters: parameters.filter(isImportantParameter),
+    transactionConfig,
+    marketplaceSettings,
+    purchaseRounding,
+  };
+}
+
 async function safeNagagoldFetch(path, init, context) {
   try {
     const response = await nagagoldFetch(path, init, context);
@@ -63,26 +98,26 @@ async function loadRuntimeConfig(context = {}) {
   const transactionConfig = unwrapNagagoldData(transactionConfigResponse.data);
   const marketplaceSettings = unwrapNagagoldData(marketplaceSettingsResponse.data);
   const dynamicFeatures = buildDynamicFeatures(modules, parameters);
-  const payloadForVersion = {
+  const purchaseRounding = {
+    value: asNumber(pembulatanData?.value) || 500,
+    roundDown: modules.some((item) => item.key === 'PEMBULATAN_PEMBELIAN_KEBAWAH_MODULE'),
+    disableAuthorizationAboveNota: purchaseCapabilities.disableAuthorizationAboveNota,
+    disableAuthorizationBelowNota: purchaseCapabilities.disableAuthorizationBelowNota,
+  };
+  const moduleConfigPayload = buildModuleConfigPayload({
     modules,
     parameters,
     transactionConfig,
     marketplaceSettings,
-    masters: {
-      rekenings: rekeningResponse.data,
-      tokos: tokoResponse.data,
-      sales: salesResponse.data,
-      marketplaces: marketplaceResponse.data,
-      jenis: jenisResponse.data,
-      kondisi: kondisiResponse.data,
-      groups: groupResponse.data,
-    },
-  };
+    purchaseRounding,
+  });
+  const moduleConfigHash = createConfigVersion(moduleConfigPayload);
 
   return {
     domain: moduleResponse.domain,
     store: moduleResponse.store,
-    version: createConfigVersion(payloadForVersion),
+    version: moduleConfigHash,
+    module_config_hash: moduleConfigHash,
     loadedAt: new Date().toISOString(),
     modules,
     parameters,
@@ -101,12 +136,7 @@ async function loadRuntimeConfig(context = {}) {
       jenis: Array.isArray(jenisResponse.data) ? jenisResponse.data : [],
       kondisi: Array.isArray(kondisiResponse.data) ? kondisiResponse.data : [],
       groups: Array.isArray(groupResponse.data) ? groupResponse.data : [],
-      purchaseRounding: {
-        value: asNumber(pembulatanData?.value) || 500,
-        roundDown: modules.some((item) => item.key === 'PEMBULATAN_PEMBELIAN_KEBAWAH_MODULE'),
-        disableAuthorizationAboveNota: purchaseCapabilities.disableAuthorizationAboveNota,
-        disableAuthorizationBelowNota: purchaseCapabilities.disableAuthorizationBelowNota,
-      },
+      purchaseRounding,
     },
   };
 }
@@ -167,10 +197,11 @@ async function loadConfigVersion(context = {}) {
     return {
       domain: config.domain,
       status: 'OK',
-      version: config.version,
+      version: config.module_config_hash,
+      module_config_hash: config.module_config_hash,
       loadedAt: config.loadedAt,
       moduleCount: config.modules.length,
-      parameterCount: config.parameters.length,
+      parameterCount: config.parameters.filter(isImportantParameter).length,
       dynamicFeatureCount: config.dynamicFeatures.length,
     };
   } catch (error) {

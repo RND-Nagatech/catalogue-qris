@@ -26,6 +26,7 @@ function RootTabs() {
     <>
       <StatusBar style={theme.isDark ? "light" : "dark"} />
       <Tabs
+        initialRouteName="catalogue"
         screenOptions={createBottomTabScreenOptions(theme, insets.bottom)}
       >
         <Tabs.Screen
@@ -63,22 +64,8 @@ function RootTabs() {
             tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} />,
           }}
         />
-        <Tabs.Screen
-          name="index"
-          options={{
-            href: null,
-            title: "Beranda",
-            tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="history"
-          options={{
-            href: null,
-            title: "Riwayat",
-            tabBarIcon: ({ color, size }) => <Ionicons name="time-outline" color={color} size={size} />,
-          }}
-        />
+        <Tabs.Screen name="index" options={{ href: null }} />
+        <Tabs.Screen name="history" options={{ href: null }} />
       </Tabs>
     </>
   );

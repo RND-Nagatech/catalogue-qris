@@ -1,4 +1,5 @@
 const { nagagoldFetch, nagagoldRequest } = require('./client-service');
+const { markCatalogueItemsSold } = require('../product-service');
 const {
   asNumber,
   asText,
@@ -169,7 +170,17 @@ async function submitSale(input, context = {}) {
   }
   const payload = buildSalePayload(input);
   const response = await nagagoldRequest('/api/v1/penjualan/simpan', payload, context);
-  return { ok: true, endpoint: '/api/v1/penjualan/simpan', response, payload };
+  const saleItems = input.items?.length
+    ? input.items
+    : [{ kodeBarcode: input.kodeBarcode, kodeBarang: input.kodeBarang, raw: input.raw }];
+  let catalogueSync = null;
+  try {
+    catalogueSync = await markCatalogueItemsSold(context.storeId || input.storeId, saleItems);
+  } catch (error) {
+    console.warn('[sales] Gagal sync stock catalogue setelah penjualan:', error.message);
+    catalogueSync = { error: error.message };
+  }
+  return { ok: true, endpoint: '/api/v1/penjualan/simpan', response, payload, catalogueSync };
 }
 
 async function authorize(input, context = {}) {

@@ -35,6 +35,7 @@ type PaymentPayload = {
 };
 
 export type NagagoldSalePayload = {
+  storeId?: string;
   kodeSales: string;
   kodeMember: string;
   namaCustomer: string;
@@ -82,6 +83,7 @@ export type NagagoldSalePayload = {
 };
 
 export type NagagoldPurchasePayload = {
+  storeId?: string;
   kodeSales: string;
   namaSales: string;
   kodeToko?: string;
@@ -134,6 +136,7 @@ export type NagagoldSubmitResult = {
 };
 
 export type NagagoldAuthorizationPayload = {
+  storeId?: string;
   username: string;
   password: string;
   kategori: string;
@@ -195,6 +198,41 @@ export type NagagoldDashboard = {
 export type NagagoldSettings = {
   domain: string;
   connection: NagagoldConnectionStatus | null;
+};
+
+export type NagagoldStore = {
+  _id?: string;
+  id?: string;
+  name: string;
+  firebaseCode?: string;
+  nagagoldDomain?: string;
+  domain?: string;
+  baseUrl?: string;
+  apiUrl?: string;
+  qris_string?: string;
+  merchant_name?: string;
+  merchant_city?: string;
+  qris_active?: boolean;
+};
+
+export type QrisSettingStoreRef = {
+  store_id: string;
+  kode_cabang?: string;
+  nama_cabang: string;
+  domain?: string;
+};
+
+export type QrisSetting = {
+  _id?: string;
+  id: string;
+  nama_qris: string;
+  qris_string: string;
+  merchant_name?: string;
+  merchant_city?: string;
+  qris_active: boolean;
+  stores: QrisSettingStoreRef[];
+  created_at?: string;
+  updated_at?: string;
 };
 
 export type NagagoldSalesPerson = {
@@ -301,6 +339,7 @@ export type NagagoldBootstrap = {
 
 export type NagagoldRuntimeConfig = Required<Pick<NagagoldBootstrap, "domain" | "modules" | "capabilities" | "masters">> & {
   version: string;
+  module_config_hash?: string;
   loadedAt: string;
   parameters: NagagoldSystemParameter[];
   transactionConfig: unknown;
@@ -312,6 +351,7 @@ export type NagagoldConfigVersion = {
   domain: string;
   status?: "OK" | "CONNECTION_ERROR" | "FETCH_FAILED" | "NO_CHANGE";
   version?: string;
+  module_config_hash?: string;
   loadedAt?: string;
   moduleCount?: number;
   parameterCount?: number;
@@ -470,15 +510,19 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
     throw new Error("API URL is not configured.");
   }
 
+  const headers = new Headers(init?.headers);
+  if (init?.body !== undefined && !headers.has("Content-Type")) {
+    headers.set("Content-Type", "application/json");
+  }
+  if (API_KEY && !headers.has("x-api-key")) {
+    headers.set("x-api-key", API_KEY);
+  }
+
   let response: Response;
   try {
     response = await fetch(`${API_URL}${path}`, {
       ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...(API_KEY ? { "x-api-key": API_KEY } : {}),
-        ...(init?.headers ?? {}),
-      },
+      headers,
     });
   } catch {
     throw new Error("Backend API tidak bisa dijangkau. Pastikan server berjalan dan EXPO_PUBLIC_API_URL memakai IP yang benar.");
@@ -486,7 +530,15 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!response.ok) {
     const body = await response.json().catch(() => null);
-    throw new Error(body?.message ?? "API request failed.");
+    const errorPayload = body?.error;
+    const message = body?.message
+      ?? (typeof errorPayload === "object" ? errorPayload?.message : errorPayload)
+      ?? "API request failed.";
+    const error = new Error(message);
+    if (typeof errorPayload === "object" && errorPayload?.conflicts) {
+      (error as Error & { conflicts?: unknown }).conflicts = errorPayload.conflicts;
+    }
+    throw error;
   }
 
   const data = await response.json();
@@ -496,7 +548,64 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-export async function loadQrisString(): Promise<string> {
+type NagagoldRequestOptions = {
+  storeId?: string;
+};
+
+function nagagoldPath(path: string, options?: NagagoldRequestOptions): string {
+  if (!options?.storeId) return path;
+  const separator = path.includes("?") ? "&" : "?";
+  return `${path}${separator}storeId=${encodeURIComponent(options.storeId)}`;
+}
+
+export async function loadNagagoldStores(): Promise<NagagoldStore[]> {
+  return apiRequest<NagagoldStore[]>("/api/stores");
+}
+
+export async function loadNagagoldStore(storeId: string): Promise<NagagoldStore> {
+  return apiRequest<NagagoldStore>(`/api/stores/${encodeURIComponent(storeId)}`);
+}
+
+export async function loadQrisSettings(): Promise<QrisSetting[]> {
+  return apiRequest<QrisSetting[]>("/api/qris-settings");
+}
+
+export async function loadActiveQrisSetting(storeId: string): Promise<QrisSetting | null> {
+  return apiRequest<QrisSetting | null>(`/api/qris-settings/active/${encodeURIComponent(storeId)}`);
+}
+
+export async function saveQrisSetting(payload: {
+  id?: string;
+  namaQris: string;
+  qrisString: string;
+  qrisActive: boolean;
+  storeIds: string[];
+  force?: boolean;
+}): Promise<QrisSetting> {
+  const path = payload.id ? `/api/qris-settings/${encodeURIComponent(payload.id)}` : "/api/qris-settings";
+  return apiRequest<QrisSetting>(path, {
+    method: payload.id ? "PUT" : "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function setQrisSettingActive(id: string, qrisActive: boolean): Promise<QrisSetting> {
+  return apiRequest<QrisSetting>(`/api/qris-settings/${encodeURIComponent(id)}/active`, {
+    method: "PATCH",
+    body: JSON.stringify({ qrisActive }),
+  });
+}
+
+export async function deleteQrisSetting(id: string): Promise<void> {
+  await apiRequest(`/api/qris-settings/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function loadQrisString(storeId?: string): Promise<string> {
+  if (storeId) {
+    const store = await loadNagagoldStore(storeId);
+    return store.qris_active === false ? "" : store.qris_string ?? "";
+  }
+
   if (API_URL) {
     const data = await apiRequest<{ qrisString: string | null }>("/api/settings/qris");
     return data.qrisString ?? "";
@@ -515,6 +624,14 @@ export async function saveQrisString(qrisString: string): Promise<void> {
   }
 
   await AsyncStorage.setItem(QRIS_STORAGE_KEY, qrisString);
+}
+
+export async function saveStoresQris(storeIds: string[], qrisString: string, qrisActive = true): Promise<NagagoldStore[]> {
+  const data = await apiRequest<{ stores: NagagoldStore[] }>("/api/stores/qris", {
+    method: "PUT",
+    body: JSON.stringify({ storeIds, qrisString, qrisActive }),
+  });
+  return data.stores;
 }
 
 export async function clearQrisString(): Promise<void> {
@@ -641,90 +758,93 @@ export async function authorizeNagagoldTransaction(payload: NagagoldAuthorizatio
   });
 }
 
-export async function testNagagoldConnection(): Promise<NagagoldConnectionResult> {
-  return apiRequest<NagagoldConnectionResult>("/api/nagagold/test-connection");
+export async function testNagagoldConnection(options?: NagagoldRequestOptions): Promise<NagagoldConnectionResult> {
+  return apiRequest<NagagoldConnectionResult>(nagagoldPath("/api/nagagold/test-connection", options));
 }
 
-export async function loadNagagoldDashboard(): Promise<NagagoldDashboard> {
-  return apiRequest<NagagoldDashboard>("/api/nagagold/dashboard");
+export async function loadNagagoldDashboard(options?: NagagoldRequestOptions): Promise<NagagoldDashboard> {
+  return apiRequest<NagagoldDashboard>(nagagoldPath("/api/nagagold/dashboard", options));
 }
 
-export async function loadNagagoldTodayHistory(type: "sale" | "purchase"): Promise<NagagoldRecentTransaction[]> {
-  const data = await apiRequest<{ history: NagagoldRecentTransaction[] }>(`/api/nagagold/history/today?type=${type}`);
+export async function loadNagagoldTodayHistory(type: "sale" | "purchase", options?: NagagoldRequestOptions): Promise<NagagoldRecentTransaction[]> {
+  const data = await apiRequest<{ history: NagagoldRecentTransaction[] }>(nagagoldPath(`/api/nagagold/history/today?type=${type}`, options));
   return data.history;
 }
 
-export async function loadNagagoldBootstrap(): Promise<NagagoldBootstrap> {
-  return apiRequest<NagagoldBootstrap>("/api/nagagold/bootstrap");
+export async function loadNagagoldBootstrap(options?: NagagoldRequestOptions): Promise<NagagoldBootstrap> {
+  return apiRequest<NagagoldBootstrap>(nagagoldPath("/api/nagagold/bootstrap", options));
 }
 
-export async function loadNagagoldRuntimeConfig(): Promise<NagagoldRuntimeConfig> {
-  return apiRequest<NagagoldRuntimeConfig>("/api/nagagold/config");
+export async function loadNagagoldRuntimeConfig(options?: NagagoldRequestOptions): Promise<NagagoldRuntimeConfig> {
+  return apiRequest<NagagoldRuntimeConfig>(nagagoldPath("/api/nagagold/config", options));
 }
 
-export async function loadNagagoldConfigVersion(): Promise<NagagoldConfigVersion> {
-  return apiRequest<NagagoldConfigVersion>("/api/nagagold/config/version");
+export async function loadNagagoldConfigVersion(options?: NagagoldRequestOptions): Promise<NagagoldConfigVersion> {
+  return apiRequest<NagagoldConfigVersion>(nagagoldPath("/api/nagagold/config/version", options));
 }
 
-export async function loadNagagoldSalesPeople(): Promise<NagagoldSalesPerson[]> {
-  const data = await apiRequest<{ sales: NagagoldSalesPerson[] }>("/api/nagagold/sales");
+export async function loadNagagoldSalesPeople(options?: NagagoldRequestOptions): Promise<NagagoldSalesPerson[]> {
+  const data = await apiRequest<{ sales: NagagoldSalesPerson[] }>(nagagoldPath("/api/nagagold/sales", options));
   return data.sales.filter((item) => item.status_aktif !== false);
 }
 
-export async function loadNagagoldBanks(): Promise<NagagoldBank[]> {
-  const data = await apiRequest<{ banks: NagagoldBank[] }>("/api/nagagold/banks");
+export async function loadNagagoldBanks(options?: NagagoldRequestOptions): Promise<NagagoldBank[]> {
+  const data = await apiRequest<{ banks: NagagoldBank[] }>(nagagoldPath("/api/nagagold/banks", options));
   return data.banks;
 }
 
-export async function loadNagagoldRekenings(): Promise<NagagoldRekening[]> {
-  const data = await apiRequest<{ rekenings: NagagoldRekening[] }>("/api/nagagold/rekenings");
+export async function loadNagagoldRekenings(options?: NagagoldRequestOptions): Promise<NagagoldRekening[]> {
+  const data = await apiRequest<{ rekenings: NagagoldRekening[] }>(nagagoldPath("/api/nagagold/rekenings", options));
   return data.rekenings;
 }
 
-export async function lookupNagagoldMemberByCode(kode: string): Promise<NagagoldMember | null> {
-  const data = await apiRequest<{ members: NagagoldMember[] }>(`/api/nagagold/member/${encodeURIComponent(kode)}`);
+export async function lookupNagagoldMemberByCode(kode: string, options?: NagagoldRequestOptions): Promise<NagagoldMember | null> {
+  const data = await apiRequest<{ members: NagagoldMember[] }>(nagagoldPath(`/api/nagagold/member/${encodeURIComponent(kode)}`, options));
   return data.members[0] ?? null;
 }
 
-export async function searchNagagoldMembers(type: "nama" | "hp" | "alamat", query: string): Promise<NagagoldMember[]> {
-  const data = await apiRequest<{ members: NagagoldMember[] }>("/api/nagagold/members/search", {
+export async function searchNagagoldMembers(type: "nama" | "hp" | "alamat", query: string, options?: NagagoldRequestOptions): Promise<NagagoldMember[]> {
+  const data = await apiRequest<{ members: NagagoldMember[] }>(nagagoldPath("/api/nagagold/members/search", options), {
     method: "POST",
-    body: JSON.stringify({ type, query }),
+    body: JSON.stringify({ type, query, storeId: options?.storeId }),
   });
   return data.members;
 }
 
-export async function lookupNagagoldSaleItem(barcode: string): Promise<NagagoldSaleLookupItem> {
-  const data = await apiRequest<{ item: NagagoldSaleLookupItem }>(`/api/nagagold/barang/${encodeURIComponent(barcode)}`);
+export async function lookupNagagoldSaleItem(barcode: string, options?: NagagoldRequestOptions): Promise<NagagoldSaleLookupItem> {
+  const data = await apiRequest<{ item: NagagoldSaleLookupItem }>(nagagoldPath(`/api/nagagold/barang/${encodeURIComponent(barcode)}`, options));
   return data.item;
 }
 
-export async function loadNagagoldTokos(): Promise<NagagoldToko[]> {
-  const data = await apiRequest<{ tokos: NagagoldToko[] }>("/api/nagagold/pembelian/tokos");
+export async function loadNagagoldTokos(options?: NagagoldRequestOptions): Promise<NagagoldToko[]> {
+  const data = await apiRequest<{ tokos: NagagoldToko[] }>(nagagoldPath("/api/nagagold/pembelian/tokos", options));
   return data.tokos;
 }
 
-export async function loadNagagoldJenis(): Promise<NagagoldJenis[]> {
-  const data = await apiRequest<{ jenis: NagagoldJenis[] }>("/api/nagagold/pembelian/jenis");
+export async function loadNagagoldJenis(options?: NagagoldRequestOptions): Promise<NagagoldJenis[]> {
+  const data = await apiRequest<{ jenis: NagagoldJenis[] }>(nagagoldPath("/api/nagagold/pembelian/jenis", options));
   return data.jenis.filter((item) => item.status_aktif !== false);
 }
 
-export async function loadNagagoldKondisiBeli(): Promise<NagagoldKondisiBeli[]> {
-  const data = await apiRequest<{ kondisi: NagagoldKondisiBeli[] }>("/api/nagagold/pembelian/kondisi");
+export async function loadNagagoldKondisiBeli(options?: NagagoldRequestOptions): Promise<NagagoldKondisiBeli[]> {
+  const data = await apiRequest<{ kondisi: NagagoldKondisiBeli[] }>(nagagoldPath("/api/nagagold/pembelian/kondisi", options));
   return data.kondisi.filter((item) => item.status_aktif !== false);
 }
 
-export async function loadNagagoldPurchaseRounding(): Promise<NagagoldPurchaseRounding> {
-  return apiRequest<NagagoldPurchaseRounding>("/api/nagagold/pembelian/rounding");
+export async function loadNagagoldPurchaseRounding(options?: NagagoldRequestOptions): Promise<NagagoldPurchaseRounding> {
+  return apiRequest<NagagoldPurchaseRounding>(nagagoldPath("/api/nagagold/pembelian/rounding", options));
 }
 
-export async function loadNagagoldGroups(): Promise<NagagoldGroup[]> {
-  const data = await apiRequest<{ groups: NagagoldGroup[] }>("/api/nagagold/pembelian/groups");
+export async function loadNagagoldGroups(options?: NagagoldRequestOptions): Promise<NagagoldGroup[]> {
+  const data = await apiRequest<{ groups: NagagoldGroup[] }>(nagagoldPath("/api/nagagold/pembelian/groups", options));
   return data.groups.filter((item) => item.status_aktif !== false);
 }
 
-export async function lookupNagagoldPurchaseItem(barcode: string, kodeToko?: string): Promise<NagagoldPurchaseLookupItem> {
-  const suffix = kodeToko ? `?kodeToko=${encodeURIComponent(kodeToko)}` : "";
+export async function lookupNagagoldPurchaseItem(barcode: string, kodeToko?: string, options?: NagagoldRequestOptions): Promise<NagagoldPurchaseLookupItem> {
+  const params = new URLSearchParams();
+  if (kodeToko) params.set("kodeToko", kodeToko);
+  if (options?.storeId) params.set("storeId", options.storeId);
+  const suffix = params.toString() ? `?${params.toString()}` : "";
   const data = await apiRequest<{ item: NagagoldPurchaseLookupItem }>(`/api/nagagold/pembelian/barang/${encodeURIComponent(barcode)}${suffix}`);
   return data.item;
 }

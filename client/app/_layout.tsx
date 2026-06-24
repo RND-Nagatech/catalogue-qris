@@ -66,6 +66,7 @@ function RootTabs() {
         />
         <Tabs.Screen name="index" options={{ href: null }} />
         <Tabs.Screen name="history" options={{ href: null }} />
+        <Tabs.Screen name="favorites" options={{ href: null }} />
       </Tabs>
     </>
   );

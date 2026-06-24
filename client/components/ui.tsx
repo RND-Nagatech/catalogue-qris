@@ -26,12 +26,14 @@ export type AppHeaderProps = {
   subtitle?: string;
   leftIcon?: IconName;
   rightIcon?: IconName;
+  rightIconColor?: string;
   rightBadge?: number | string;
   onLeftPress?: () => void;
   onRightPress?: () => void;
   showThemeToggle?: boolean;
   topInset?: number;
   style?: StyleProp<ViewStyle>;
+  titleStyle?: StyleProp<TextStyle>;
 };
 
 export function AppHeader({
@@ -39,12 +41,14 @@ export function AppHeader({
   subtitle,
   leftIcon = "menu-outline",
   rightIcon,
+  rightIconColor,
   rightBadge,
   onLeftPress,
   onRightPress,
   showThemeToggle = true,
   topInset = 0,
   style,
+  titleStyle,
 }: AppHeaderProps) {
   const theme = useAppTheme();
 
@@ -73,7 +77,7 @@ export function AppHeader({
       </Pressable>
 
       <View style={styles.headerTitleWrap}>
-        <Text style={[theme.typography.title, styles.headerTitle, { color: theme.colors.primary }]} numberOfLines={1}>
+        <Text style={[theme.typography.title, styles.headerTitle, { color: theme.colors.primary }, titleStyle]} numberOfLines={1}>
           {title}
         </Text>
         {subtitle ? (
@@ -84,19 +88,19 @@ export function AppHeader({
       </View>
 
       <View style={styles.headerActions}>
-        {showThemeToggle ? (
-          <Pressable accessibilityRole="button" style={styles.headerIconButton} onPress={theme.toggleTheme}>
-            <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={23} color={theme.colors.primary} />
-          </Pressable>
-        ) : null}
         {rightIcon ? (
           <Pressable accessibilityRole="button" style={styles.headerIconButton} onPress={onRightPress}>
-            <Ionicons name={rightIcon} size={22} color={theme.colors.primary} />
+            <Ionicons name={rightIcon} size={23} color={rightIconColor ?? theme.colors.primary} />
             {rightBadge !== undefined ? (
               <View style={[styles.headerBadge, { backgroundColor: theme.colors.secondaryContainer }]}>
                 <Text style={[styles.headerBadgeText, { color: theme.colors.onSecondaryContainer }]}>{rightBadge}</Text>
               </View>
             ) : null}
+          </Pressable>
+        ) : null}
+        {showThemeToggle ? (
+          <Pressable accessibilityRole="button" style={styles.headerIconButton} onPress={theme.toggleTheme}>
+            <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={23} color={theme.colors.primary} />
           </Pressable>
         ) : null}
       </View>
@@ -681,7 +685,7 @@ const styles = StyleSheet.create({
   headerActions: {
     alignItems: "center",
     flexDirection: "row",
-    gap: 2,
+    gap: 4,
   },
   headerBadge: {
     alignItems: "center",

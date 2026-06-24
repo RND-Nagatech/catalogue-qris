@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -14,29 +14,19 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useFocusEffect, useRouter } from "expo-router";
-import { AppHeader, CardContainer, EmptyState, PrimaryButton, SecondaryButton } from "../components/ui";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { AppHeader, CardContainer, EmptyState, PrimaryButton } from "../components/ui";
 import {
-  type CatalogueFilterOption,
   type CatalogueProduct,
-  type CatalogueStoreOption,
   addCatalogueFavorite,
   getCatalogueImageUrl,
   getCatalogueProductId,
   loadCatalogueFavoriteIds,
-  loadCatalogueFilters,
-  loadCatalogueProducts,
+  loadCatalogueFavoriteProducts,
   removeCatalogueFavorite,
 } from "../lib/catalogueStore";
 import { useAppTheme } from "../lib/theme";
-
-type FilterState = {
-  group?: string;
-  dept?: string;
-  toko?: string;
-  storeId?: string;
-};
 
 const PAGE_LIMIT = 20;
 
@@ -45,15 +35,16 @@ function rupiah(value?: number) {
 }
 
 function productKey(product: CatalogueProduct, index: number) {
-  return `${product.kode_barcode || product.kode_barang || "product"}-${product.sumber || "store"}-${index}`;
+  return `${getCatalogueProductId(product) || product.kode_barcode || product.kode_barang || "favorite"}-${index}`;
 }
 
-export default function CatalogueScreen() {
+export default function FavoritesScreen() {
   const theme = useAppTheme();
-  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -63,25 +54,12 @@ export default function CatalogueScreen() {
   const [error, setError] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
   const [search, setSearch] = useState("");
-  const [filters, setFilters] = useState<FilterState>({});
-  const [filterOpen, setFilterOpen] = useState(false);
   const [selected, setSelected] = useState<CatalogueProduct | null>(null);
-  const [groups, setGroups] = useState<CatalogueFilterOption[]>([]);
-  const [depts, setDepts] = useState<CatalogueFilterOption[]>([]);
-  const [baki, setBaki] = useState<CatalogueFilterOption[]>([]);
-  const [stores, setStores] = useState<CatalogueStoreOption[]>([]);
-  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
-
   const isCompact = width < 380;
-  const activeFilterCount = Object.values(filters).filter(Boolean).length;
 
   const refreshFavoriteIds = useCallback(async () => {
-    try {
-      const ids = await loadCatalogueFavoriteIds();
-      setFavoriteIds(new Set(ids));
-    } catch {
-      // Favorit tidak boleh mengganggu catalogue utama.
-    }
+    const ids = await loadCatalogueFavoriteIds();
+    setFavoriteIds(new Set(ids));
   }, []);
 
   const fetchProducts = useCallback(async (nextPage = 1, mode: "reset" | "append" | "refresh" = "reset") => {
@@ -91,11 +69,10 @@ export default function CatalogueScreen() {
       else if (mode === "refresh") setRefreshing(true);
       else setLoading(true);
 
-      const result = await loadCatalogueProducts({
+      const result = await loadCatalogueFavoriteProducts({
         page: nextPage,
         limit: PAGE_LIMIT,
         search: search || undefined,
-        ...filters,
       });
 
       setProducts((current) => (mode === "append" ? [...current, ...result.products] : result.products));
@@ -103,28 +80,17 @@ export default function CatalogueScreen() {
       setPage(result.page);
       setHasMore(result.page * result.limit < result.total);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Gagal memuat catalogue.");
+      setError(err instanceof Error ? err.message : "Gagal memuat favorit.");
     } finally {
       setLoading(false);
       setLoadingMore(false);
       setRefreshing(false);
     }
-  }, [filters, search]);
-
-  useEffect(() => {
-    loadCatalogueFilters()
-      .then((data) => {
-        setGroups(data.groups);
-        setDepts(data.depts);
-        setBaki(data.baki);
-        setStores(data.stores);
-      })
-      .catch(() => undefined);
-  }, []);
+  }, [search]);
 
   useFocusEffect(
     useCallback(() => {
-      refreshFavoriteIds();
+      refreshFavoriteIds().catch(() => undefined);
       fetchProducts(1, "refresh");
     }, [fetchProducts, refreshFavoriteIds]),
   );
@@ -132,11 +98,6 @@ export default function CatalogueScreen() {
   const submitSearch = () => {
     setSearch(searchDraft.trim());
   };
-
-  const filterSummary = useMemo(() => {
-    if (!activeFilterCount) return "Semua produk";
-    return `${activeFilterCount} filter aktif`;
-  }, [activeFilterCount]);
 
   const toggleFavorite = async (product: CatalogueProduct) => {
     const productId = getCatalogueProductId(product);
@@ -148,34 +109,33 @@ export default function CatalogueScreen() {
       else next.add(productId);
       return next;
     });
+    if (wasFavorite) {
+      setProducts((current) => current.filter((item) => getCatalogueProductId(item) !== productId));
+      setTotal((current) => Math.max(0, current - 1));
+    } else {
+      setProducts((current) => [product, ...current]);
+      setTotal((current) => current + 1);
+    }
     try {
       if (wasFavorite) await removeCatalogueFavorite(productId);
       else await addCatalogueFavorite(productId);
       await refreshFavoriteIds();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Gagal memperbarui favorit.");
-      await refreshFavoriteIds();
+      await refreshFavoriteIds().catch(() => undefined);
+      fetchProducts(1, "refresh");
     }
   };
-
-  const renderItem = ({ item, index }: { item: CatalogueProduct; index: number }) => (
-    <ProductCard
-      product={item}
-      compact={isCompact}
-      favorite={favoriteIds.has(getCatalogueProductId(item))}
-      onPress={() => setSelected(item)}
-      onToggleFavorite={() => toggleFavorite(item)}
-    />
-  );
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <AppHeader
-        title="Catalogue"
+        title="Favorit"
+        leftIcon="arrow-back-outline"
+        onLeftPress={() => router.back()}
+        showThemeToggle={false}
         topInset={insets.top}
-        rightIcon="heart-outline"
-        rightBadge={favoriteIds.size ? favoriteIds.size : undefined}
-        onRightPress={() => router.push("/favorites")}
+        titleStyle={theme.typography.titleSmall}
       />
 
       <View style={styles.searchWrap}>
@@ -185,7 +145,7 @@ export default function CatalogueScreen() {
             value={searchDraft}
             onChangeText={setSearchDraft}
             onSubmitEditing={submitSearch}
-            placeholder="Cari produk..."
+            placeholder="Cari favorit..."
             placeholderTextColor={theme.colors.subtleText}
             returnKeyType="search"
             style={[theme.typography.body, styles.searchInput, { color: theme.colors.text }]}
@@ -196,36 +156,32 @@ export default function CatalogueScreen() {
             </Pressable>
           ) : null}
         </View>
-        <Pressable
-          style={[
-            styles.filterButton,
-            {
-              backgroundColor: activeFilterCount ? theme.colors.primary : theme.colors.cardBackground,
-              borderColor: activeFilterCount ? theme.colors.primary : theme.colors.cardBorder,
-            },
-          ]}
-          onPress={() => setFilterOpen(true)}
-        >
-          <Ionicons name="options-outline" size={22} color={activeFilterCount ? theme.colors.onPrimary : theme.colors.primary} />
-        </Pressable>
       </View>
 
       <View style={styles.summaryRow}>
-        <Text style={[theme.typography.bodySmall, { color: theme.colors.subtleText }]}>{filterSummary}</Text>
+        <Text style={[theme.typography.bodySmall, { color: theme.colors.subtleText }]}>Produk favorit</Text>
         <Text style={[theme.typography.labelSmall, { color: theme.colors.primary }]}>{total.toLocaleString("id-ID")} item</Text>
       </View>
 
       {error && !loading ? (
         <EmptyState
           icon="cloud-offline-outline"
-          title="Catalogue belum bisa dimuat"
+          title="Favorit belum bisa dimuat"
           description={error}
           action={<PrimaryButton title="Coba Lagi" onPress={() => fetchProducts(1, "reset")} />}
         />
       ) : (
         <FlatList
           data={products}
-          renderItem={renderItem}
+          renderItem={({ item }) => (
+            <ProductCard
+              product={item}
+              compact={isCompact}
+              favorite={favoriteIds.has(getCatalogueProductId(item))}
+              onPress={() => setSelected(item)}
+              onToggleFavorite={() => toggleFavorite(item)}
+            />
+          )}
           keyExtractor={productKey}
           numColumns={2}
           contentContainerStyle={[styles.listContent, { paddingBottom: 110 + insets.bottom }]}
@@ -239,32 +195,14 @@ export default function CatalogueScreen() {
           ListEmptyComponent={loading ? (
             <View style={styles.loading}>
               <ActivityIndicator color={theme.colors.primary} />
-              <Text style={[theme.typography.bodySmall, { color: theme.colors.subtleText }]}>Memuat catalogue...</Text>
+              <Text style={[theme.typography.bodySmall, { color: theme.colors.subtleText }]}>Memuat favorit...</Text>
             </View>
           ) : (
-            <EmptyState
-              icon="diamond-outline"
-              title="Produk tidak ditemukan"
-              description="Coba kata kunci atau filter lain."
-            />
+            <EmptyState icon="heart-outline" title="Belum ada favorit" description="Produk yang ditandai favorit akan muncul di sini." />
           )}
           ListFooterComponent={loadingMore ? <ActivityIndicator color={theme.colors.primary} style={styles.footerLoader} /> : null}
         />
       )}
-
-      <FilterModal
-        visible={filterOpen}
-        filters={filters}
-        groups={groups}
-        depts={depts}
-        baki={baki}
-        stores={stores}
-        onClose={() => setFilterOpen(false)}
-        onApply={(next) => {
-          setFilters(next);
-          setFilterOpen(false);
-        }}
-      />
 
       <ProductDetailModal
         product={selected}
@@ -295,6 +233,7 @@ function ProductCard({
   const [imageError, setImageError] = useState(false);
   const name = product.nama_barang || "-";
   const barcode = product.kode_barcode || product.kode_barang || "-";
+  const outOfStock = Number(product.stock_on_hand ?? 0) <= 0;
 
   return (
     <Pressable
@@ -332,8 +271,13 @@ function ProductCard({
           },
         ]}
       >
-        <Ionicons name={favorite ? "heart" : "heart-outline"} size={20} color={favorite ? theme.colors.warning : theme.colors.subtleText} />
+        <Ionicons name={favorite ? "heart" : "heart-outline"} size={18} color={favorite ? theme.colors.warning : theme.colors.subtleText} />
       </Pressable>
+      {outOfStock ? (
+        <View style={[styles.stockBadge, { backgroundColor: theme.colors.warningContainer }]}>
+          <Text style={[theme.typography.labelSmall, { color: theme.colors.warning }]}>Stok Habis</Text>
+        </View>
+      ) : null}
       <View style={styles.productInfo}>
         <Text style={[theme.typography.labelSmall, { color: theme.colors.subtleText }]} numberOfLines={1}>{barcode}</Text>
         <Text style={[compact ? theme.typography.bodySmall : theme.typography.label, { color: theme.colors.text }]} numberOfLines={2}>{name}</Text>
@@ -345,88 +289,6 @@ function ProductCard({
         </Text>
       </View>
     </Pressable>
-  );
-}
-
-function FilterModal({
-  visible,
-  filters,
-  groups,
-  depts,
-  baki,
-  stores,
-  onClose,
-  onApply,
-}: {
-  visible: boolean;
-  filters: FilterState;
-  groups: CatalogueFilterOption[];
-  depts: CatalogueFilterOption[];
-  baki: CatalogueFilterOption[];
-  stores: CatalogueStoreOption[];
-  onClose: () => void;
-  onApply: (filters: FilterState) => void;
-}) {
-  const theme = useAppTheme();
-  const insets = useSafeAreaInsets();
-  const [draft, setDraft] = useState<FilterState>(filters);
-
-  useEffect(() => {
-    if (visible) setDraft(filters);
-  }, [filters, visible]);
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, { backgroundColor: theme.colors.scrim }]}>
-        <View style={[styles.sheet, { backgroundColor: theme.colors.cardBackground, paddingBottom: insets.bottom + 16 }]}>
-          <View style={styles.sheetHeader}>
-            <Text style={[theme.typography.titleSmall, { color: theme.colors.text }]}>Filter Catalogue</Text>
-            <Pressable onPress={onClose}><Ionicons name="close" size={24} color={theme.colors.text} /></Pressable>
-          </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <OptionGroup title="Toko" value={draft.storeId} options={stores.map((store) => ({ code: store.id, name: store.name }))} onChange={(value) => setDraft((current) => ({ ...current, storeId: value }))} />
-            <OptionGroup title="Group" value={draft.group} options={groups} onChange={(value) => setDraft((current) => ({ ...current, group: value }))} />
-            <OptionGroup title="Jenis" value={draft.dept} options={depts} onChange={(value) => setDraft((current) => ({ ...current, dept: value }))} />
-            <OptionGroup title="Baki" value={draft.toko} options={baki} onChange={(value) => setDraft((current) => ({ ...current, toko: value }))} />
-          </ScrollView>
-          <View style={styles.sheetActions}>
-            <SecondaryButton title="Reset" onPress={() => setDraft({})} style={{ flex: 1 }} />
-            <PrimaryButton title="Terapkan" onPress={() => onApply(draft)} style={{ flex: 1 }} />
-          </View>
-        </View>
-      </View>
-    </Modal>
-  );
-}
-
-function OptionGroup({ title, value, options, onChange }: { title: string; value?: string; options: CatalogueFilterOption[]; onChange: (value?: string) => void }) {
-  const theme = useAppTheme();
-  return (
-    <View style={styles.optionGroup}>
-      <Text style={[theme.typography.labelCaps, { color: theme.colors.subtleText }]}>{title}</Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.optionRow}>
-        <Pressable
-          onPress={() => onChange(undefined)}
-          style={[styles.chip, { borderColor: !value ? theme.colors.primary : theme.colors.cardBorder, backgroundColor: !value ? theme.colors.successContainer : theme.colors.surfaceContainerLow }]}
-        >
-          <Text style={[theme.typography.labelSmall, { color: !value ? theme.colors.primary : theme.colors.muted }]}>Semua</Text>
-        </Pressable>
-        {options.map((option, index) => {
-          const active = value === option.code;
-          return (
-            <Pressable
-              key={`${title}-${option.code || option.name || "option"}-${index}`}
-              onPress={() => onChange(option.code)}
-              style={[styles.chip, { borderColor: active ? theme.colors.primary : theme.colors.cardBorder, backgroundColor: active ? theme.colors.successContainer : theme.colors.surfaceContainerLow }]}
-            >
-              <Text style={[theme.typography.labelSmall, { color: active ? theme.colors.primary : theme.colors.muted }]} numberOfLines={1}>
-                {option.name || option.code}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </ScrollView>
-    </View>
   );
 }
 
@@ -499,7 +361,6 @@ const styles = StyleSheet.create({
   searchWrap: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 14 },
   searchBox: { flex: 1, minHeight: 50, borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 8 },
   searchInput: { flex: 1, paddingVertical: 0 },
-  filterButton: { width: 50, height: 50, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   summaryRow: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   listContent: { paddingHorizontal: 14, paddingTop: 4 },
   column: { gap: 12 },
@@ -508,16 +369,9 @@ const styles = StyleSheet.create({
   productCard: { width: "48%", borderWidth: 1, borderRadius: 18, overflow: "hidden", marginBottom: 12 },
   productImageBox: { aspectRatio: 1, alignItems: "center", justifyContent: "center" },
   productImage: { width: "100%", height: "100%" },
-  favoriteButton: { position: "absolute", top: 10, right: 10, width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  favoriteButton: { position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   stockBadge: { position: "absolute", left: 10, top: 12, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
   productInfo: { padding: 12, gap: 5 },
-  modalBackdrop: { flex: 1, justifyContent: "flex-end" },
-  sheet: { maxHeight: "82%", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16 },
-  sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 14 },
-  optionGroup: { marginBottom: 18, gap: 8 },
-  optionRow: { gap: 8, paddingRight: 16 },
-  chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9, maxWidth: 180 },
-  sheetActions: { flexDirection: "row", gap: 12, paddingTop: 10 },
   detailScreen: { flex: 1 },
   detailHeader: { minHeight: 58, borderBottomWidth: 1, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   detailHeaderButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },

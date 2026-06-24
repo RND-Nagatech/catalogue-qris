@@ -36,7 +36,12 @@ async function queryMasterCatalog(filters) {
       col.countDocuments(query),
     ]);
 
-    return { data: items, meta: { page, limit, total } };
+    const data = items.map((item) => ({
+      ...item,
+      product_id: item.product_id || (item.storeId && (item.kode_barcode || item.kode_barang) ? `${item.storeId}:${item.kode_barcode || item.kode_barang}` : ''),
+    }));
+
+    return { data, meta: { page, limit, total } };
   } catch {
     // Master DB belum ada atau kosong → return null agar fallback
     return null;
@@ -54,7 +59,7 @@ const IGNORE_DECRYPT = [
   'tgl_last_beli',
   'kode_barcode', 'kode_barang', 'kode_group', 'kode_dept',
   'kode_gudang', 'kode_toko',
-  'sumber', '_id',
+  'sumber', 'storeId', 'product_id', 'firebaseCode', '_id',
 ];
 
 /**
@@ -169,9 +174,34 @@ function processItems(items, store, search) {
   const filtered = filterByKeyword(decrypted, search);
   return filtered.map((item) => ({
     ...item,
+    storeId: store.id || String(store._id || ''),
+    product_id: buildProductId(store, item),
     sumber: store.name,
     firebaseCode: store.firebaseCode || '',
   }));
+}
+
+function storeId(store) {
+  return String(store?.id || store?._id || '');
+}
+
+function productCode(item = {}) {
+  return String(item.kode_barcode || item.kode_barang || '').trim();
+}
+
+function buildProductId(store, item = {}) {
+  const code = productCode(item);
+  return code ? `${storeId(store)}:${code}` : '';
+}
+
+function parseProductId(productId) {
+  const text = String(productId || '');
+  const separatorIndex = text.indexOf(':');
+  if (separatorIndex < 1) return { storeId: '', code: text };
+  return {
+    storeId: text.slice(0, separatorIndex),
+    code: text.slice(separatorIndex + 1),
+  };
 }
 
 /**
@@ -228,6 +258,8 @@ async function getProducts(stores, filters = {}) {
         const store = targetStores[i];
         const tagged = results[i].value.items.map((item) => ({
           ...item,
+          storeId: store.id || String(store._id || ''),
+          product_id: buildProductId(store, item),
           sumber: store.name,
           firebaseCode: store.firebaseCode || '',
         }));
@@ -278,6 +310,67 @@ async function getProducts(stores, filters = {}) {
 
   // Tidak double-paginate — return semua merged items dari page ini
   return { data: allItems, meta: { page, limit, total: grandTotal } };
+}
+
+async function getFavoriteProducts(stores, favorites = [], filters = {}) {
+  const { page = 1, limit = 20, search } = filters;
+  const favoriteList = Array.isArray(favorites) ? favorites : [];
+  if (!favoriteList.length) {
+    return { data: [], meta: { page, limit, total: 0 } };
+  }
+
+  const favoriteByProductId = new Map(favoriteList.map((favorite) => [String(favorite.product_id), favorite]));
+  const requestedByStore = new Map();
+  for (const favorite of favoriteList) {
+    const parsed = parseProductId(favorite.product_id);
+    if (!parsed.storeId || !parsed.code) continue;
+    if (!requestedByStore.has(parsed.storeId)) requestedByStore.set(parsed.storeId, new Set());
+    requestedByStore.get(parsed.storeId).add(parsed.code);
+  }
+
+  let allItems = [];
+  for (const store of stores) {
+    const codes = [...(requestedByStore.get(storeId(store)) || [])];
+    if (!codes.length) continue;
+    try {
+      const db = await mongoManager.getDb(store.mongoUri, store.dbName);
+      const collection = db.collection('tm_barang');
+      const items = await collection.find({
+        $or: [
+          { kode_barcode: { $in: codes } },
+          { kode_barang: { $in: codes } },
+        ],
+      }).project(PRODUCT_FIELDS).toArray();
+      allItems = allItems.concat(processItems(items, store, null));
+    } catch (err) {
+      console.error(`[product-service] Gagal query favorit toko "${store?.name}":`, err.message);
+    }
+  }
+
+  const existingIds = new Set(allItems.map((item) => item.product_id).filter(Boolean));
+  const missingIds = favoriteList.map((favorite) => String(favorite.product_id)).filter((id) => !existingIds.has(id));
+  if (missingIds.length) {
+    try {
+      const configDb = await mongoManager.getConfigDb();
+      const masterItems = await configDb.collection('master_catalog').find({ product_id: { $in: missingIds } }).project({ _id: 0 }).toArray();
+      allItems = allItems.concat(masterItems);
+    } catch {
+      // master_catalog fallback optional
+    }
+  }
+
+  const enriched = allItems
+    .map((item) => ({
+      ...item,
+      favorite_created_at: favoriteByProductId.get(String(item.product_id))?.created_at || '',
+    }))
+    .filter((item) => favoriteByProductId.has(String(item.product_id)));
+
+  const filtered = filterByKeyword(enriched, search);
+  filtered.sort((a, b) => String(b.favorite_created_at || '').localeCompare(String(a.favorite_created_at || '')));
+  const skip = (page - 1) * limit;
+  const data = filtered.slice(skip, skip + limit);
+  return { data, meta: { page, limit, total: filtered.length } };
 }
 
 function normalizeSaleCode(value) {
@@ -343,4 +436,4 @@ async function markCatalogueItemsSold(storeId, items = []) {
   return { masterUpdated, storeUpdated };
 }
 
-module.exports = { getProducts, markCatalogueItemsSold, PRODUCT_FIELDS };
+module.exports = { getProducts, getFavoriteProducts, markCatalogueItemsSold, PRODUCT_FIELDS };

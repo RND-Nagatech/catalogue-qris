@@ -1,5 +1,5 @@
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
-import { Alert, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, FlatList, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
@@ -123,6 +123,7 @@ export default function Purchases() {
   const nagagoldConfig = useNagagoldConfig();
   const [stores, setStores] = useState<NagagoldStore[]>([]);
   const [selectedStore, setSelectedStore] = useState<NagagoldStore | null>(null);
+  const [branchSelectorOpen, setBranchSelectorOpen] = useState(false);
   const [isLoadingStores, setIsLoadingStores] = useState(false);
   const [storeError, setStoreError] = useState("");
   const [domain, setDomain] = useState("");
@@ -174,6 +175,15 @@ export default function Purchases() {
   const [isAuthorizing, setIsAuthorizing] = useState(false);
   const [pendingAuthorization, setPendingAuthorization] = useState<PendingPurchaseAuthorization | null>(null);
   const activeStoreId = selectedStore ? branchStoreId(selectedStore) : undefined;
+
+  const selectBranch = (store: NagagoldStore) => {
+    if (selectedStore) {
+      resetAll();
+      setDomain("");
+    }
+    setSelectedStore(store);
+    setBranchSelectorOpen(false);
+  };
 
   const applyRuntimeConfig = useCallback((config: typeof nagagoldConfig.config) => {
     if (!config) return;
@@ -638,35 +648,33 @@ export default function Purchases() {
             },
           ]}
         >
-          <View style={[styles.branchIntro, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, theme.elevation.level1]}>
+          <Pressable
+            style={[styles.branchIntro, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.outlineVariant }, theme.elevation.level1]}
+            onPress={() => setBranchSelectorOpen(true)}
+          >
             <Ionicons name="business-outline" size={24} color={theme.colors.primary} />
             <View style={styles.branchIntroText}>
               <Text style={[styles.branchTitle, { color: theme.colors.text }]}>Pilih Cabang Pembelian</Text>
               <Text style={[styles.branchSubtitle, { color: theme.colors.muted }]}>Cabang ini menjadi tempat transaksi pembelian dicatat dan stok masuk.</Text>
             </View>
-          </View>
+            <Ionicons name="chevron-forward" size={20} color={theme.colors.primary} />
+          </Pressable>
           {isLoadingStores ? (
             <Text style={[styles.branchMessage, { color: theme.colors.muted }]}>Memuat cabang...</Text>
           ) : null}
           {storeError ? (
             <Text style={[styles.branchMessage, { color: theme.colors.danger }]}>{storeError}</Text>
           ) : null}
-          <View style={styles.branchList}>
-            {stores.map((store, index) => (
-              <Pressable
-                key={branchStoreKey(store, index)}
-                style={[styles.branchOption, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }, theme.elevation.level1]}
-                onPress={() => setSelectedStore(store)}
-              >
-                <View style={styles.branchOptionText}>
-                  <Text style={[styles.branchName, { color: theme.colors.text }]}>{store.name}</Text>
-                  <Text style={[styles.branchMeta, { color: theme.colors.muted }]}>{store.nagagoldDomain || store.domain || store.baseUrl || store.apiUrl || "-"}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color={theme.colors.primary} />
-              </Pressable>
-            ))}
-          </View>
+          <Text style={[styles.branchHint, { color: theme.colors.muted }]}>Ketuk card untuk mencari dan memilih cabang.</Text>
         </ScrollView>
+        <BranchSelectorModal
+          visible={branchSelectorOpen}
+          title="Pilih Cabang Pembelian"
+          stores={stores}
+          selectedStore={selectedStore}
+          onClose={() => setBranchSelectorOpen(false)}
+          onSelect={selectBranch}
+        />
       </View>
     );
   }
@@ -689,16 +697,16 @@ export default function Purchases() {
     >
       <View style={[styles.activeStoreBanner, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]}>
         <Ionicons name="business-outline" size={16} color={theme.colors.primary} />
-        <Text style={[styles.activeStoreText, { color: theme.colors.text }]}>Cabang Aktif: {selectedStore.name}</Text>
+        <View style={styles.activeStoreInfo}>
+          <Text style={[styles.activeStoreLabel, { color: theme.colors.muted }]}>Cabang Aktif</Text>
+          <Text style={[styles.activeStoreText, { color: theme.colors.text }]}>{selectedStore.name}</Text>
+          <Text style={[styles.activeStoreDomain, { color: theme.colors.muted }]} numberOfLines={1}>{branchStoreDomain(selectedStore)}</Text>
+        </View>
         <Pressable
           style={[styles.activeStoreChange, { backgroundColor: theme.colors.surfaceContainer }]}
-          onPress={() => {
-            resetAll();
-            setDomain("");
-            setSelectedStore(null);
-          }}
+          onPress={() => setBranchSelectorOpen(true)}
         >
-          <Text style={[styles.activeStoreChangeText, { color: theme.colors.primary }]}>Ganti</Text>
+          <Text style={[styles.activeStoreChangeText, { color: theme.colors.primary }]}>Ganti Cabang</Text>
         </Pressable>
       </View>
       <Stepper step={step} />
@@ -982,6 +990,14 @@ export default function Purchases() {
       ) : null}
     </ScrollView>
     </View>
+    <BranchSelectorModal
+      visible={branchSelectorOpen}
+      title="Ganti Cabang Pembelian"
+      stores={stores}
+      selectedStore={selectedStore}
+      onClose={() => setBranchSelectorOpen(false)}
+      onSelect={selectBranch}
+    />
     <AuthorizationModal
       visible={Boolean(pendingAuthorization)}
       title="Otorisasi Pembelian"
@@ -1027,6 +1043,106 @@ function branchStoreKey(store: NagagoldStore, index: number): string {
 
 function branchStoreId(store: NagagoldStore): string {
   return String(store.id || store._id || "");
+}
+
+function branchStoreDomain(store: NagagoldStore): string {
+  return String(store.nagagoldDomain || store.domain || store.baseUrl || store.apiUrl || "-");
+}
+
+function branchStoreCode(store: NagagoldStore): string {
+  const raw = store as NagagoldStore & { code?: string; kode_cabang?: string };
+  return String(raw.firebaseCode || raw.code || raw.kode_cabang || "");
+}
+
+function branchSearchText(store: NagagoldStore): string {
+  return [store.name, branchStoreDomain(store), branchStoreCode(store), branchStoreId(store)].join(" ").toLowerCase();
+}
+
+function BranchSelectorModal({
+  visible,
+  title,
+  stores,
+  selectedStore,
+  onClose,
+  onSelect,
+}: {
+  visible: boolean;
+  title: string;
+  stores: NagagoldStore[];
+  selectedStore: NagagoldStore | null;
+  onClose: () => void;
+  onSelect: (store: NagagoldStore) => void;
+}) {
+  const theme = useAppTheme();
+  const insets = useSafeAreaInsets();
+  const [query, setQuery] = useState("");
+  const selectedId = selectedStore ? branchStoreId(selectedStore) : "";
+  const filteredStores = useMemo(() => {
+    const keyword = query.trim().toLowerCase();
+    if (!keyword) return stores;
+    return stores.filter((store) => branchSearchText(store).includes(keyword));
+  }, [query, stores]);
+
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={[styles.branchSheetKeyboard, { backgroundColor: theme.colors.scrim }]}
+      >
+      <View style={styles.branchSheetBackdrop}>
+        <View style={[styles.branchSheet, { backgroundColor: theme.colors.cardBackground, paddingBottom: insets.bottom + 14 }]}>
+          <View style={styles.branchSheetHeader}>
+            <Text style={[styles.branchTitle, { color: theme.colors.text }]}>{title}</Text>
+            <Pressable accessibilityRole="button" onPress={onClose}>
+              <Ionicons name="close" size={24} color={theme.colors.text} />
+            </Pressable>
+          </View>
+          <View style={[styles.branchSearchBox, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
+            <Ionicons name="search-outline" size={18} color={theme.colors.muted} />
+            <TextInput
+              value={query}
+              onChangeText={setQuery}
+              placeholder="Cari nama, domain, atau kode cabang"
+              placeholderTextColor={theme.colors.muted}
+              style={[styles.branchSearchInput, { color: theme.colors.text }]}
+              autoCapitalize="none"
+            />
+            {query ? (
+              <Pressable onPress={() => setQuery("")}>
+                <Ionicons name="close-circle" size={19} color={theme.colors.muted} />
+              </Pressable>
+            ) : null}
+          </View>
+          <Text style={[styles.branchSheetCount, { color: theme.colors.muted }]}>{filteredStores.length.toLocaleString("id-ID")} cabang</Text>
+          <FlatList
+            data={filteredStores}
+            keyExtractor={branchStoreKey}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.branchSheetList}
+            ListEmptyComponent={<Text style={[styles.branchMessage, { color: theme.colors.muted }]}>Cabang tidak ditemukan.</Text>}
+            renderItem={({ item }) => {
+              const active = selectedId && branchStoreId(item) === selectedId;
+              return (
+                <Pressable
+                  style={[styles.branchOption, { backgroundColor: active ? theme.colors.successContainer : theme.colors.cardBackground, borderColor: active ? theme.colors.primary : theme.colors.cardBorder }]}
+                  onPress={() => onSelect(item)}
+                >
+                  <View style={styles.branchOptionText}>
+                    <Text style={[styles.branchName, { color: theme.colors.text }]}>{item.name}</Text>
+                    <Text style={[styles.branchMeta, { color: theme.colors.muted }]} numberOfLines={1}>{branchStoreDomain(item)}</Text>
+                    {branchStoreCode(item) ? <Text style={[styles.branchMeta, { color: theme.colors.primary }]}>{branchStoreCode(item)}</Text> : null}
+                  </View>
+                  <Ionicons name={active ? "checkmark-circle" : "chevron-forward"} size={20} color={theme.colors.primary} />
+                </Pressable>
+              );
+            }}
+          />
+        </View>
+      </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
 }
 
 function Stepper({ step }: { step: 1 | 2 | 3 }) {
@@ -1433,6 +1549,15 @@ const styles = StyleSheet.create({
   branchTitle: { fontSize: 18, fontWeight: "800" },
   branchSubtitle: { fontSize: 13, fontWeight: "600", lineHeight: 19 },
   branchMessage: { fontSize: 13, fontWeight: "700" },
+  branchHint: { fontSize: 12, fontWeight: "700", lineHeight: 18 },
+  branchSheetKeyboard: { flex: 1 },
+  branchSheetBackdrop: { flex: 1, justifyContent: "flex-end", paddingTop: 48 },
+  branchSheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: "90%", padding: 16 },
+  branchSheetHeader: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingBottom: 12 },
+  branchSearchBox: { alignItems: "center", borderRadius: 14, borderWidth: 1, flexDirection: "row", gap: 8, minHeight: 48, paddingHorizontal: 12 },
+  branchSearchInput: { flex: 1, fontSize: 14, fontWeight: "600", paddingVertical: 0 },
+  branchSheetCount: { fontSize: 12, fontWeight: "700", paddingVertical: 10 },
+  branchSheetList: { gap: 10, paddingBottom: 12 },
   branchList: { gap: 10 },
   branchOption: {
     alignItems: "center",
@@ -1453,10 +1578,14 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     flexDirection: "row",
     gap: 8,
-    minHeight: 44,
+    minHeight: 62,
     paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  activeStoreText: { flex: 1, fontSize: 13, fontWeight: "800" },
+  activeStoreInfo: { flex: 1, gap: 2 },
+  activeStoreLabel: { fontSize: 11, fontWeight: "800" },
+  activeStoreText: { fontSize: 13, fontWeight: "800" },
+  activeStoreDomain: { fontSize: 11, fontWeight: "600" },
   activeStoreChange: {
     alignItems: "center",
     borderRadius: 999,

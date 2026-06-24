@@ -1,7 +1,9 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Platform } from "react-native";
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL?.replace(/\/$/, "");
 const API_KEY = process.env.EXPO_PUBLIC_API_KEY || process.env.EXPO_PUBLIC_CATALOGUE_API_KEY || "";
+const DEVICE_ID_STORAGE_KEY = "@catalogue_device_id";
 
 export type CatalogueProduct = {
   nama_barang?: string;
@@ -21,8 +23,11 @@ export type CatalogueProduct = {
   kode_dept?: string;
   kode_gudang?: string;
   kode_toko?: string;
+  storeId?: string;
   sumber?: string;
   firebaseCode?: string;
+  product_id?: string;
+  favorite_created_at?: string;
   _searchScore?: number;
 };
 
@@ -54,6 +59,13 @@ export type CatalogueProductsResult = {
   total: number;
 };
 
+export type CatalogueFavorite = {
+  id: string;
+  device_id: string;
+  product_id: string;
+  created_at: string;
+};
+
 function requireApiUrl(): string {
   if (!API_URL) {
     throw new Error("EXPO_PUBLIC_API_URL belum diatur.");
@@ -66,6 +78,27 @@ function buildHeaders(extra?: HeadersInit): HeadersInit {
     ...(API_KEY ? { "x-api-key": API_KEY } : {}),
     ...(extra ?? {}),
   };
+}
+
+function createDeviceUuid(): string {
+  const random = () => Math.floor((1 + Math.random()) * 0x10000).toString(16).slice(1);
+  return `${random()}${random()}-${random()}-4${random().slice(1)}-${random()}-${random()}${random()}${random()}`;
+}
+
+export async function getCatalogueDeviceId(): Promise<string> {
+  const existing = await AsyncStorage.getItem(DEVICE_ID_STORAGE_KEY);
+  if (existing) return existing;
+  const next = typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : createDeviceUuid();
+  await AsyncStorage.setItem(DEVICE_ID_STORAGE_KEY, next);
+  return next;
+}
+
+export function getCatalogueProductId(product: CatalogueProduct): string {
+  if (product.product_id) return product.product_id;
+  const code = product.kode_barcode || product.kode_barang || "";
+  return product.storeId && code ? `${product.storeId}:${code}` : code;
 }
 
 async function parseJsonResponse<T>(response: Response): Promise<T> {
@@ -115,6 +148,56 @@ export async function loadCatalogueProducts(query: CatalogueProductQuery = {}): 
     limit: data.meta?.limit ?? query.limit ?? 20,
     total: data.meta?.total ?? data.data?.length ?? 0,
   };
+}
+
+export async function loadCatalogueFavoriteIds(): Promise<string[]> {
+  const deviceId = await getCatalogueDeviceId();
+  const params = queryString({ deviceId });
+  const response = await fetch(`${requireApiUrl()}/api/favorites/ids${params}`, {
+    headers: buildHeaders(),
+  });
+  const data = await parseJsonResponse<{ data: CatalogueFavorite[] }>(response);
+  return (data.data ?? []).map((favorite) => favorite.product_id).filter(Boolean);
+}
+
+export async function loadCatalogueFavoriteProducts(query: CatalogueProductQuery = {}): Promise<CatalogueProductsResult> {
+  const deviceId = await getCatalogueDeviceId();
+  const params = queryString({
+    deviceId,
+    page: query.page ?? 1,
+    limit: query.limit ?? 20,
+    search: query.search,
+  });
+  const response = await fetch(`${requireApiUrl()}/api/favorites${params}`, {
+    headers: buildHeaders(),
+  });
+  const data = await parseJsonResponse<{ data: CatalogueProduct[]; meta?: { page: number; limit: number; total: number } }>(response);
+  return {
+    products: data.data ?? [],
+    page: data.meta?.page ?? query.page ?? 1,
+    limit: data.meta?.limit ?? query.limit ?? 20,
+    total: data.meta?.total ?? data.data?.length ?? 0,
+  };
+}
+
+export async function addCatalogueFavorite(productId: string): Promise<void> {
+  const deviceId = await getCatalogueDeviceId();
+  const response = await fetch(`${requireApiUrl()}/api/favorites`, {
+    method: "POST",
+    headers: buildHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ deviceId, productId }),
+  });
+  await parseJsonResponse<{ data: CatalogueFavorite }>(response);
+}
+
+export async function removeCatalogueFavorite(productId: string): Promise<void> {
+  const deviceId = await getCatalogueDeviceId();
+  const params = queryString({ deviceId });
+  const response = await fetch(`${requireApiUrl()}/api/favorites/${encodeURIComponent(productId)}${params}`, {
+    method: "DELETE",
+    headers: buildHeaders(),
+  });
+  await parseJsonResponse<{ data: { deleted: boolean } }>(response);
 }
 
 export async function loadCatalogueFilters(): Promise<{

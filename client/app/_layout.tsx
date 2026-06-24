@@ -29,10 +29,17 @@ function RootTabs() {
         screenOptions={createBottomTabScreenOptions(theme, insets.bottom)}
       >
         <Tabs.Screen
-          name="index"
+          name="catalogue"
           options={{
-            title: "Beranda",
-            tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
+            title: "Catalogue",
+            tabBarIcon: ({ color, size }) => <Ionicons name="diamond-outline" color={color} size={size} />,
+          }}
+        />
+        <Tabs.Screen
+          name="image-search"
+          options={{
+            title: "Search",
+            tabBarIcon: ({ color, size }) => <Ionicons name="camera-outline" color={color} size={size} />,
           }}
         />
         <Tabs.Screen
@@ -50,31 +57,26 @@ function RootTabs() {
           }}
         />
         <Tabs.Screen
-          name="catalogue"
+          name="settings"
           options={{
-            title: "Catalogue",
-            tabBarIcon: ({ color, size }) => <Ionicons name="diamond-outline" color={color} size={size} />,
+            title: "Setting",
+            tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} />,
           }}
         />
         <Tabs.Screen
-          name="image-search"
+          name="index"
           options={{
-            title: "Search",
-            tabBarIcon: ({ color, size }) => <Ionicons name="camera-outline" color={color} size={size} />,
+            href: null,
+            title: "Beranda",
+            tabBarIcon: ({ color, size }) => <Ionicons name="home-outline" color={color} size={size} />,
           }}
         />
         <Tabs.Screen
           name="history"
           options={{
+            href: null,
             title: "Riwayat",
             tabBarIcon: ({ color, size }) => <Ionicons name="time-outline" color={color} size={size} />,
-          }}
-        />
-        <Tabs.Screen
-          name="settings"
-          options={{
-            title: "Pengaturan",
-            tabBarIcon: ({ color, size }) => <Ionicons name="settings-outline" color={color} size={size} />,
           }}
         />
       </Tabs>

@@ -39,7 +39,7 @@ export type AppHeaderProps = {
 export function AppHeader({
   title,
   subtitle,
-  leftIcon = "menu-outline",
+  leftIcon,
   rightIcon,
   rightIconColor,
   rightBadge,
@@ -65,18 +65,20 @@ export function AppHeader({
         style,
       ]}
     >
-      <Pressable
-        accessibilityRole="button"
-        style={({ pressed }) => [
-          styles.headerIconButton,
-          { opacity: pressed ? 0.72 : 1 },
-        ]}
-        onPress={onLeftPress}
-      >
-        <Ionicons name={leftIcon} size={24} color={theme.colors.primary} />
-      </Pressable>
+      {leftIcon ? (
+        <Pressable
+          accessibilityRole="button"
+          style={({ pressed }) => [
+            styles.headerIconButton,
+            { opacity: pressed ? 0.72 : 1 },
+          ]}
+          onPress={onLeftPress}
+        >
+          <Ionicons name={leftIcon} size={24} color={theme.colors.primary} />
+        </Pressable>
+      ) : null}
 
-      <View style={styles.headerTitleWrap}>
+      <View style={[styles.headerTitleWrap, !leftIcon && styles.headerTitleWrapNoLeft]}>
         <Text style={[theme.typography.title, styles.headerTitle, { color: theme.colors.primary }, titleStyle]} numberOfLines={1}>
           {title}
         </Text>
@@ -720,6 +722,9 @@ const styles = StyleSheet.create({
   headerTitleWrap: {
     flex: 1,
     justifyContent: "center",
+  },
+  headerTitleWrapNoLeft: {
+    marginLeft: 0,
   },
   card: {
     borderWidth: 1,

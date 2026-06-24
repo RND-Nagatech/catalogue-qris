@@ -295,7 +295,7 @@ export default function Settings() {
                   onChangeText={setQrisString}
                   multiline
                   placeholder="00020101021126..."
-                  placeholderTextColor={theme.colors.subtleText}
+                  placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText}
                   style={[styles.textarea, { backgroundColor: theme.colors.inputBackground, color: theme.colors.text }]}
                   autoCapitalize="characters"
                   autoCorrect={false}
@@ -363,7 +363,7 @@ function Input({ label, value, onChangeText, placeholder }: { label: string; val
         value={value}
         onChangeText={onChangeText}
         placeholder={placeholder}
-        placeholderTextColor={theme.colors.subtleText}
+        placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText}
         style={[styles.input, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder, color: theme.colors.text }]}
       />
     </View>
@@ -421,7 +421,7 @@ function StoreMultiSelectSheet({
                 value={query}
                 onChangeText={setQuery}
                 placeholder="Cari cabang"
-                placeholderTextColor={theme.colors.subtleText}
+                placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText}
                 style={[styles.searchInput, { color: theme.colors.text }]}
               />
             </View>
@@ -488,7 +488,7 @@ function StoreDetailSheet({ visible, setting, onClose }: { visible: boolean; set
                   value={query}
                   onChangeText={setQuery}
                   placeholder="Cari cabang"
-                  placeholderTextColor={theme.colors.subtleText}
+                  placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText}
                   style={[styles.searchInput, { color: theme.colors.text }]}
                 />
               </View>

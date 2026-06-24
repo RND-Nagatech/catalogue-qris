@@ -138,20 +138,20 @@ const defaultSalesCapabilities: NagagoldSalesCapabilities = {
   allowQrisOnTransfer: true,
 };
 const colors = {
-  background: "#F8F9FF",
+  background: "#FBF9F5",
   surface: "#FFFFFF",
-  surfaceLow: "#EFF4FF",
-  surfaceContainer: "#E5EEFF",
-  text: "#0B1C30",
-  muted: "#3D4947",
-  outline: "#BCC9C6",
-  outlineStrong: "#6D7A77",
-  primary: "#00685F",
-  primaryContainer: "#008378",
-  primarySoft: "#89F5E7",
-  secondary: "#825100",
-  secondaryContainer: "#FFB95F",
-  tertiary: "#00685F",
+  surfaceLow: "#F5F3EF",
+  surfaceContainer: "#EFEEEA",
+  text: "#1B1C1A",
+  muted: "#4B463C",
+  outline: "#CDC6B8",
+  outlineStrong: "#7C776A",
+  primary: "#695D39",
+  primaryContainer: "#83764F",
+  primarySoft: "#F3E1B3",
+  secondary: "#83764F",
+  secondaryContainer: "#F3E1B3",
+  tertiary: "#695D39",
   danger: "#BA1A1A",
 };
 
@@ -1014,7 +1014,7 @@ export default function Sales() {
               <Text style={[styles.actionButtonText, { color: theme.colors.primary }]}>Data Customer</Text>
             </View>
           </Pressable>
-          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.primaryContainer }]} onPress={() => setItemOpen(true)}>
+          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={() => setItemOpen(true)}>
             <Ionicons name="add-circle-outline" size={17} color={theme.colors.onPrimary} />
             <View>
               <Text style={[styles.actionButtonText, { color: theme.colors.onPrimary }]}>Data Barang</Text>
@@ -1050,7 +1050,7 @@ export default function Sales() {
                   style={styles.deleteIcon}
                   onPress={() => setItems(items.filter((nextItem) => nextItem.id !== item.id))}
                 >
-                  <Ionicons name="trash-outline" size={19} color="#DC2626" />
+                  <Ionicons name="trash-outline" size={19} color={theme.colors.error} />
                 </Pressable>
               </View>
             ))}
@@ -1111,7 +1111,7 @@ export default function Sales() {
                 </View>
                 <Text style={[styles.exchangeValue, { color: theme.colors.secondary }]}>{formatRupiah(item.hargaBeli)}</Text>
                 <Pressable onPress={() => setExchangeItems(exchangeItems.filter((nextItem) => nextItem.id !== item.id))}>
-                  <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                  <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
                 </Pressable>
               </View>
             ))}
@@ -1519,7 +1519,7 @@ function CustomerModal(props: {
         </View>
       ) : null}
       <Pressable style={[styles.sheetPrimaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={props.onSave}>
-        <Text style={styles.sheetPrimaryText}>Simpan Data</Text>
+        <Text style={[styles.sheetPrimaryText, { color: theme.colors.onPrimary }]}>Simpan Data</Text>
       </Pressable>
       <OptionSheet
         visible={salesPickerOpen}
@@ -1612,7 +1612,7 @@ function ItemModal(props: {
         </View>
       </View>
       <Input label="Kode Barcode" value={props.kodeBarcode} onChangeText={props.setKodeBarcode} placeholder="Scan atau input kode barcode" uppercase />
-      <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={props.onLookupBarcode}>
+      <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainer, borderColor: theme.colors.primary }]} onPress={props.onLookupBarcode}>
         <Ionicons name="barcode-outline" size={17} color={theme.colors.primary} />
         <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>{props.isLookingUpItem ? "Mengambil Barang..." : "Ambil Data Barang dari Barcode"}</Text>
       </Pressable>
@@ -1669,7 +1669,7 @@ function ItemModal(props: {
           <Text style={[styles.sheetSecondaryText, { color: theme.colors.text }]}>Tutup</Text>
         </Pressable>
         <Pressable style={[styles.sheetPrimaryButtonSmall, { backgroundColor: theme.colors.buttonPrimary }]} onPress={props.onSave}>
-          <Text style={styles.sheetPrimaryText}>Simpan Data</Text>
+          <Text style={[styles.sheetPrimaryText, { color: theme.colors.onPrimary }]}>Simpan Data</Text>
         </Pressable>
       </View>
       <OptionSheet
@@ -1802,7 +1802,7 @@ function PaymentModal(props: {
           <CurrencyInput label="Nominal" value={props.amount} onChangeText={props.setAmount} />
         </View>
         <Pressable style={styles.addPaymentButton} onPress={props.onAddPayment}>
-          <Ionicons name="add" size={32} color="#FFFFFF" />
+          <Ionicons name="add" size={32} color={theme.colors.onPrimary} />
         </Pressable>
       </View>
       {props.method === "TRANSFER" && props.allowQrisOnTransfer ? (
@@ -1889,7 +1889,7 @@ function PaymentModal(props: {
             </View>
             <Text style={[styles.paymentValue, { color: theme.colors.text }]}>{formatRupiah(payment.amount)}</Text>
             <Pressable onPress={() => props.setPayments(props.payments.filter((item) => item.id !== payment.id))}>
-              <Ionicons name="trash-outline" size={18} color="#DC2626" />
+              <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
             </Pressable>
           </View>
         ))}
@@ -1904,7 +1904,7 @@ function PaymentModal(props: {
             </View>
             <Text style={[styles.paymentValue, { color: theme.colors.text }]}>{formatRupiah(exchangeTotal)}</Text>
             <Pressable onPress={() => props.exchangeItems.forEach((item) => props.onRemoveExchange(item.id))}>
-              <Ionicons name="trash-outline" size={18} color="#DC2626" />
+              <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
             </Pressable>
           </View>
         ) : null}
@@ -1915,7 +1915,7 @@ function PaymentModal(props: {
       </View>
       <View style={styles.sheetFooter}>
         <Pressable style={[styles.sheetPrimaryButtonSmall, { backgroundColor: theme.colors.buttonPrimary }]} disabled={props.isSubmitting} onPress={props.onSubmit}>
-          <Text style={styles.sheetPrimaryText}>{props.isSubmitting ? "Mengirim..." : "Bayar Sekarang"}</Text>
+          <Text style={[styles.sheetPrimaryText, { color: theme.colors.onPrimary }]}>{props.isSubmitting ? "Mengirim..." : "Bayar Sekarang"}</Text>
         </Pressable>
         <Pressable style={[styles.sheetSecondaryButton, { borderColor: theme.colors.primary, backgroundColor: theme.colors.surfaceContainerLowest }]}>
           <Text style={[styles.sheetSecondaryText, { color: theme.colors.primary }]}>Bayar DP</Text>
@@ -2070,7 +2070,7 @@ function ExchangeModal(props: {
         placeholder="Scan atau input kode"
         uppercase
       />
-      <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={props.onLookup}>
+      <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainer, borderColor: theme.colors.primary }]} onPress={props.onLookup}>
         <Ionicons name="barcode-outline" size={17} color={theme.colors.primary} />
         <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>
           {props.isLookingUp ? "Mengambil Barang..." : "Ambil Data Barang Tukar"}
@@ -2104,7 +2104,7 @@ function ExchangeModal(props: {
             onPress={() => setKondisiPickerOpen(true)}
           />
           <Pressable style={[styles.sheetPrimaryButton, { backgroundColor: theme.colors.buttonPrimary }]} onPress={props.onAdd}>
-            <Text style={styles.sheetPrimaryText}>Simpan Barang Tukar</Text>
+            <Text style={[styles.sheetPrimaryText, { color: theme.colors.onPrimary }]}>Simpan Barang Tukar</Text>
           </Pressable>
         </>
       ) : null}
@@ -2121,7 +2121,7 @@ function ExchangeModal(props: {
                 </View>
                 <Text style={[styles.paymentValue, { color: theme.colors.secondary }]}>{formatRupiah(item.hargaBeli)}</Text>
                 <Pressable onPress={() => props.onRemove(item.id)}>
-                  <Ionicons name="trash-outline" size={18} color="#DC2626" />
+                  <Ionicons name="trash-outline" size={18} color={theme.colors.error} />
                 </Pressable>
               </View>
             ))}
@@ -2244,7 +2244,7 @@ function AuthorizationForm(props: {
           <Text style={[styles.sheetSecondaryText, { color: theme.colors.text }]}>Batal</Text>
         </Pressable>
         <Pressable style={[styles.sheetPrimaryButtonSmall, { backgroundColor: theme.colors.buttonPrimary }, props.isSubmitting && styles.disabledButton]} disabled={props.isSubmitting} onPress={submit}>
-          <Text style={styles.sheetPrimaryText}>{props.isSubmitting ? "Memproses..." : "Otorisasi"}</Text>
+          <Text style={[styles.sheetPrimaryText, { color: theme.colors.onPrimary }]}>{props.isSubmitting ? "Memproses..." : "Otorisasi"}</Text>
         </Pressable>
       </View>
     </View>
@@ -2329,7 +2329,7 @@ function OptionSheet(props: {
                     value={searchKeyword}
                     onChangeText={setSearchKeyword}
                     placeholder={props.searchPlaceholder ?? "Cari data"}
-                    placeholderTextColor={theme.colors.subtleText}
+                    placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText}
                     style={[styles.optionSearchInput, { color: theme.colors.text }]}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -2453,6 +2453,7 @@ function Input({ label, value, onChangeText, placeholder, keyboardType = "defaul
 }) {
   const theme = useAppTheme();
   const handleChangeText = (text: string) => onChangeText(uppercase ? text.toUpperCase() : text);
+  const placeholderColor = theme.isDark ? theme.colors.muted : theme.colors.subtleText;
 
   return (
     <View style={styles.field}>
@@ -2461,14 +2462,18 @@ function Input({ label, value, onChangeText, placeholder, keyboardType = "defaul
         value={value}
         onChangeText={handleChangeText}
         placeholder={placeholder}
-        placeholderTextColor={theme.colors.subtleText}
+        placeholderTextColor={placeholderColor}
         keyboardType={keyboardType}
         autoCapitalize={uppercase ? "characters" : "sentences"}
         multiline={multiline}
         editable={editable}
         style={[
           styles.input,
-          { backgroundColor: editable ? theme.colors.inputBackground : theme.colors.surfaceContainerLow, borderColor: theme.colors.inputBorder, color: theme.colors.text },
+          {
+            backgroundColor: editable ? theme.colors.inputBackground : theme.colors.surfaceDim,
+            borderColor: editable ? theme.colors.inputBorder : theme.colors.outlineVariant,
+            color: editable ? theme.colors.text : theme.colors.muted,
+          },
           multiline && styles.textarea,
         ]}
       />
@@ -2492,7 +2497,7 @@ function CurrencyInput({ label, value, onChangeText }: {
           value={value ? Number(value.replace(/\D/g, "")).toLocaleString("id-ID") : ""}
           onChangeText={(text) => onChangeText(text.replace(/\D/g, ""))}
           placeholder="0"
-          placeholderTextColor={theme.colors.subtleText}
+          placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText}
           keyboardType="number-pad"
           style={[styles.currencyInput, { color: theme.colors.text }]}
         />
@@ -2816,8 +2821,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 36,
   },
-  infoIconPrimary: { backgroundColor: "#E7F8F0" },
-  infoIconSecondary: { backgroundColor: "#FFF4E8" },
+  infoIconPrimary: { backgroundColor: colors.primarySoft },
+  infoIconSecondary: { backgroundColor: colors.secondaryContainer },
   infoIconNeutral: { backgroundColor: colors.surfaceContainer },
   infoTextStack: { flex: 1 },
   infoLabel: { color: colors.outlineStrong, fontSize: 10, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
@@ -2856,7 +2861,7 @@ const styles = StyleSheet.create({
   itemList: { gap: 12 },
   itemCard: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderColor: colors.primary,
     borderRadius: 16,
     borderWidth: 1,
@@ -2866,7 +2871,7 @@ const styles = StyleSheet.create({
   },
   itemImage: {
     alignItems: "center",
-    backgroundColor: "#FFF4E8",
+    backgroundColor: colors.secondaryContainer,
     borderRadius: 12,
     height: 94,
     justifyContent: "center",
@@ -2881,7 +2886,7 @@ const styles = StyleSheet.create({
   rowValue: { color: colors.text, flex: 1.2, fontSize: 12, fontWeight: "700" },
   emptyCard: {
     alignItems: "center",
-    backgroundColor: "rgba(242, 244, 246, 0.45)",
+    backgroundColor: colors.surfaceLow,
     borderColor: colors.outline,
     borderRadius: 16,
     borderStyle: "dashed",
@@ -2893,7 +2898,7 @@ const styles = StyleSheet.create({
   emptyText: { color: colors.outlineStrong, fontSize: 12, lineHeight: 18, textAlign: "center" },
   bottomSummary: {
     alignItems: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.94)",
+    backgroundColor: colors.surface,
     borderColor: colors.outline,
     borderRadius: 18,
     borderWidth: 1,
@@ -3039,7 +3044,7 @@ const styles = StyleSheet.create({
   field: { flex: 1, gap: 6 },
   label: { color: colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
   input: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: colors.surface,
     borderColor: colors.primary,
     borderRadius: 12,
     borderWidth: 1,
@@ -3071,7 +3076,7 @@ const styles = StyleSheet.create({
     minHeight: 48,
     paddingHorizontal: 14,
   },
-  readOnlyPressable: { backgroundColor: "#E7F8F0", borderColor: colors.primaryContainer },
+  readOnlyPressable: { backgroundColor: colors.primarySoft, borderColor: colors.primaryContainer },
   readOnlyText: { color: colors.muted, fontSize: 13, fontWeight: "700" },
   outlineButton: {
     alignItems: "center",
@@ -3097,7 +3102,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   optionButtonActive: {
-    backgroundColor: "#E7F8F0",
+    backgroundColor: colors.primarySoft,
     borderColor: colors.primaryContainer,
   },
   optionText: { color: colors.muted, fontSize: 12, fontWeight: "700" },
@@ -3165,7 +3170,7 @@ const styles = StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: 12,
   },
-  optionRowActive: { backgroundColor: "#E7F8F0", borderColor: colors.primaryContainer },
+  optionRowActive: { backgroundColor: colors.primarySoft, borderColor: colors.primaryContainer },
   optionRowTitle: { color: colors.text, fontSize: 13, fontWeight: "700" },
   optionRowTitleActive: { color: colors.primary },
   optionRowDescription: { color: colors.muted, fontSize: 11, fontWeight: "600", marginTop: 3 },
@@ -3271,7 +3276,7 @@ const styles = StyleSheet.create({
     gap: 8,
     padding: 10,
   },
-  statCardActive: { borderColor: colors.primaryContainer, backgroundColor: "#E7F8F0" },
+  statCardActive: { borderColor: colors.primaryContainer, backgroundColor: colors.primarySoft },
   statLabel: { color: colors.outlineStrong, fontSize: 11, fontWeight: "700", textAlign: "center" },
   statValue: { color: colors.text, fontSize: 13, fontWeight: "800", textAlign: "center" },
   statValueActive: { color: colors.primary },
@@ -3286,7 +3291,7 @@ const styles = StyleSheet.create({
     minHeight: 44,
     paddingHorizontal: 12,
   },
-  methodButtonActive: { borderColor: colors.primaryContainer, backgroundColor: "#E7F8F0" },
+  methodButtonActive: { borderColor: colors.primaryContainer, backgroundColor: colors.primarySoft },
   methodText: { color: colors.muted, fontSize: 12, fontWeight: "800" },
   methodTextActive: { color: colors.primary },
   paymentInputRow: { alignItems: "flex-end", flexDirection: "row", gap: 12 },
@@ -3426,7 +3431,7 @@ const styles = StyleSheet.create({
   },
   authNotice: {
     alignItems: "flex-start",
-    backgroundColor: "#FFF4E8",
+    backgroundColor: colors.secondaryContainer,
     borderColor: colors.secondaryContainer,
     borderRadius: 14,
     borderWidth: 1,

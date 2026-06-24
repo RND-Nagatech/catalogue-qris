@@ -16,7 +16,7 @@ function TabIcon({ color, focused, icon, activeIcon }: { color: string; focused:
     <View
       style={{
         alignItems: "center",
-        backgroundColor: focused ? theme.colors.primaryContainer : "transparent",
+        backgroundColor: focused ? theme.colors.navActiveSurface : "transparent",
         borderRadius: 999,
         height: 30,
         justifyContent: "center",

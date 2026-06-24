@@ -89,19 +89,19 @@ const defaultPurchaseCapabilities: NagagoldPurchaseCapabilities = {
   unsupportedModules: [],
 };
 const colors = {
-  background: "#F8F9FF",
+  background: "#FBF9F5",
   surface: "#FFFFFF",
-  surfaceLow: "#EFF4FF",
-  surfaceContainer: "#E5EEFF",
-  text: "#0B1C30",
-  muted: "#3D4947",
-  outline: "#BCC9C6",
-  outlineStrong: "#6D7A77",
-  primary: "#00685F",
-  primaryContainer: "#008378",
-  primarySoft: "#DDF7F2",
-  secondary: "#825100",
-  secondaryContainer: "#FFB95F",
+  surfaceLow: "#F5F3EF",
+  surfaceContainer: "#EFEEEA",
+  text: "#1B1C1A",
+  muted: "#4B463C",
+  outline: "#CDC6B8",
+  outlineStrong: "#7C776A",
+  primary: "#695D39",
+  primaryContainer: "#83764F",
+  primarySoft: "#F3E1B3",
+  secondary: "#83764F",
+  secondaryContainer: "#F3E1B3",
   danger: "#BA1A1A",
 };
 
@@ -725,7 +725,7 @@ export default function Purchases() {
             />
           ) : null}
           <Input label="Kode Barcode" value={kodeBarcode} onChangeText={setKodeBarcode} placeholder="Scan atau input barcode" icon="barcode-outline" uppercase />
-          <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]} onPress={lookupItem}>
+          <Pressable style={[styles.outlineButton, { backgroundColor: theme.colors.surfaceContainer, borderColor: theme.colors.primary }]} onPress={lookupItem}>
             <Ionicons name="barcode-outline" size={17} color={theme.colors.primary} />
             <Text style={[styles.outlineButtonText, { color: theme.colors.primary }]}>{isLookingUpItem ? "Mengambil Barang..." : "Ambil Data Barang"}</Text>
           </Pressable>
@@ -851,7 +851,7 @@ export default function Purchases() {
       {step === 2 ? (
         <View style={styles.formStack}>
           <View style={[styles.searchBox, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
-            <TextInput placeholder="Cari data..." placeholderTextColor={theme.colors.subtleText} style={[styles.searchInput, { color: theme.colors.text }]} />
+            <TextInput placeholder="Cari data..." placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText} style={[styles.searchInput, { color: theme.colors.text }]} />
             <Ionicons name="search-outline" size={20} color={theme.colors.muted} />
           </View>
           {items.length ? items.map((item) => (
@@ -885,7 +885,7 @@ export default function Purchases() {
           )}
           <View style={[styles.totalCard, { backgroundColor: theme.colors.cardBackground, borderColor: theme.colors.cardBorder }, theme.elevation.level1]}>
             <View style={[styles.totalIcon, { backgroundColor: theme.colors.primaryContainer }]}>
-              <Ionicons name="receipt-outline" size={24} color="#FFFFFF" />
+              <Ionicons name="receipt-outline" size={24} color={theme.colors.onPrimaryContainer} />
             </View>
             <View style={styles.totalRows}>
               <TotalLine label="Total Harga Nota" value={formatNumber(totals.hargaNota)} />
@@ -900,8 +900,8 @@ export default function Purchases() {
               <Text style={[styles.secondaryButtonText, { color: theme.colors.text }]}>Kembali</Text>
             </Pressable>
             <Pressable style={[styles.primaryButtonSmall, { backgroundColor: theme.colors.buttonPrimary }]} onPress={() => setStep(3)}>
-              <Text style={styles.primaryButtonText}>Next</Text>
-              <Ionicons name="chevron-forward" size={17} color="#FFFFFF" />
+              <Text style={[styles.primaryButtonText, { color: theme.colors.onPrimary }]}>Next</Text>
+              <Ionicons name="chevron-forward" size={17} color={theme.colors.onPrimary} />
             </Pressable>
           </View>
         </View>
@@ -982,8 +982,8 @@ export default function Purchases() {
               <Text style={[styles.secondaryButtonText, { color: theme.colors.text }]}>Kembali</Text>
             </Pressable>
             <Pressable style={[styles.finishButton, { backgroundColor: theme.colors.buttonPrimary }, isSubmitting && styles.disabledButton]} disabled={isSubmitting} onPress={submit}>
-              <Ionicons name="bag-check-outline" size={18} color="#FFFFFF" />
-              <Text style={styles.primaryButtonText}>{isSubmitting ? "Mengirim..." : "Selesai Pembelian"}</Text>
+              <Ionicons name="bag-check-outline" size={18} color={theme.colors.onPrimary} />
+              <Text style={[styles.primaryButtonText, { color: theme.colors.onPrimary }]}>{isSubmitting ? "Mengirim..." : "Selesai Pembelian"}</Text>
             </Pressable>
           </View>
         </View>
@@ -1129,15 +1129,15 @@ function Stepper({ step }: { step: 1 | 2 | 3 }) {
         const circleBackground = active
           ? theme.colors.primaryContainer
           : theme.isDark
-            ? theme.colors.surfaceContainer
+            ? theme.colors.surfaceContainerHigh
             : theme.colors.surfaceContainerHigh;
-        const numberColor = active ? theme.colors.onPrimary : theme.colors.text;
-        const labelColor = active ? theme.colors.primary : theme.colors.muted;
+        const numberColor = active ? theme.colors.onPrimaryContainer : theme.colors.text;
+        const labelColor = active ? theme.colors.primary : theme.colors.outlineStrong;
         return (
           <View key={label} style={styles.stepItem}>
             <View style={[
               styles.stepCircle,
-              { backgroundColor: circleBackground },
+              { backgroundColor: circleBackground, borderColor: active ? theme.colors.primary : theme.colors.outlineVariant },
             ]}>
               <Text style={[styles.stepNumber, { color: numberColor }]}>{step > current ? "✓" : current}</Text>
             </View>
@@ -1253,7 +1253,7 @@ function OptionSheet({ visible, title, options, selectedValue, searchable = fals
                     value={searchKeyword}
                     onChangeText={setSearchKeyword}
                     placeholder={searchPlaceholder ?? "Cari data"}
-                    placeholderTextColor={theme.colors.subtleText}
+                    placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText}
                     style={[styles.optionSearchInput, { color: theme.colors.text }]}
                     autoCapitalize="none"
                     autoCorrect={false}
@@ -1349,7 +1349,7 @@ function AuthorizationModal(props: {
                 <Text style={[styles.secondaryButtonText, { color: theme.colors.text }]}>Batal</Text>
               </Pressable>
               <Pressable style={[styles.primaryButtonSmall, { backgroundColor: theme.colors.buttonPrimary }, props.isSubmitting && styles.disabledButton]} disabled={props.isSubmitting} onPress={submit}>
-                <Text style={styles.primaryButtonText}>{props.isSubmitting ? "Memproses..." : "Otorisasi"}</Text>
+                <Text style={[styles.primaryButtonText, { color: theme.colors.onPrimary }]}>{props.isSubmitting ? "Memproses..." : "Otorisasi"}</Text>
               </Pressable>
             </View>
           </ScrollView>
@@ -1372,13 +1372,14 @@ function Input({ label, value, onChangeText, placeholder, keyboardType = "defaul
 }) {
   const theme = useAppTheme();
   const handleChangeText = (text: string) => onChangeText(uppercase ? text.toUpperCase() : text);
+  const placeholderColor = theme.isDark ? theme.colors.muted : theme.colors.subtleText;
 
   return (
     <View style={styles.field}>
       <Text style={[styles.label, { color: theme.colors.subtleText }]}>{label}</Text>
-      <View style={[styles.inputWrap, { backgroundColor: editable ? theme.colors.inputBackground : theme.colors.surfaceContainerLow, borderColor: theme.colors.inputBorder }]}>
-        <TextInput editable={editable} value={value} onChangeText={handleChangeText} placeholder={placeholder} placeholderTextColor={theme.colors.subtleText} keyboardType={keyboardType} autoCapitalize={uppercase ? "characters" : "sentences"} multiline={multiline} style={[styles.input, { color: theme.colors.text }, multiline && styles.textarea]} />
-        {icon ? <Ionicons name={icon} size={20} color={theme.colors.primary} /> : null}
+      <View style={[styles.inputWrap, { backgroundColor: editable ? theme.colors.inputBackground : theme.colors.surfaceDim, borderColor: editable ? theme.colors.inputBorder : theme.colors.outlineVariant }]}>
+        <TextInput editable={editable} value={value} onChangeText={handleChangeText} placeholder={placeholder} placeholderTextColor={placeholderColor} keyboardType={keyboardType} autoCapitalize={uppercase ? "characters" : "sentences"} multiline={multiline} style={[styles.input, { color: editable ? theme.colors.text : theme.colors.muted }, multiline && styles.textarea]} />
+        {icon ? <Ionicons name={icon} size={20} color={editable ? theme.colors.primary : theme.colors.muted} /> : null}
       </View>
     </View>
   );
@@ -1392,7 +1393,7 @@ function CurrencyInput({ label, value, onChangeText, locked }: { label: string; 
       <Text style={[styles.label, { color: theme.colors.subtleText }]}>{label}</Text>
       <View style={[styles.inputWrap, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }, locked && styles.lockedInput, locked && { backgroundColor: theme.colors.warningContainer, borderColor: theme.colors.secondary }]}>
         <Text style={[styles.rp, { color: theme.colors.outlineStrong }]}>Rp</Text>
-        <TextInput editable={!locked} value={value ? Number(value.replace(/\D/g, "")).toLocaleString("id-ID") : ""} onChangeText={(text) => onChangeText(text.replace(/\D/g, ""))} placeholder="0" placeholderTextColor={theme.colors.subtleText} keyboardType="number-pad" style={[styles.currencyInput, { color: theme.colors.text }]} />
+        <TextInput editable={!locked} value={value ? Number(value.replace(/\D/g, "")).toLocaleString("id-ID") : ""} onChangeText={(text) => onChangeText(text.replace(/\D/g, ""))} placeholder="0" placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText} keyboardType="number-pad" style={[styles.currencyInput, { color: locked ? theme.colors.muted : theme.colors.text }]} />
         {locked ? <Ionicons name="lock-closed" size={16} color={theme.colors.secondary} /> : null}
       </View>
     </View>
@@ -1569,7 +1570,7 @@ const styles = StyleSheet.create({
   activeStoreChangeText: { fontSize: 12, fontWeight: "800" },
   stepper: { flexDirection: "row", justifyContent: "space-between", marginVertical: 4 },
   stepItem: { alignItems: "center", flex: 1, gap: 7 },
-  stepCircle: { alignItems: "center", backgroundColor: colors.surfaceContainer, borderRadius: 999, height: 38, justifyContent: "center", width: 38 },
+  stepCircle: { alignItems: "center", backgroundColor: colors.surfaceContainer, borderRadius: 999, borderWidth: 1, height: 38, justifyContent: "center", width: 38 },
   stepCircleActive: { backgroundColor: colors.primaryContainer },
   stepNumber: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
   stepNumberActive: { color: "#FFFFFF" },
@@ -1578,12 +1579,12 @@ const styles = StyleSheet.create({
   formStack: { gap: 14 },
   field: { flex: 1, gap: 6 },
   label: { color: colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
-  inputWrap: { alignItems: "center", backgroundColor: "#FFFFFF", borderColor: colors.primary, borderRadius: 12, borderWidth: 1, flexDirection: "row", minHeight: 48, paddingHorizontal: 14 },
+  inputWrap: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.primary, borderRadius: 12, borderWidth: 1, flexDirection: "row", minHeight: 48, paddingHorizontal: 14 },
   input: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "600", minHeight: 44 },
   textarea: { minHeight: 80, paddingTop: 10, textAlignVertical: "top" },
   rp: { color: colors.outlineStrong, fontSize: 12, fontWeight: "700", marginRight: 8 },
   currencyInput: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "700" },
-  lockedInput: { backgroundColor: "#FFF4E8", borderColor: colors.secondaryContainer },
+  lockedInput: { backgroundColor: colors.secondaryContainer, borderColor: colors.secondaryContainer },
   readOnly: { backgroundColor: colors.surfaceLow },
   readOnlyText: { color: colors.muted, fontSize: 13, fontWeight: "700" },
   twoColumn: { flexDirection: "row", gap: 10 },
@@ -1639,7 +1640,7 @@ const styles = StyleSheet.create({
   optionContent: { padding: 14 },
   optionContentKeyboard: { padding: 14, paddingBottom: 140 },
   optionRow: { alignItems: "center", borderColor: colors.outline, borderRadius: 14, borderWidth: 1, flexDirection: "row", gap: 10, justifyContent: "space-between", marginBottom: 10, minHeight: 52, paddingHorizontal: 14 },
-  optionRowActive: { backgroundColor: "#E7F8F0", borderColor: colors.primaryContainer },
+  optionRowActive: { backgroundColor: colors.primarySoft, borderColor: colors.primaryContainer },
   optionRowTitle: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "700" },
   optionRowTitleActive: { color: colors.primary },
   resultList: { borderColor: colors.outline, borderRadius: 14, borderWidth: 1, overflow: "hidden" },
@@ -1658,10 +1659,10 @@ const styles = StyleSheet.create({
   metric: { alignItems: "center", borderColor: colors.outline, borderRightWidth: 1, borderTopWidth: 1, minHeight: 58, padding: 8, width: "33.33%" },
   metricLabel: { color: colors.outlineStrong, fontSize: 11, fontWeight: "600", textAlign: "center" },
   metricValue: { color: colors.text, fontSize: 13, fontWeight: "800", marginTop: 4, textAlign: "center" },
-  metricBadge: { backgroundColor: "#E7F8F0", borderRadius: 999, color: colors.primary, overflow: "hidden", paddingHorizontal: 10, paddingVertical: 2 },
+  metricBadge: { backgroundColor: colors.primarySoft, borderRadius: 999, color: colors.primary, overflow: "hidden", paddingHorizontal: 10, paddingVertical: 2 },
   authNotice: {
     alignItems: "flex-start",
-    backgroundColor: "#FFF4E8",
+    backgroundColor: colors.secondaryContainer,
     borderColor: colors.secondaryContainer,
     borderRadius: 14,
     borderWidth: 1,
@@ -1671,7 +1672,7 @@ const styles = StyleSheet.create({
   },
   authNoticeTitle: { color: colors.text, fontSize: 13, fontWeight: "800", marginBottom: 4 },
   authReason: { color: colors.muted, fontSize: 12, fontWeight: "600", lineHeight: 18 },
-  emptyCard: { alignItems: "center", backgroundColor: "rgba(242, 244, 246, 0.45)", borderColor: colors.outline, borderRadius: 16, borderStyle: "dashed", borderWidth: 2, gap: 8, padding: 20 },
+  emptyCard: { alignItems: "center", backgroundColor: colors.surfaceLow, borderColor: colors.outline, borderRadius: 16, borderStyle: "dashed", borderWidth: 2, gap: 8, padding: 20 },
   emptyTitle: { color: colors.muted, fontSize: 14, fontWeight: "700" },
   emptyText: { color: colors.outlineStrong, fontSize: 12, textAlign: "center" },
   totalCard: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.outline, borderRadius: 16, borderWidth: 1, flexDirection: "row", gap: 14, padding: 14 },

@@ -151,7 +151,7 @@ export default function FavoritesScreen() {
             onChangeText={setSearchDraft}
             onSubmitEditing={submitSearch}
             placeholder="Cari favorit..."
-            placeholderTextColor={theme.colors.subtleText}
+            placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText}
             returnKeyType="search"
             style={[theme.typography.body, styles.searchInput, { color: theme.colors.text }]}
           />

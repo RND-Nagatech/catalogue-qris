@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -57,6 +57,7 @@ export default function CatalogueScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const listRef = useRef<FlatList<CatalogueProduct>>(null);
   const [products, setProducts] = useState<CatalogueProduct[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
@@ -129,8 +130,11 @@ export default function CatalogueScreen() {
 
   useFocusEffect(
     useCallback(() => {
+      requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      });
       refreshFavoriteIds();
-      fetchProducts(1, "refresh");
+      fetchProducts(1, "reset");
     }, [fetchProducts, refreshFavoriteIds]),
   );
 
@@ -191,7 +195,7 @@ export default function CatalogueScreen() {
             onChangeText={setSearchDraft}
             onSubmitEditing={submitSearch}
             placeholder="Cari produk..."
-            placeholderTextColor={theme.colors.subtleText}
+            placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.subtleText}
             returnKeyType="search"
             style={[theme.typography.body, styles.searchInput, { color: theme.colors.text }]}
           />
@@ -230,12 +234,14 @@ export default function CatalogueScreen() {
         />
       ) : (
         <FlatList
+          ref={listRef}
           data={products}
           renderItem={renderItem}
           keyExtractor={productKey}
           numColumns={2}
           contentContainerStyle={[styles.listContent, { paddingBottom: 110 + insets.bottom }]}
           columnWrapperStyle={styles.column}
+          contentInsetAdjustmentBehavior="never"
           showsVerticalScrollIndicator={false}
           ListHeaderComponent={(
             <View style={styles.listHeader}>
@@ -444,7 +450,7 @@ function FilterModal({
                     setFilterSearch("");
                   }}
                 >
-                  <Text style={[styles.filterTabText, { color: active ? theme.colors.onPrimary : theme.colors.text }]}>{tab.label}</Text>
+                  <Text style={[styles.filterTabText, { color: active ? theme.colors.onPrimaryContainer : theme.colors.text }]}>{tab.label}</Text>
                 </Pressable>
               );
             })}
@@ -455,7 +461,7 @@ function FilterModal({
               value={filterSearch}
               onChangeText={setFilterSearch}
               placeholder={`Cari ${currentTab.label.toLowerCase()}...`}
-              placeholderTextColor={theme.colors.outline}
+              placeholderTextColor={theme.isDark ? theme.colors.muted : theme.colors.outline}
               style={[theme.typography.body, styles.filterSearchInput, { color: theme.colors.text }]}
             />
             {filterSearch ? (

@@ -343,6 +343,7 @@ export function AppTextField({
   ...inputProps
 }: AppTextFieldProps) {
   const theme = useAppTheme();
+  const placeholderColor = placeholderTextColor ?? (theme.isDark ? theme.colors.muted : theme.colors.subtleText);
 
   return (
     <View style={[styles.inputContainer, containerStyle]}>
@@ -351,19 +352,19 @@ export function AppTextField({
         style={[
           styles.inputWrap,
           {
-            backgroundColor: editable ? theme.colors.inputBackground : theme.colors.surfaceContainerLow,
-            borderColor: theme.colors.inputBorder,
+            backgroundColor: editable ? theme.colors.inputBackground : theme.colors.surfaceDim,
+            borderColor: editable ? theme.colors.inputBorder : theme.colors.outlineVariant,
             borderRadius: theme.components.controlRadius,
             minHeight: theme.components.inputHeight,
           },
         ]}
       >
-        {leftIcon ? <Ionicons name={leftIcon} size={19} color={theme.colors.subtleText} /> : null}
+        {leftIcon ? <Ionicons name={leftIcon} size={19} color={editable ? theme.colors.subtleText : theme.colors.muted} /> : null}
         <TextInput
           {...inputProps}
           editable={editable}
-          placeholderTextColor={placeholderTextColor ?? theme.colors.subtleText}
-          style={[theme.typography.body, styles.input, { color: theme.colors.text }, style]}
+          placeholderTextColor={placeholderColor}
+          style={[theme.typography.body, styles.input, { color: editable ? theme.colors.text : theme.colors.muted }, style]}
         />
         {rightIcon ? (
           <Pressable accessibilityRole="button" onPress={onRightPress} disabled={!onRightPress}>

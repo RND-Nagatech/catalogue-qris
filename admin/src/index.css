@@ -1,0 +1,43 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+:root {
+  --obsidian: #0D0D0D;
+  --charcoal: #1A1A1A;
+  --gold: #C9A95C;
+  --gold-dark: #A68A3C;
+  --ivory: #F8F6F0;
+  --white: #FFFFFF;
+  --stone: #E8E4DB;
+  --taupe: #6B6560;
+  --emerald: #2D6A4F;
+  --garnet: #C44536;
+  --text: #1A1A1A;
+  --text-secondary: #6B6560;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--ivory);
+  color: var(--text);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Subtle scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--stone); border-radius: 3px; }
+
+/* Focus ring */
+*:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+
+/* Animations */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.shimmer {
+  background: linear-gradient(90deg, var(--ivory) 25%, var(--stone) 50%, var(--ivory) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}

@@ -15,7 +15,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { EmptyState, PrimaryButton, SecondaryButton } from "../components/ui";
+import { AppHeader, EmptyState, PrimaryButton, SecondaryButton } from "../components/ui";
 import { type CatalogueProduct, getCatalogueImageUrl, searchCatalogueByImage } from "../lib/catalogueStore";
 import { useAppTheme } from "../lib/theme";
 
@@ -109,7 +109,7 @@ export default function ImageSearchScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
-      <ImageSearchHeader topInset={insets.top} />
+      <AppHeader title="Cari Via Gambar" topInset={insets.top} />
 
       {!searched ? (
         <View style={styles.hero}>
@@ -118,7 +118,7 @@ export default function ImageSearchScreen() {
           </View>
           <Text style={[theme.typography.title, styles.heroTitle, { color: theme.colors.text }]}>Cari Produk dari Gambar</Text>
           <Text style={[theme.typography.body, styles.heroText, { color: theme.colors.subtleText }]}>
-            Ambil foto atau pilih gambar perhiasan untuk mencari produk yang mirip di catalogue.
+            Ambil foto atau pilih gambar perhiasan untuk mencari produk yang mirip di katalog.
           </Text>
           <View style={styles.actions}>
             <PrimaryButton title="Ambil Foto" icon="camera-outline" onPress={() => pickAndSearch("camera")} fullWidth />
@@ -179,31 +179,6 @@ export default function ImageSearchScreen() {
         }}
         onError={setError}
       />
-    </View>
-  );
-}
-
-function ImageSearchHeader({ topInset }: { topInset: number }) {
-  const theme = useAppTheme();
-
-  return (
-    <View
-      style={[
-        styles.searchHeader,
-        {
-          backgroundColor: theme.colors.surface,
-          borderBottomColor: theme.colors.divider,
-          paddingTop: topInset,
-        },
-      ]}
-    >
-      <Pressable accessibilityRole="button" style={styles.searchHeaderIconButton}>
-        <Ionicons name="menu-outline" size={24} color={theme.colors.primary} />
-      </Pressable>
-      <Text style={[theme.typography.title, styles.searchHeaderTitle, { color: theme.colors.primary }]}>Image Search</Text>
-      <Pressable accessibilityRole="button" style={styles.searchHeaderIconButton} onPress={theme.toggleTheme}>
-        <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={23} color={theme.colors.primary} />
-      </Pressable>
     </View>
   );
 }
@@ -344,9 +319,6 @@ function SearchResultCard({ product }: { product: CatalogueProduct }) {
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  searchHeader: { minHeight: 64, borderBottomWidth: StyleSheet.hairlineWidth, flexDirection: "row", alignItems: "center", paddingHorizontal: 16 },
-  searchHeaderTitle: { flex: 1, fontSize: 22, lineHeight: 30 },
-  searchHeaderIconButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   hero: { flex: 1, alignItems: "center", justifyContent: "center", paddingHorizontal: 24, paddingBottom: 90 },
   heroIcon: { width: 118, height: 118, borderRadius: 40, alignItems: "center", justifyContent: "center", marginBottom: 22 },
   heroTitle: { textAlign: "center", marginBottom: 8 },

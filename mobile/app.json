@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Nagagold Catalogue",
+    "slug": "mobile",
+    "version": "1.0.1",
+    "orientation": "portrait",
+    "icon": "./assets/ios-light.png",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "edgeToEdgeEnabled": false,
+      "bundleIdentifier": "com.nagatech.catalogue_multistore",
+      "icon": {
+        "dark": "./assets/ios-dark.png",
+        "tinted": "./assets/ios-tinted.png"
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#fbf9f5",
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "monochromeImage": "./assets/adaptive-icon.png"
+      },
+      "predictiveBackGestureEnabled": false,
+      "edgeToEdgeEnabled": false,
+      "package": "com.nagatech.catalogue_multistore"
+    },
+    "androidStatusBar": {
+      "translucent": false,
+      "backgroundColor": "#fbf9f5"
+    },
+    "web": {
+      "favicon": "./assets/adaptive-icon.png"
+    },
+    "plugins": [
+      "expo-font",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#fbf9f5",
+          "image": "./assets/splash-icon-light.png",
+          "dark": {
+            "image": "./assets/splash-icon-dark.png",
+            "backgroundColor": "#1c1b1f"
+          },
+          "imageWidth": 200
+        }
+      ],
+      [
+        "expo-navigation-bar",
+        {
+          "style": "dark",
+          "enforceContrast": false
+        }
+      ]
+    ]
+  }
+}

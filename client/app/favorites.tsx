@@ -130,13 +130,18 @@ export default function FavoritesScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <AppHeader
-        title="Favorit"
+        title="Favorit Saya"
         leftIcon="arrow-back-outline"
         onLeftPress={() => router.back()}
         showThemeToggle={false}
         topInset={insets.top}
         titleStyle={theme.typography.titleSmall}
       />
+
+      <View style={styles.intro}>
+        <Text style={[styles.introLabel, { color: theme.colors.muted }]}>Koleksi Tersimpan</Text>
+        <View style={[styles.introLine, { backgroundColor: theme.colors.primary }]} />
+      </View>
 
       <View style={styles.searchWrap}>
         <View style={[styles.searchBox, { backgroundColor: theme.colors.inputBackground, borderColor: theme.colors.inputBorder }]}>
@@ -198,7 +203,12 @@ export default function FavoritesScreen() {
               <Text style={[theme.typography.bodySmall, { color: theme.colors.subtleText }]}>Memuat favorit...</Text>
             </View>
           ) : (
-            <EmptyState icon="heart-outline" title="Belum ada favorit" description="Produk yang ditandai favorit akan muncul di sini." />
+            <EmptyState
+              icon="heart-dislike-outline"
+              title="Belum Ada Favorit"
+              description="Jelajahi koleksi perhiasan kami dan klik ikon hati untuk menyimpan item favorit Anda di sini."
+              action={<PrimaryButton title="Mulai Cari" onPress={() => router.back()} />}
+            />
           )}
           ListFooterComponent={loadingMore ? <ActivityIndicator color={theme.colors.primary} style={styles.footerLoader} /> : null}
         />
@@ -279,14 +289,20 @@ function ProductCard({
         </View>
       ) : null}
       <View style={styles.productInfo}>
-        <Text style={[theme.typography.labelSmall, { color: theme.colors.subtleText }]} numberOfLines={1}>{barcode}</Text>
-        <Text style={[compact ? theme.typography.bodySmall : theme.typography.label, { color: theme.colors.text }]} numberOfLines={2}>{name}</Text>
-        <Text style={[theme.typography.bodySmall, { color: theme.colors.primary }]} numberOfLines={1}>
-          {(product.berat || 0).toLocaleString("id-ID")} Gr • {product.kadar_cetak || product.kode_group || "-"}
+        <Text style={[theme.typography.labelSmall, styles.productCategory, { color: theme.colors.outline }]} numberOfLines={1}>
+          {product.kode_group || "-"} • {product.sumber || "-"}
         </Text>
-        <Text style={[theme.typography.labelSmall, { color: theme.colors.warning }]} numberOfLines={1}>
-          {rupiah(product.harga_skrg || product.harga_jual)}
-        </Text>
+        <Text style={[compact ? theme.typography.bodySmall : theme.typography.bodyStrong, styles.productName, { color: theme.colors.text }]} numberOfLines={2}>{name}</Text>
+        <View style={styles.productAttrs}>
+          <View style={[styles.attrBadge, { backgroundColor: theme.colors.surfaceContainer }]}>
+            <Ionicons name="scale-outline" size={12} color={theme.colors.primary} />
+            <Text style={[theme.typography.labelSmall, { color: theme.colors.primary }]}>{(product.berat || 0).toLocaleString("id-ID")}g</Text>
+          </View>
+          <View style={[styles.attrBadge, { backgroundColor: theme.colors.surfaceContainer }]}>
+            <Ionicons name="shield-checkmark-outline" size={12} color={theme.colors.primary} />
+            <Text style={[theme.typography.labelSmall, { color: theme.colors.primary }]}>{product.kadar_cetak || product.kode_group || "-"}</Text>
+          </View>
+        </View>
       </View>
     </Pressable>
   );
@@ -358,20 +374,27 @@ function ProductDetailModal({
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  searchWrap: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 14 },
-  searchBox: { flex: 1, minHeight: 50, borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 8 },
+  intro: { paddingHorizontal: 20, paddingBottom: 12 },
+  introLabel: { fontSize: 14, lineHeight: 20, fontWeight: "800", textTransform: "uppercase" },
+  introLine: { width: 32, height: 2, marginTop: 8 },
+  searchWrap: { flexDirection: "row", gap: 8, paddingHorizontal: 20, paddingBottom: 12 },
+  searchBox: { flex: 1, minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 8 },
   searchInput: { flex: 1, paddingVertical: 0 },
-  summaryRow: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  listContent: { paddingHorizontal: 14, paddingTop: 4 },
-  column: { gap: 12 },
+  summaryRow: { paddingHorizontal: 20, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  listContent: { paddingHorizontal: 20, paddingTop: 4 },
+  column: { justifyContent: "space-between" },
   loading: { paddingTop: 80, alignItems: "center", gap: 12 },
   footerLoader: { paddingVertical: 18 },
-  productCard: { width: "48%", borderWidth: 1, borderRadius: 18, overflow: "hidden", marginBottom: 12 },
-  productImageBox: { aspectRatio: 1, alignItems: "center", justifyContent: "center" },
+  productCard: { width: "48%", borderRadius: 12, overflow: "hidden", marginBottom: 16 },
+  productImageBox: { aspectRatio: 720 / 645, alignItems: "center", justifyContent: "center" },
   productImage: { width: "100%", height: "100%" },
   favoriteButton: { position: "absolute", top: 10, right: 10, width: 32, height: 32, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   stockBadge: { position: "absolute", left: 10, top: 12, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-  productInfo: { padding: 12, gap: 5 },
+  productInfo: { padding: 14, gap: 8, alignItems: "center" },
+  productCategory: { textAlign: "center", textTransform: "uppercase" },
+  productName: { textAlign: "center", lineHeight: 20 },
+  productAttrs: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" },
+  attrBadge: { flexDirection: "row", alignItems: "center", gap: 3, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
   detailScreen: { flex: 1 },
   detailHeader: { minHeight: 58, borderBottomWidth: 1, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   detailHeaderButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },

@@ -4,7 +4,9 @@ import {
   ActivityIndicator,
   FlatList,
   Image,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -37,6 +39,8 @@ type FilterState = {
   toko?: string;
   storeId?: string;
 };
+
+type FilterTab = "group" | "dept" | "baki" | "store";
 
 const PAGE_LIMIT = 20;
 
@@ -74,6 +78,7 @@ export default function CatalogueScreen() {
 
   const isCompact = width < 380;
   const activeFilterCount = Object.values(filters).filter(Boolean).length;
+  const listTitle = search.trim() || activeFilterCount ? "Hasil Pencarian" : "Semua Produk";
 
   const refreshFavoriteIds = useCallback(async () => {
     try {
@@ -171,7 +176,7 @@ export default function CatalogueScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: theme.colors.background }]}>
       <AppHeader
-        title="Catalogue"
+        title="Katalog Produk"
         topInset={insets.top}
         rightIcon="heart-outline"
         rightBadge={favoriteIds.size ? favoriteIds.size : undefined}
@@ -210,15 +215,16 @@ export default function CatalogueScreen() {
         </Pressable>
       </View>
 
-      <View style={styles.summaryRow}>
-        <Text style={[theme.typography.bodySmall, { color: theme.colors.subtleText }]}>{filterSummary}</Text>
-        <Text style={[theme.typography.labelSmall, { color: theme.colors.primary }]}>{total.toLocaleString("id-ID")} item</Text>
-      </View>
+      {activeFilterCount ? (
+        <View style={styles.summaryRow}>
+          <Text style={[theme.typography.bodySmall, { color: theme.colors.subtleText }]}>{filterSummary}</Text>
+        </View>
+      ) : null}
 
       {error && !loading ? (
         <EmptyState
           icon="cloud-offline-outline"
-          title="Catalogue belum bisa dimuat"
+          title="Katalog belum bisa dimuat"
           description={error}
           action={<PrimaryButton title="Coba Lagi" onPress={() => fetchProducts(1, "reset")} />}
         />
@@ -231,6 +237,12 @@ export default function CatalogueScreen() {
           contentContainerStyle={[styles.listContent, { paddingBottom: 110 + insets.bottom }]}
           columnWrapperStyle={styles.column}
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={(
+            <View style={styles.listHeader}>
+              <Text style={[theme.typography.label, { color: theme.colors.primary }]}>{listTitle}</Text>
+              <Text style={[theme.typography.bodySmall, { color: theme.colors.subtleText }]}>{total.toLocaleString("id-ID")} item</Text>
+            </View>
+          )}
           onEndReached={() => {
             if (hasMore && !loadingMore && !loading) fetchProducts(page + 1, "append");
           }}
@@ -335,14 +347,20 @@ function ProductCard({
         <Ionicons name={favorite ? "heart" : "heart-outline"} size={20} color={favorite ? theme.colors.warning : theme.colors.subtleText} />
       </Pressable>
       <View style={styles.productInfo}>
-        <Text style={[theme.typography.labelSmall, { color: theme.colors.subtleText }]} numberOfLines={1}>{barcode}</Text>
-        <Text style={[compact ? theme.typography.bodySmall : theme.typography.label, { color: theme.colors.text }]} numberOfLines={2}>{name}</Text>
-        <Text style={[theme.typography.bodySmall, { color: theme.colors.primary }]} numberOfLines={1}>
-          {(product.berat || 0).toLocaleString("id-ID")} Gr • {product.kadar_cetak || product.kode_group || "-"}
+        <Text style={[theme.typography.labelSmall, styles.productCategory, { color: theme.colors.outline }]} numberOfLines={1}>
+          {product.kode_group || "-"} • {product.sumber || "-"}
         </Text>
-        <Text style={[theme.typography.labelSmall, { color: theme.colors.warning }]} numberOfLines={1}>
-          {rupiah(product.harga_skrg || product.harga_jual)}
-        </Text>
+        <Text style={[compact ? theme.typography.bodySmall : theme.typography.bodyStrong, styles.productName, { color: theme.colors.text }]} numberOfLines={2}>{name}</Text>
+        <View style={styles.productAttrs}>
+          <View style={[styles.attrBadge, { backgroundColor: theme.colors.surfaceContainer }]}>
+            <Ionicons name="scale-outline" size={12} color={theme.colors.primary} />
+            <Text style={[theme.typography.labelSmall, { color: theme.colors.primary }]}>{(product.berat || 0).toLocaleString("id-ID")}g</Text>
+          </View>
+          <View style={[styles.attrBadge, { backgroundColor: theme.colors.surfaceContainer }]}>
+            <Ionicons name="shield-checkmark-outline" size={12} color={theme.colors.primary} />
+            <Text style={[theme.typography.labelSmall, { color: theme.colors.primary }]}>{product.kadar_cetak || product.kode_group || "-"}</Text>
+          </View>
+        </View>
       </View>
     </Pressable>
   );
@@ -370,24 +388,103 @@ function FilterModal({
   const theme = useAppTheme();
   const insets = useSafeAreaInsets();
   const [draft, setDraft] = useState<FilterState>(filters);
+  const [activeTab, setActiveTab] = useState<FilterTab>("group");
+  const [filterSearch, setFilterSearch] = useState("");
 
   useEffect(() => {
-    if (visible) setDraft(filters);
+    if (visible) {
+      setDraft(filters);
+      setFilterSearch("");
+    }
   }, [filters, visible]);
+
+  const tabs = useMemo(() => [
+    { key: "group" as const, label: "Group", value: draft.group, options: groups },
+    { key: "dept" as const, label: "Dept", value: draft.dept, options: depts },
+    { key: "baki" as const, label: "Baki", value: draft.toko, options: baki },
+    { key: "store" as const, label: "Toko", value: draft.storeId, options: stores.map((store) => ({ code: store.id, name: store.name })) },
+  ], [baki, depts, draft.dept, draft.group, draft.storeId, draft.toko, groups, stores]);
+  const currentTab = tabs.find((tab) => tab.key === activeTab) ?? tabs[0];
+  const filteredOptions = useMemo(() => {
+    const keyword = filterSearch.trim().toLowerCase();
+    if (!keyword) return currentTab.options;
+    return currentTab.options.filter((option) =>
+      `${option.name} ${option.code}`.toLowerCase().includes(keyword)
+    );
+  }, [currentTab.options, filterSearch]);
+
+  const selectFilter = (value?: string) => {
+    if (activeTab === "group") setDraft((current) => ({ ...current, group: value }));
+    if (activeTab === "dept") setDraft((current) => ({ ...current, dept: value }));
+    if (activeTab === "baki") setDraft((current) => ({ ...current, toko: value }));
+    if (activeTab === "store") setDraft((current) => ({ ...current, storeId: value }));
+  };
 
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.modalBackdrop, { backgroundColor: theme.colors.scrim }]}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        style={[styles.modalKeyboard, { backgroundColor: theme.colors.scrim }]}
+      >
+      <View style={styles.modalBackdrop}>
         <View style={[styles.sheet, { backgroundColor: theme.colors.cardBackground, paddingBottom: insets.bottom + 16 }]}>
           <View style={styles.sheetHeader}>
-            <Text style={[theme.typography.titleSmall, { color: theme.colors.text }]}>Filter Catalogue</Text>
+            <Text style={[styles.sheetTitle, { color: theme.colors.primary }]}>Filter Produk</Text>
             <Pressable onPress={onClose}><Ionicons name="close" size={24} color={theme.colors.text} /></Pressable>
           </View>
-          <ScrollView showsVerticalScrollIndicator={false}>
-            <OptionGroup title="Toko" value={draft.storeId} options={stores.map((store) => ({ code: store.id, name: store.name }))} onChange={(value) => setDraft((current) => ({ ...current, storeId: value }))} />
-            <OptionGroup title="Group" value={draft.group} options={groups} onChange={(value) => setDraft((current) => ({ ...current, group: value }))} />
-            <OptionGroup title="Jenis" value={draft.dept} options={depts} onChange={(value) => setDraft((current) => ({ ...current, dept: value }))} />
-            <OptionGroup title="Baki" value={draft.toko} options={baki} onChange={(value) => setDraft((current) => ({ ...current, toko: value }))} />
+          <View style={styles.filterTabs}>
+            {tabs.map((tab) => {
+              const active = activeTab === tab.key;
+              return (
+                <Pressable
+                  key={tab.key}
+                  style={[styles.filterTab, { borderColor: active ? theme.colors.primaryContainer : theme.colors.outlineVariant, backgroundColor: active ? theme.colors.primaryContainer : theme.colors.cardBackground }]}
+                  onPress={() => {
+                    setActiveTab(tab.key);
+                    setFilterSearch("");
+                  }}
+                >
+                  <Text style={[styles.filterTabText, { color: active ? theme.colors.onPrimary : theme.colors.text }]}>{tab.label}</Text>
+                </Pressable>
+              );
+            })}
+          </View>
+          <View style={[styles.filterSearchBox, { backgroundColor: theme.colors.surfaceContainer, borderColor: theme.colors.outlineVariant }]}>
+            <Ionicons name="search-outline" size={18} color={theme.colors.outline} />
+            <TextInput
+              value={filterSearch}
+              onChangeText={setFilterSearch}
+              placeholder={`Cari ${currentTab.label.toLowerCase()}...`}
+              placeholderTextColor={theme.colors.outline}
+              style={[theme.typography.body, styles.filterSearchInput, { color: theme.colors.text }]}
+            />
+            {filterSearch ? (
+              <Pressable onPress={() => setFilterSearch("")}>
+                <Ionicons name="close-circle" size={18} color={theme.colors.outline} />
+              </Pressable>
+            ) : null}
+          </View>
+          <ScrollView showsVerticalScrollIndicator={false} style={styles.filterOptionList} keyboardShouldPersistTaps="handled">
+            <Pressable
+              onPress={() => selectFilter(undefined)}
+              style={[styles.filterOption, { backgroundColor: !currentTab.value ? theme.colors.surfaceContainerLow : theme.colors.cardBackground }]}
+            >
+              <Ionicons name={!currentTab.value ? "radio-button-on" : "radio-button-off"} size={20} color={!currentTab.value ? theme.colors.primary : theme.colors.outlineVariant} />
+              <Text style={[styles.filterOptionText, { color: !currentTab.value ? theme.colors.primary : theme.colors.text }]}>Semua</Text>
+            </Pressable>
+            {filteredOptions.map((option, index) => {
+              const active = currentTab.value === option.code;
+              return (
+                <Pressable
+                  key={`${activeTab}-${option.code || option.name || "option"}-${index}`}
+                  onPress={() => selectFilter(option.code)}
+                  style={[styles.filterOption, { backgroundColor: active ? theme.colors.surfaceContainerLow : theme.colors.cardBackground }]}
+                >
+                  <Ionicons name={active ? "radio-button-on" : "radio-button-off"} size={20} color={active ? theme.colors.primary : theme.colors.outlineVariant} />
+                  <Text style={[styles.filterOptionText, { color: active ? theme.colors.primary : theme.colors.text }]} numberOfLines={1}>{option.name || option.code}</Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
           <View style={styles.sheetActions}>
             <SecondaryButton title="Reset" onPress={() => setDraft({})} style={{ flex: 1 }} />
@@ -395,6 +492,7 @@ function FilterModal({
           </View>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 }
@@ -496,28 +594,43 @@ function ProductDetailModal({
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
-  searchWrap: { flexDirection: "row", gap: 10, paddingHorizontal: 16, paddingTop: 14 },
-  searchBox: { flex: 1, minHeight: 50, borderWidth: 1, borderRadius: 16, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 8 },
+  searchWrap: { flexDirection: "row", gap: 8, paddingHorizontal: 20, paddingTop: 14, paddingBottom: 16 },
+  searchBox: { flex: 1, minHeight: 48, borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, flexDirection: "row", alignItems: "center", gap: 8 },
   searchInput: { flex: 1, paddingVertical: 0 },
-  filterButton: { width: 50, height: 50, borderRadius: 16, borderWidth: 1, alignItems: "center", justifyContent: "center" },
-  summaryRow: { paddingHorizontal: 18, paddingTop: 10, paddingBottom: 8, flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  listContent: { paddingHorizontal: 14, paddingTop: 4 },
-  column: { gap: 12 },
+  filterButton: { width: 48, height: 48, borderRadius: 12, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  summaryRow: { paddingHorizontal: 20, paddingBottom: 8, flexDirection: "row", alignItems: "center" },
+  listContent: { paddingHorizontal: 20, paddingTop: 4 },
+  listHeader: { width: "100%", paddingBottom: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  column: { justifyContent: "space-between" },
   loading: { paddingTop: 80, alignItems: "center", gap: 12 },
   footerLoader: { paddingVertical: 18 },
-  productCard: { width: "48%", borderWidth: 1, borderRadius: 18, overflow: "hidden", marginBottom: 12 },
-  productImageBox: { aspectRatio: 1, alignItems: "center", justifyContent: "center" },
+  productCard: { width: "48%", borderRadius: 12, overflow: "hidden", marginBottom: 16 },
+  productImageBox: { aspectRatio: 720 / 645, alignItems: "center", justifyContent: "center" },
   productImage: { width: "100%", height: "100%" },
-  favoriteButton: { position: "absolute", top: 10, right: 10, width: 36, height: 36, borderRadius: 18, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  favoriteButton: { position: "absolute", top: 8, right: 8, width: 34, height: 34, borderRadius: 17, borderWidth: 1, alignItems: "center", justifyContent: "center" },
   stockBadge: { position: "absolute", left: 10, top: 12, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 5 },
-  productInfo: { padding: 12, gap: 5 },
-  modalBackdrop: { flex: 1, justifyContent: "flex-end" },
-  sheet: { maxHeight: "82%", borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 16 },
+  productInfo: { padding: 14, gap: 8, alignItems: "center" },
+  productCategory: { textAlign: "center", textTransform: "uppercase" },
+  productName: { textAlign: "center", lineHeight: 20 },
+  productAttrs: { flexDirection: "row", alignItems: "center", gap: 8, justifyContent: "center" },
+  attrBadge: { flexDirection: "row", alignItems: "center", gap: 3, borderRadius: 4, paddingHorizontal: 8, paddingVertical: 3 },
+  modalKeyboard: { flex: 1 },
+  modalBackdrop: { flex: 1, justifyContent: "flex-end", paddingTop: 48 },
+  sheet: { maxHeight: "90%", borderTopLeftRadius: 24, borderTopRightRadius: 24, paddingHorizontal: 20, paddingTop: 20 },
   sheetHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingBottom: 14 },
+  sheetTitle: { fontSize: 24, lineHeight: 32, fontWeight: "800" },
+  filterTabs: { flexDirection: "row", gap: 8, paddingBottom: 16 },
+  filterTab: { minHeight: 40, borderRadius: 999, borderWidth: 1, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" },
+  filterTabText: { fontSize: 14, lineHeight: 20, fontWeight: "800" },
+  filterSearchBox: { minHeight: 42, borderRadius: 8, borderWidth: 1, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14 },
+  filterSearchInput: { flex: 1, paddingVertical: 0 },
+  filterOptionList: { marginTop: 16, maxHeight: 360 },
+  filterOption: { minHeight: 52, borderRadius: 8, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 10, marginBottom: 8 },
+  filterOptionText: { flex: 1, fontSize: 14, lineHeight: 20, fontWeight: "800" },
   optionGroup: { marginBottom: 18, gap: 8 },
   optionRow: { gap: 8, paddingRight: 16 },
   chip: { borderWidth: 1, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 9, maxWidth: 180 },
-  sheetActions: { flexDirection: "row", gap: 12, paddingTop: 10 },
+  sheetActions: { flexDirection: "row", gap: 16, paddingTop: 16, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: "#E4E2DE" },
   detailScreen: { flex: 1 },
   detailHeader: { minHeight: 58, borderBottomWidth: 1, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   detailHeaderButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },

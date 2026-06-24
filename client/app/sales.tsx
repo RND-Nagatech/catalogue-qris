@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { EmptyState } from "../components/ui";
+import { AppHeader, EmptyState } from "../components/ui";
 import {
   authorizeNagagoldTransaction,
   loadActiveQrisSetting,
@@ -926,7 +926,7 @@ export default function Sales() {
   if (!selectedStore) {
     return (
       <>
-        <SalesHeader topInset={insets.top} />
+        <AppHeader title="Transaksi Penjualan" topInset={insets.top} />
         <ScrollView
           contentContainerStyle={[
             styles.branchContainer,
@@ -969,7 +969,7 @@ export default function Sales() {
 
   return (
     <>
-      <SalesHeader topInset={insets.top} />
+      <AppHeader title="Transaksi Penjualan" topInset={insets.top} />
       <ScrollView
         contentContainerStyle={[
           styles.container,
@@ -1005,10 +1005,13 @@ export default function Sales() {
         </View>
 
         <View style={styles.actionRow}>
-          <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.tertiaryContainer }]} onPress={() => setCustomerOpen(true)}>
-            <Ionicons name="person-add-outline" size={17} color={theme.colors.onPrimary} />
+          <Pressable
+            style={[styles.actionButton, styles.customerActionButton, { backgroundColor: theme.colors.surfaceContainerLowest, borderColor: theme.colors.primary }]}
+            onPress={() => setCustomerOpen(true)}
+          >
+            <Ionicons name="person-add-outline" size={17} color={theme.colors.primary} />
             <View>
-              <Text style={[styles.actionButtonText, { color: theme.colors.onPrimary }]}>Data Customer</Text>
+              <Text style={[styles.actionButtonText, { color: theme.colors.primary }]}>Data Customer</Text>
             </View>
           </Pressable>
           <Pressable style={[styles.actionButton, { backgroundColor: theme.colors.primaryContainer }]} onPress={() => setItemOpen(true)}>
@@ -1272,31 +1275,6 @@ export default function Sales() {
         onSubmit={submitDiscountAuthorization}
       />
     </>
-  );
-}
-
-function SalesHeader({ topInset }: { topInset: number }) {
-  const theme = useAppTheme();
-
-  return (
-    <View
-      style={[
-        styles.salesHeader,
-        {
-          backgroundColor: theme.colors.surface,
-          borderBottomColor: theme.colors.divider,
-          paddingTop: topInset,
-        },
-      ]}
-    >
-      <Pressable accessibilityRole="button" style={styles.salesHeaderIconButton}>
-        <Ionicons name="menu-outline" size={24} color={theme.colors.primary} />
-      </Pressable>
-      <Text style={[theme.typography.title, styles.salesHeaderTitle, { color: theme.colors.primary }]}>Transaksi Penjualan</Text>
-      <Pressable accessibilityRole="button" style={styles.salesHeaderIconButton} onPress={theme.toggleTheme}>
-        <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={23} color={theme.colors.primary} />
-      </Pressable>
-    </View>
   );
 }
 
@@ -1861,7 +1839,7 @@ function PaymentModal(props: {
                   </Pressable>
                 </>
               ) : (
-                <Text style={[styles.qrisCaption, { color: theme.colors.muted }]}>Isi nominal dan pastikan QRIS merchant sudah tersimpan di Pengaturan.</Text>
+                <Text style={[styles.qrisCaption, { color: theme.colors.muted }]}>Isi nominal dan pastikan QRIS merchant sudah tersimpan di Kelola.</Text>
               )}
             </View>
           ) : null}
@@ -2791,39 +2769,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   activeStoreChangeText: { fontSize: 12, fontWeight: "800" },
-  salesHeader: {
-    alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    gap: 16,
-    minHeight: 64,
-    paddingBottom: 12,
-    paddingHorizontal: 20,
-  },
-  salesHeaderIconButton: {
-    alignItems: "center",
-    height: 40,
-    justifyContent: "center",
-    width: 40,
-  },
-  salesHeaderTitle: { flex: 1, fontSize: 22, lineHeight: 30 },
-  topHeader: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    minHeight: 36,
-  },
-  headerLeft: { alignItems: "center", flexDirection: "row", gap: 13 },
-  headerActions: { alignItems: "center", flexDirection: "row", gap: 8 },
-  headerIconButton: {
-    alignItems: "center",
-    height: 32,
-    justifyContent: "center",
-    position: "relative",
-    width: 32,
-  },
-  screenTitle: { color: colors.primary, fontSize: 20, fontWeight: "700" },
-  screenSubtitle: { color: colors.muted, fontSize: 12, fontWeight: "500", marginTop: 4 },
   cartButton: {
     alignItems: "center",
     backgroundColor: colors.surface,
@@ -2899,6 +2844,7 @@ const styles = StyleSheet.create({
     minHeight: 54,
     paddingHorizontal: 10,
   },
+  customerActionButton: { borderWidth: 1.4 },
   customerButton: { backgroundColor: colors.secondaryContainer },
   itemButton: { backgroundColor: colors.primaryContainer },
   actionButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
@@ -2910,8 +2856,8 @@ const styles = StyleSheet.create({
   itemList: { gap: 12 },
   itemCard: {
     alignItems: "center",
-    backgroundColor: colors.surface,
-    borderColor: colors.outline,
+    backgroundColor: "#FFFFFF",
+    borderColor: colors.primary,
     borderRadius: 16,
     borderWidth: 1,
     flexDirection: "row",
@@ -3093,8 +3039,8 @@ const styles = StyleSheet.create({
   field: { flex: 1, gap: 6 },
   label: { color: colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
   input: {
-    backgroundColor: colors.surface,
-    borderColor: colors.outline,
+    backgroundColor: "#FFFFFF",
+    borderColor: colors.primary,
     borderRadius: 12,
     borderWidth: 1,
     color: colors.text,

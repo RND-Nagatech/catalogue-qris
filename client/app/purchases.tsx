@@ -23,7 +23,7 @@ import {
   type NagagoldStore,
   type NagagoldToko,
 } from "../lib/dataStore";
-import { EmptyState } from "../components/ui";
+import { AppHeader as SharedAppHeader, EmptyState } from "../components/ui";
 import { formatRupiah } from "../lib/qris";
 import { useNagagoldConfig } from "../lib/nagagoldConfig";
 import { useAppTheme } from "../lib/theme";
@@ -638,7 +638,7 @@ export default function Purchases() {
   if (!selectedStore) {
     return (
       <View style={[styles.keyboardScreen, { backgroundColor: theme.colors.background }]}>
-        <AppHeader title="Transaksi Pembelian" topInset={insets.top} />
+        <SharedAppHeader title="Transaksi Pembelian" topInset={insets.top} />
         <ScrollView
           contentContainerStyle={[
             styles.branchContainer,
@@ -682,7 +682,7 @@ export default function Purchases() {
   return (
     <>
     <View style={[styles.keyboardScreen, { backgroundColor: theme.colors.background }]}>
-    <AppHeader title="Transaksi Pembelian" topInset={insets.top} />
+    <SharedAppHeader title="Transaksi Pembelian" topInset={insets.top} />
     <ScrollView
       automaticallyAdjustKeyboardInsets
       contentContainerStyle={[
@@ -1007,33 +1007,6 @@ export default function Purchases() {
       onSubmit={submitItemAuthorization}
     />
     </>
-  );
-}
-
-function AppHeader({ title, topInset }: { title: string; topInset: number }) {
-  const theme = useAppTheme();
-
-  return (
-    <View
-      style={[
-        styles.topHeader,
-        {
-          backgroundColor: theme.colors.surface,
-          borderBottomColor: theme.colors.divider,
-          paddingTop: topInset,
-        },
-      ]}
-    >
-      <View style={styles.headerLeft}>
-        <Pressable style={styles.headerIconButton}>
-          <Ionicons name="menu-outline" size={24} color={theme.colors.primary} />
-        </Pressable>
-        <Text style={[styles.screenTitle, { color: theme.colors.primary }]}>{title}</Text>
-      </View>
-      <Pressable style={styles.headerIconButton} onPress={theme.toggleTheme}>
-        <Ionicons name={theme.isDark ? "sunny-outline" : "moon-outline"} size={23} color={theme.colors.primary} />
-      </Pressable>
-    </View>
   );
 }
 
@@ -1594,18 +1567,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
   },
   activeStoreChangeText: { fontSize: 12, fontWeight: "800" },
-  topHeader: {
-    alignItems: "center",
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    gap: 16,
-    minHeight: 64,
-    paddingBottom: 12,
-    paddingHorizontal: 20,
-  },
-  headerLeft: { alignItems: "center", flex: 1, flexDirection: "row", gap: 16 },
-  headerIconButton: { alignItems: "center", height: 40, justifyContent: "center", width: 40 },
-  screenTitle: { color: colors.primary, flex: 1, fontSize: 22, fontWeight: "600", lineHeight: 30 },
   stepper: { flexDirection: "row", justifyContent: "space-between", marginVertical: 4 },
   stepItem: { alignItems: "center", flex: 1, gap: 7 },
   stepCircle: { alignItems: "center", backgroundColor: colors.surfaceContainer, borderRadius: 999, height: 38, justifyContent: "center", width: 38 },
@@ -1617,7 +1578,7 @@ const styles = StyleSheet.create({
   formStack: { gap: 14 },
   field: { flex: 1, gap: 6 },
   label: { color: colors.muted, fontSize: 11, fontWeight: "700", letterSpacing: 0.5, textTransform: "uppercase" },
-  inputWrap: { alignItems: "center", backgroundColor: colors.surface, borderColor: colors.outline, borderRadius: 12, borderWidth: 1, flexDirection: "row", minHeight: 48, paddingHorizontal: 14 },
+  inputWrap: { alignItems: "center", backgroundColor: "#FFFFFF", borderColor: colors.primary, borderRadius: 12, borderWidth: 1, flexDirection: "row", minHeight: 48, paddingHorizontal: 14 },
   input: { color: colors.text, flex: 1, fontSize: 13, fontWeight: "600", minHeight: 44 },
   textarea: { minHeight: 80, paddingTop: 10, textAlignVertical: "top" },
   rp: { color: colors.outlineStrong, fontSize: 12, fontWeight: "700", marginRight: 8 },
